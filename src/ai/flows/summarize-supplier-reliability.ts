@@ -26,9 +26,9 @@ const summarizeSupplierReliabilityPrompt = ai.definePrompt({
   output: {schema: SummarizeSupplierReliabilityOutputSchema},
   prompt: `You are a reliability engineer providing a detailed analysis of a supplier's reliability based on their Weibull parameters.
 
-  Supplier: {{supplierName}}
-  - Beta (β - Shape Parameter): {{beta}}
-  - Eta (η - Scale Parameter / Characteristic Life): {{eta}}
+  Supplier: {{{supplierName}}}
+  - Beta (β - Shape Parameter): {{{beta}}}
+  - Eta (η - Scale Parameter / Characteristic Life): {{{eta}}}
 
   Based on these parameters, generate a detailed summary of the reliability performance for this supplier. Explain:
   1.  What the Beta (β) value means in terms of failure mode (e.g., infant mortality, wear-out, random failures).
