@@ -1,4 +1,9 @@
-export interface Supplier {
+export interface WeibullParams {
+  beta: number; // shape parameter
+  eta: number;  // scale parameter (characteristic life)
+}
+
+export interface Supplier extends WeibullParams {
   id: string;
   name: string;
   failureTimes: number[];

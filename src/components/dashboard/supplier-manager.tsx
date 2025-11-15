@@ -18,15 +18,16 @@ import type { Supplier } from '@/lib/types';
 import { X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { estimateWeibullParameters } from '@/lib/reliability';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Supplier name is required.' }),
   failureTimes: z.string().min(1, { message: 'Please enter failure times.' }).refine(
     (val) => {
       const nums = val.split(',').map(v => v.trim()).filter(v => v !== '');
-      return nums.every(num => !isNaN(parseFloat(num)) && parseFloat(num) >= 0);
+      return nums.length > 1 && nums.every(num => !isNaN(parseFloat(num)) && parseFloat(num) >= 0);
     },
-    { message: 'Must be a comma-separated list of non-negative numbers.' }
+    { message: 'Must be a comma-separated list of at least 2 non-negative numbers.' }
   ),
 });
 
@@ -61,18 +62,25 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     }
     
     const failureTimes = values.failureTimes.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+    const weibullParams = estimateWeibullParameters(failureTimes);
+
     const newSupplier: Supplier = {
       id: new Date().getTime().toString(),
       name: values.name,
       failureTimes: failureTimes,
       color: chartColors[suppliers.length % chartColors.length],
+      ...weibullParams,
     };
     setSuppliers(prev => [...prev, newSupplier]);
     form.reset();
   }
 
   function removeSupplier(id: string) {
-    setSuppliers(prev => prev.filter(s => s.id !== id));
+    setSuppliers(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      // Recolor remaining suppliers
+      return updated.map((s, i) => ({ ...s, color: chartColors[i % chartColors.length] }));
+    });
   }
 
   return (
@@ -121,14 +129,20 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
         <div className="space-y-2">
         {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No suppliers added yet.</p>}
         {suppliers.map(supplier => (
-          <div key={supplier.id} className="flex items-center justify-between rounded-md border p-3">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-8 rounded-full" style={{ backgroundColor: supplier.color }} />
-              <span className="font-medium">{supplier.name}</span>
+          <div key={supplier.id} className="rounded-md border p-3">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-2 h-8 rounded-full" style={{ backgroundColor: supplier.color }} />
+                    <span className="font-medium">{supplier.name}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remove ${supplier.name}`}>
+                    <X className="h-4 w-4" />
+                </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remove ${supplier.name}`}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="mt-2 text-xs text-muted-foreground grid grid-cols-2 gap-x-2">
+                <span>β (Beta): {supplier.beta.toFixed(2)}</span>
+                <span>η (Eta): {supplier.eta.toFixed(2)}</span>
+            </div>
           </div>
         ))}
         </div>
