@@ -7,10 +7,8 @@ import { calculateReliabilityData, estimateWeibullParameters } from '@/lib/relia
 import type { Supplier } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
-import AiReportGenerator from './ai-report-generator';
 import AiRiskPredictor from './ai-risk-predictor';
 import { Logo } from '@/components/icons';
-import AiChartAnalysis from './ai-chart-analysis';
 
 const initialSuppliersData = [
   { id: '1', name: 'Supplier A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
@@ -78,8 +76,6 @@ export default function ReliabilityDashboard() {
             </Card>
             <div className="col-span-full lg:col-span-5 space-y-4">
               <ReliabilityCharts chartData={chartData} suppliers={suppliers} />
-              <AiChartAnalysis suppliers={suppliers} />
-              <AiReportGenerator suppliers={suppliers} chartData={chartData} />
             </div>
           </div>
         </TabsContent>
