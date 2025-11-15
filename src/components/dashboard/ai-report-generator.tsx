@@ -13,7 +13,7 @@ interface AiReportGeneratorProps {
   chartData: ReliabilityData;
 }
 
-export default function AiReportGenerator({ suppliers, chartData }: AiReportGeneratorProps) {
+export default function AiReportGenerator({ suppliers }: AiReportGeneratorProps) {
   const [isPending, startTransition] = useTransition();
   const [report, setReport] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,8 @@ export default function AiReportGenerator({ suppliers, chartData }: AiReportGene
     startTransition(async () => {
       setError(null);
       setReport(null);
-      const result = await getReliabilityReport(suppliers, chartData);
+      // Pass only the suppliers array as chartData is no longer needed by the action
+      const result = await getReliabilityReport(suppliers);
       if (result.startsWith('Failed')) {
         setError(result);
       } else {
@@ -34,7 +35,7 @@ export default function AiReportGenerator({ suppliers, chartData }: AiReportGene
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI-Powered Analysis</CardTitle>
+        <CardTitle className="font-headline">AI-Powered Analysis</CardTitle>
         <CardDescription>
           Generate a detailed reliability report with interpretations of the curves using AI.
         </CardDescription>

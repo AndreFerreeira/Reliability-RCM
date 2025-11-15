@@ -6,8 +6,7 @@ import type { ReliabilityData, Supplier } from '@/lib/types';
 import type { PredictFailureRiskFactorsOutput } from '@/ai/flows/predict-failure-risk-factors';
 
 export async function getReliabilityReport(
-  suppliers: Supplier[], 
-  chartData: ReliabilityData
+  suppliers: Supplier[]
 ): Promise<string> {
   try {
     const input = {
