@@ -2,8 +2,10 @@
 
 import { generateReliabilityReport } from '@/ai/flows/generate-reliability-report';
 import { predictFailureRiskFactors } from '@/ai/flows/predict-failure-risk-factors';
+import { analyzeChartData } from '@/ai/flows/analyze-chart-data';
 import type { ReliabilityData, Supplier } from '@/lib/types';
 import type { PredictFailureRiskFactorsOutput } from '@/ai/flows/predict-failure-risk-factors';
+import type { AnalyzeChartDataOutput } from '@/ai/flows/analyze-chart-data';
 
 export async function getReliabilityReport(
   suppliers: Supplier[]
@@ -45,5 +47,25 @@ export async function getRiskFactors(
   } catch (error) {
     console.error('Error predicting risk factors:', error);
     return { error: 'Failed to predict risk factors. Please try again later.' };
+  }
+}
+
+
+export async function getChartAnalysis(
+  suppliers: Supplier[]
+): Promise<AnalyzeChartDataOutput | { error: string }> {
+  try {
+    const input = {
+      supplierData: suppliers.map(s => ({
+        name: s.name,
+        beta: s.beta,
+        eta: s.eta,
+      })),
+    };
+    const result = await analyzeChartData(input);
+    return result;
+  } catch (error) {
+    console.error('Error analyzing chart data:', error);
+    return { error: 'Failed to generate chart analysis. Please try again later.' };
   }
 }

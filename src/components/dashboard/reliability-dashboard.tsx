@@ -10,6 +10,7 @@ import ReliabilityCharts from './reliability-charts';
 import AiReportGenerator from './ai-report-generator';
 import AiRiskPredictor from './ai-risk-predictor';
 import { Logo } from '@/components/icons';
+import AiChartAnalysis from './ai-chart-analysis';
 
 const initialSuppliersData = [
   { id: '1', name: 'Supplier A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
@@ -36,7 +37,11 @@ export default function ReliabilityDashboard() {
             if (!originalSupplier || JSON.stringify(originalSupplier.failureTimes) !== JSON.stringify(s.failureTimes)) {
                 return { ...s, ...estimateWeibullParameters(s.failureTimes) };
             }
-            return s; // Keep manual overrides for beta/eta
+            if(s.beta !== originalSupplier.beta || s.eta !== originalSupplier.eta) {
+                return s; // Keep manual overrides for beta/eta
+            }
+
+            return { ...s, ...estimateWeibullParameters(s.failureTimes) };
         });
     });
   };
@@ -73,6 +78,7 @@ export default function ReliabilityDashboard() {
             </Card>
             <div className="col-span-full lg:col-span-5 space-y-4">
               <ReliabilityCharts chartData={chartData} suppliers={suppliers} />
+              <AiChartAnalysis suppliers={suppliers} />
               <AiReportGenerator suppliers={suppliers} chartData={chartData} />
             </div>
           </div>
