@@ -14,7 +14,7 @@ import { Logo } from '@/components/icons';
 const initialSuppliersData = [
   { id: '1', name: 'Supplier A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
   { id: '2', name: 'Supplier B', failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], color: 'hsl(var(--chart-2))' },
-  { id: '3', name: 'Supplier C', failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], color: 'hsl(var(--chart-4))' },
+  { id: '3', name: 'Supplier C', failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], color: 'hsl(var(--chart-3))' },
 ];
 
 const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
@@ -46,9 +46,9 @@ export default function ReliabilityDashboard() {
   return (
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
-        <div className="flex items-center gap-2">
-          <Logo className="h-8 w-8" />
-          <h1 className="text-3xl font-bold tracking-tight">
+        <div className="flex items-center gap-4">
+          <Logo className="h-10 w-10 text-accent" />
+          <h1 className="text-3xl font-headline font-bold tracking-tight">
             Reliability Analyzer
           </h1>
         </div>

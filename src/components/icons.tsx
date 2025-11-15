@@ -11,8 +11,8 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
       strokeLinejoin="round" 
       {...props}
     >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="hsl(var(--primary))" stroke="hsl(var(--primary))"/>
-      <path d="m7.5 15.5 3-3 2 2 3.5-3.5" stroke="hsl(var(--background))" strokeWidth="1.5"/>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="hsl(var(--accent) / 0.2)" stroke="hsl(var(--accent))"/>
+      <path d="m7.5 15.5 3-3 2 2 3.5-3.5" stroke="hsl(var(--accent-foreground))" strokeWidth="1.5"/>
     </svg>
   );
 }
