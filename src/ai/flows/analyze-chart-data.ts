@@ -27,7 +27,7 @@ const prompt = ai.definePrompt({
 
 Suppliers Data:
 {{#each suppliers}}
-- Supplier: {{name}}, Beta (β): {{beta}}, Eta (η): {{eta}}
+- Supplier: {{{name}}}, Beta (β): {{{beta}}}, Eta (η): {{{eta}}}
 {{/each}}
 
 Analyze the data and generate a detailed technical explanation for each of the following four reliability charts. For each chart, compare the suppliers and explain what their respective curves signify. Use markdown for formatting, including bolding key terms and using lists where appropriate.
