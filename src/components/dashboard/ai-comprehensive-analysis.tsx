@@ -13,6 +13,7 @@ import { getChartAnalysis } from '@/actions/reliability';
 import type { Supplier, AnalyzeChartDataOutput } from '@/lib/types';
 import { Bot, Loader2, BarChart } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { marked } from 'marked';
 
 interface AiComprehensiveAnalysisProps {
   suppliers: Supplier[];
@@ -98,7 +99,7 @@ export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAn
                         <AccordionContent>
                            <div 
                              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground" 
-                             dangerouslySetInnerHTML={{ __html: item.analysis.replace(/\n/g, '<br />') }} 
+                             dangerouslySetInnerHTML={{ __html: marked.parse(item.analysis) as string }} 
                            />
                         </AccordionContent>
                     </AccordionItem>
