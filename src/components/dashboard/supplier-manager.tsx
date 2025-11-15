@@ -24,10 +24,11 @@ const formSchema = z.object({
   name: z.string().min(1, { message: 'Supplier name is required.' }),
   failureTimes: z.string().min(1, { message: 'Please enter failure times.' }).refine(
     (val) => {
-      const nums = val.split(',').map(v => v.trim()).filter(v => v !== '');
+      // Allow comma, space, or newline as separators. Remove dots before parsing.
+      const nums = val.split(/[\s,]+/).map(v => v.trim().replace(/\./g, '')).filter(v => v !== '');
       return nums.length > 1 && nums.every(num => !isNaN(parseFloat(num)) && parseFloat(num) >= 0);
     },
-    { message: 'Must be a comma-separated list of at least 2 non-negative numbers.' }
+    { message: 'Must be a list of at least 2 non-negative numbers, separated by comma, space, or newline.' }
   ),
 });
 
@@ -61,7 +62,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
       return;
     }
     
-    const failureTimes = values.failureTimes.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+    const failureTimes = values.failureTimes.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
     const weibullParams = estimateWeibullParameters(failureTimes);
 
     const newSupplier: Supplier = {
