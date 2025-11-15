@@ -26,7 +26,8 @@ const prompt = ai.definePrompt({
   output: {schema: PredictFailureRiskFactorsOutputSchema},
   prompt: `You are an expert reliability engineer. Analyze the following historical failure data and identify the most significant risk factors contributing to failures.
 
-Historical Data: {{{historicalData}}}
+Historical Data:
+{{{historicalData}}}
 
 Based on this data, identify and rank the top risk factors. Provide a summary of your analysis and key findings.
 
