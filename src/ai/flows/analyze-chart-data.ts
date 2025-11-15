@@ -9,7 +9,6 @@ import { ai } from '@/ai/genkit';
 import {
   AnalyzeChartDataInputSchema,
   type AnalyzeChartDataInput,
-  AnalyzeChartDataOutputSchema,
   type AnalyzeChartDataOutput
 } from '@/lib/types';
 
@@ -22,7 +21,6 @@ export async function analyzeChartData(
 const prompt = ai.definePrompt({
   name: 'analyzeChartDataPrompt',
   input: { schema: AnalyzeChartDataInputSchema },
-  output: { schema: AnalyzeChartDataOutputSchema },
   prompt: `You are an expert reliability engineer. Your task is to provide a detailed, comparative analysis of the following suppliers based on their Weibull distribution parameters (Beta and Eta).
 
 Suppliers Data:
@@ -37,7 +35,14 @@ Analyze the data and generate a detailed technical explanation for each of the f
 3.  **Probability Density f(t):** The relative likelihood of failure at a specific time t. This is the probability density function (PDF).
 4.  **Failure Rate λ(t) (Hazard Function):** The instantaneous rate of failure at time t, given that the component has survived up to t.
 
-Provide the output in a structured JSON format.`,
+Provide the entire output in a single, valid JSON object with the following structure:
+{
+  "reliability": { "title": "Reliability Curve - R(t)", "analysis": "..." },
+  "failureProbability": { "title": "Failure Probability - F(t)", "analysis": "..." },
+  "probabilityDensity": { "title": "Probability Density - f(t)", "analysis": "..." },
+  "failureRate": { "title": "Failure Rate - λ(t)", "analysis": "..." }
+}
+Do not include any text or formatting outside of this JSON object.`,
   config: {
     safetySettings: [
       {
@@ -65,13 +70,22 @@ const analyzeChartDataFlow = ai.defineFlow(
   {
     name: 'analyzeChartDataFlow',
     inputSchema: AnalyzeChartDataInputSchema,
-    outputSchema: AnalyzeChartDataOutputSchema,
   },
   async (input) => {
     if (input.suppliers.length === 0) {
       throw new Error("No supplier data provided for analysis.");
     }
-    const { output } = await prompt(input);
-    return output!;
+    const result = await prompt(input);
+    const textResponse = result.text;
+    
+    // Clean the response to ensure it is valid JSON
+    const cleanedText = textResponse.replace(/^```json\n?/, '').replace(/```$/, '');
+    
+    try {
+      return JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Failed to parse AI response as JSON:", cleanedText);
+      throw new Error("The AI returned an invalid analysis format.");
+    }
   }
 );

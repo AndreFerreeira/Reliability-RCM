@@ -6,10 +6,9 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { 
+import {
   PredictFailureRiskFactorsInputSchema,
   type PredictFailureRiskFactorsInput,
-  PredictFailureRiskFactorsOutputSchema,
   type PredictFailureRiskFactorsOutput,
 } from '@/lib/types';
 
@@ -22,24 +21,39 @@ export async function predictFailureRiskFactors(
 
 const prompt = ai.definePrompt({
   name: 'predictFailureRiskFactorsPrompt',
-  input: {schema: PredictFailureRiskFactorsInputSchema},
-  output: {schema: PredictFailureRiskFactorsOutputSchema},
+  input: { schema: PredictFailureRiskFactorsInputSchema },
   prompt: `You are an expert reliability engineer. Analyze the following historical failure data to identify the most significant risk factors contributing to failures.
 
 Historical Data:
 {{{historicalData}}}
 
-Based on this data, provide a brief summary of your analysis and then list the top 3-5 risk factors ranked by importance. The importance should be a number between 0 and 1.`,
+Based on this data, provide a brief summary of your analysis and then list the top 3-5 risk factors ranked by importance. The importance should be a number between 0 and 1.
+
+Provide the entire output in a single, valid JSON object with the following structure:
+{
+  "riskFactors": [ { "factor": "...", "importance": 0.0 } ],
+  "summary": "..."
+}
+Do not include any text or formatting outside of this JSON object.`,
 });
 
 const predictFailureRiskFactorsFlow = ai.defineFlow(
   {
     name: 'predictFailureRiskFactorsFlow',
     inputSchema: PredictFailureRiskFactorsInputSchema,
-    outputSchema: PredictFailureRiskFactorsOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input) => {
+    const result = await prompt(input);
+    const textResponse = result.text;
+
+    // Clean the response to ensure it is valid JSON
+    const cleanedText = textResponse.replace(/^```json\n?/, '').replace(/```$/, '');
+
+    try {
+      return JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Failed to parse AI response as JSON:", cleanedText);
+      throw new Error("The AI returned an invalid risk factor format.");
+    }
   }
 );
