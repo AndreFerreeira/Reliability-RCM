@@ -7,8 +7,14 @@
  * - PredictFailureRiskFactorsOutput - The return type for the predictFailureRiskFactors function.
  */
 
-import {ai} from '@/ai/genkit';
+import {genkit} from 'genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 import {z} from 'genkit';
+
+const ai = genkit({
+  plugins: [googleAI()],
+  model: 'googleai/gemini-1.5-flash-latest',
+});
 
 const PredictFailureRiskFactorsInputSchema = z.object({
   historicalData: z
