@@ -11,11 +11,11 @@ export async function getReliabilityReport(
 ): Promise<string> {
   try {
     const input = {
-      supplierNames: suppliers.map(s => s.name),
-      rtData: JSON.stringify(chartData.Rt.slice(0, 50)), // Limit data for prompt size
-      ftData: JSON.stringify(chartData.Ft.slice(0, 50)),
-      ftDensityData: JSON.stringify(chartData.ft.slice(0, 50)),
-      lambdaTData: JSON.stringify(chartData.lambda_t.slice(0, 50)),
+      supplierData: suppliers.map(s => ({
+        name: s.name,
+        beta: s.beta,
+        eta: s.eta,
+      })),
     };
     const result = await generateReliabilityReport(input);
     return result.report;
