@@ -12,7 +12,7 @@ interface AiChartAnalysisProps {
   suppliers: Supplier[];
 }
 
-type AnalysisResult = { supplierId: string, data: SummarizeSupplierReliabilityOutput } | { supplierId: string, error?: string };
+type AnalysisResult = ({ supplierId: string } & SummarizeSupplierReliabilityOutput) | { supplierId: string, error?: string };
 
 export default function AiChartAnalysis({ suppliers }: AiChartAnalysisProps) {
   const [isPending, startTransition] = useTransition();
@@ -70,13 +70,13 @@ export default function AiChartAnalysis({ suppliers }: AiChartAnalysisProps) {
                                 <AlertTitle>Error</AlertTitle>
                                 <AlertDescription>{analysis.error}</AlertDescription>
                             </Alert>
-                        ) : 'data' in analysis && analysis.data ? (
+                        ) : 'summary' in analysis && analysis.summary ? (
                             <Alert>
                                 <Bot className="h-4 w-4" />
                                 <AlertTitle>AI Reliability Summary</AlertTitle>
                                 <AlertDescription>
                                     <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                                        {analysis.data.summary}
+                                        {analysis.summary}
                                     </div>
 
                                 </AlertDescription>
