@@ -19,6 +19,7 @@ import { X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { estimateWeibullParameters } from '@/lib/reliability';
+import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Supplier name is required.' }),
@@ -42,7 +43,7 @@ const chartColors = [
 
 interface SupplierManagerProps {
   suppliers: Supplier[];
-  setSuppliers: (suppliers: Supplier[] | ((prev: Supplier[]) => Supplier[])) => void;
+  setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void;
 }
 
 export default function SupplierManager({ suppliers, setSuppliers }: SupplierManagerProps) {
@@ -82,6 +83,15 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
       // Recolor remaining suppliers
       return updated.map((s, i) => ({ ...s, color: chartColors[i % chartColors.length] }));
     });
+  }
+
+  function handleParamChange(id: string, param: 'beta' | 'eta', value: string) {
+    const numericValue = parseFloat(value);
+    if (!isNaN(numericValue)) {
+      setSuppliers(prev => 
+        prev.map(s => s.id === id ? { ...s, [param]: numericValue } : s)
+      );
+    }
   }
 
   return (
@@ -140,9 +150,29 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                     <X className="h-4 w-4" />
                 </Button>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground grid grid-cols-2 gap-x-2">
-                <span>β (Beta): {supplier.beta.toFixed(2)}</span>
-                <span>η (Eta): {supplier.eta.toFixed(2)}</span>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor={`beta-${supplier.id}`} className="text-xs text-muted-foreground">β (Beta)</Label>
+                  <Input 
+                    id={`beta-${supplier.id}`}
+                    type="number" 
+                    step="0.01"
+                    className="h-8 text-sm"
+                    value={supplier.beta.toFixed(2)} 
+                    onChange={(e) => handleParamChange(supplier.id, 'beta', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`eta-${supplier.id}`} className="text-xs text-muted-foreground">η (Eta)</Label>
+                  <Input 
+                    id={`eta-${supplier.id}`}
+                    type="number" 
+                    step="0.01"
+                    className="h-8 text-sm"
+                    value={supplier.eta.toFixed(2)}
+                    onChange={(e) => handleParamChange(supplier.id, 'eta', e.target.value)}
+                  />
+                </div>
             </div>
           </div>
         ))}

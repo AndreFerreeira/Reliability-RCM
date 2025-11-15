@@ -26,19 +26,20 @@ const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
 export default function ReliabilityDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
 
-  const handleSetSuppliers = (newSuppliers: Supplier[] | ((prev: Supplier[]) => Supplier[])) => {
-    const updatedSuppliers = typeof newSuppliers === 'function' ? newSuppliers(suppliers) : newSuppliers;
-    
-    const processedSuppliers = updatedSuppliers.map(s => {
-      // Recalculate weibull params only if they are missing or times changed
-      const needsUpdate = !s.beta || !s.eta;
-      if (needsUpdate) {
-        return { ...s, ...estimateWeibullParameters(s.failureTimes) };
-      }
-      return s;
+  const handleSetSuppliers = (updater: (prev: Supplier[]) => Supplier[]) => {
+    setSuppliers(prev => {
+        const updatedSuppliers = updater(prev);
+        
+        return updatedSuppliers.map(s => {
+            const originalSupplier = prev.find(ps => ps.id === s.id);
+            // Recalculate only if failure times have changed
+            if (!originalSupplier || JSON.stringify(originalSupplier.failureTimes) !== JSON.stringify(s.failureTimes)) {
+                return { ...s, ...estimateWeibullParameters(s.failureTimes) };
+            }
+            return s; // Keep manual overrides for beta/eta
+        });
     });
-    setSuppliers(processedSuppliers);
-  }
+  };
 
   const chartData = useMemo(() => calculateReliabilityData(suppliers), [suppliers]);
 
