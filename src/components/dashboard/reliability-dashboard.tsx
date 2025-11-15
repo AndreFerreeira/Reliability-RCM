@@ -61,6 +61,7 @@ export default function ReliabilityDashboard() {
         <TabsList>
           <TabsTrigger value="analysis">Reliability Analysis</TabsTrigger>
           <TabsTrigger value="predictions">AI Predictions</TabsTrigger>
+          <TabsTrigger value="report">AI Report</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -77,12 +78,14 @@ export default function ReliabilityDashboard() {
             </Card>
             <div className="col-span-full lg:col-span-5 space-y-4">
               <ReliabilityCharts chartData={chartData} suppliers={suppliers} />
-              <AiChartAnalysis suppliers={suppliers} />
             </div>
           </div>
         </TabsContent>
         <TabsContent value="predictions">
           <AiRiskPredictor suppliers={suppliers} />
+        </TabsContent>
+        <TabsContent value="report">
+            <AiChartAnalysis suppliers={suppliers} />
         </TabsContent>
       </Tabs>
     </div>

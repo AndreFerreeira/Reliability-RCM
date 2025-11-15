@@ -3,39 +3,15 @@
  * @fileOverview Analyzes reliability chart data.
  *
  * - analyzeChartData - A function that generates a detailed analysis for reliability charts.
- * - AnalyzeChartDataInput - The input type for the analyzeChartData function.
- * - AnalyzeChartDataOutput - The return type for the analyzeChartData function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-
-const SupplierWeibullParamsSchema = z.object({
-  name: z.string().describe('The name of the supplier.'),
-  beta: z.number().describe('The Weibull shape parameter (β).'),
-  eta: z.number().describe('The Weibull scale parameter (η).'),
-});
-
-const AnalyzeChartDataInputSchema = z.object({
-  suppliers: z
-    .array(SupplierWeibullParamsSchema)
-    .describe('An array of suppliers with their Weibull parameters.'),
-});
-export type AnalyzeChartDataInput = z.infer<typeof AnalyzeChartDataInputSchema>;
-
-const ChartAnalysisSchema = z.object({
-  title: z.string().describe('The title of the chart being analyzed (e.g., "Reliability Curve - R(t)").'),
-  analysis: z.string().describe('A detailed technical analysis of the chart, comparing the suppliers based on their curves. Explain the meaning of the chart and what the supplier curves indicate.'),
-});
-
-const AnalyzeChartDataOutputSchema = z.object({
-  reliability: ChartAnalysisSchema,
-  failureProbability: ChartAnalysisSchema,
-  probabilityDensity: ChartAnalysisSchema,
-  failureRate: ChartAnalysisSchema,
-});
-export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema>;
-
+import {
+  AnalyzeChartDataInputSchema,
+  type AnalyzeChartDataInput,
+  AnalyzeChartDataOutputSchema,
+  type AnalyzeChartDataOutput
+} from '@/lib/types';
 
 export async function analyzeChartData(
   input: AnalyzeChartDataInput

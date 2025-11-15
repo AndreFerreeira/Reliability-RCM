@@ -1,9 +1,15 @@
 'use server';
 
 import { predictFailureRiskFactors } from '@/ai/flows/predict-failure-risk-factors';
-import type { Supplier } from '@/lib/types';
-import type { PredictFailureRiskFactorsOutput } from '@/ai/flows/predict-failure-risk-factors';
-import { analyzeChartData, type AnalyzeChartDataOutput } from '@/ai/flows/analyze-chart-data';
+import { analyzeChartData } from '@/ai/flows/analyze-chart-data';
+import { summarizeSupplierReliability } from '@/ai/flows/summarize-supplier-reliability';
+import type { 
+  Supplier, 
+  PredictFailureRiskFactorsOutput, 
+  AnalyzeChartDataOutput,
+  SummarizeSupplierReliabilityOutput,
+  SummarizeSupplierReliabilityInput
+} from '@/lib/types';
 
 
 export async function getRiskFactors(
@@ -45,5 +51,18 @@ export async function getChartAnalysis(
   } catch (error) {
     console.error('Error generating chart analysis:', error);
     return { error: 'Failed to generate chart analysis. Please try again later.' };
+  }
+}
+
+
+export async function getSupplierSummary(
+  input: SummarizeSupplierReliabilityInput
+): Promise<SummarizeSupplierReliabilityOutput | { error: string }> {
+  try {
+    const result = await summarizeSupplierReliability(input);
+    return result;
+  } catch (error) {
+    console.error('Error generating supplier summary:', error);
+    return { error: 'Failed to generate supplier summary. Please try again later.' };
   }
 }

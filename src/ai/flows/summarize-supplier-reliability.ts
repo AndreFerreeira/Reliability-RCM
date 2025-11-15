@@ -1,35 +1,18 @@
 'use server';
 
 /**
- * @fileOverview Summarizes the reliability performance of suppliers.
+ * @fileOverview Summarizes the reliability performance of a single supplier.
  *
- * - summarizeSupplierReliability - A function that generates a summary of supplier reliability.
- * - SummarizeSupplierReliabilityInput - The input type for the summarizeSupplierReliability function.
- * - SummarizeSupplierReliabilityOutput - The return type for the summarizeSupplierReliability function.
+ * - summarizeSupplierReliability - A function that generates a reliability summary for a supplier.
  */
 
 import { ai } from '@/ai/genkit';
-import {z} from 'genkit';
-
-const SummarizeSupplierReliabilityInputSchema = z.object({
-  supplierName: z.string().describe('The name of the supplier.'),
-  failureRate: z.number().describe('The failure rate of the supplier.'),
-  reliability: z.number().describe('The reliability of the supplier.'),
-  failureProbability: z.number().describe('The failure probability of the supplier.'),
-  probabilityDensity: z.number().describe('The probability density of the supplier.'),
-});
-
-export type SummarizeSupplierReliabilityInput = z.infer<
-  typeof SummarizeSupplierReliabilityInputSchema
->;
-
-const SummarizeSupplierReliabilityOutputSchema = z.object({
-  summary: z.string().describe('A summary of the supplier reliability performance.'),
-});
-
-export type SummarizeSupplierReliabilityOutput = z.infer<
-  typeof SummarizeSupplierReliabilityOutputSchema
->;
+import {
+  SummarizeSupplierReliabilityInputSchema,
+  type SummarizeSupplierReliabilityInput,
+  SummarizeSupplierReliabilityOutputSchema,
+  type SummarizeSupplierReliabilityOutput,
+} from '@/lib/types';
 
 export async function summarizeSupplierReliability(
   input: SummarizeSupplierReliabilityInput
@@ -41,14 +24,16 @@ const summarizeSupplierReliabilityPrompt = ai.definePrompt({
   name: 'summarizeSupplierReliabilityPrompt',
   input: {schema: SummarizeSupplierReliabilityInputSchema},
   output: {schema: SummarizeSupplierReliabilityOutputSchema},
-  prompt: `You are a reliability engineer providing a summary of supplier reliability.
+  prompt: `You are a reliability engineer providing a detailed analysis of a supplier's reliability based on their Weibull parameters.
 
-  Based on the provided metrics, generate a concise summary of the reliability performance for supplier {{supplierName}}, highlighting key metrics and potential areas of concern. Metrics:
+  Supplier: {{supplierName}}
+  - Beta (β - Shape Parameter): {{beta}}
+  - Eta (η - Scale Parameter / Characteristic Life): {{eta}}
 
-  - Failure Rate: {{failureRate}}
-  - Reliability: {{reliability}}
-  - Failure Probability: {{failureProbability}}
-  - Probability Density: {{probabilityDensity}}`,
+  Based on these parameters, generate a detailed summary of the reliability performance for this supplier. Explain:
+  1.  What the Beta (β) value means in terms of failure mode (e.g., infant mortality, wear-out, random failures).
+  2.  What the Eta (η) value represents (the time at which 63.2% of the population will have failed).
+  3.  Provide an overall assessment of the supplier's reliability based on these two key metrics. Be technical and specific.`,
 });
 
 const summarizeSupplierReliabilityFlow = ai.defineFlow(

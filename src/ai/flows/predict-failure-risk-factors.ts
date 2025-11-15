@@ -3,31 +3,16 @@
  * @fileOverview This file defines a Genkit flow for predicting failure risk factors based on historical data.
  *
  * - predictFailureRiskFactors - A function that takes historical failure data and returns the top risk factors.
- * - PredictFailureRiskFactorsInput - The input type for the predictFailureRiskFactors function.
- * - PredictFailureRiskFactorsOutput - The return type for the predictFailureRiskFactors function.
  */
 
 import { ai } from '@/ai/genkit';
-import {z} from 'genkit';
+import { 
+  PredictFailureRiskFactorsInputSchema,
+  type PredictFailureRiskFactorsInput,
+  PredictFailureRiskFactorsOutputSchema,
+  type PredictFailureRiskFactorsOutput,
+} from '@/lib/types';
 
-const PredictFailureRiskFactorsInputSchema = z.object({
-  historicalData: z
-    .string()
-    .describe(
-      'Historical failure data, including failure times, operating conditions, and component characteristics.'
-    ),
-});
-export type PredictFailureRiskFactorsInput = z.infer<typeof PredictFailureRiskFactorsInputSchema>;
-
-const PredictFailureRiskFactorsOutputSchema = z.object({
-  riskFactors: z
-    .array(z.object({factor: z.string(), importance: z.number()}))
-    .describe(
-      'An array of risk factors, ranked by importance, that contribute to failures.'
-    ),
-  summary: z.string().describe('A summary of the analysis and key findings.'),
-});
-export type PredictFailureRiskFactorsOutput = z.infer<typeof PredictFailureRiskFactorsOutputSchema>;
 
 export async function predictFailureRiskFactors(
   input: PredictFailureRiskFactorsInput
