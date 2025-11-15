@@ -30,7 +30,7 @@ Suppliers Data:
 - Supplier: {{name}}, Beta (β): {{beta}}, Eta (η): {{eta}}
 {{/each}}
 
-Analyze the data and generate a detailed technical explanation for each of the following four reliability charts. For each chart, compare the suppliers and explain what their respective curves signify.
+Analyze the data and generate a detailed technical explanation for each of the following four reliability charts. For each chart, compare the suppliers and explain what their respective curves signify. Use markdown for formatting, including bolding key terms and using lists where appropriate.
 
 1.  **Reliability Curve R(t):** The probability of a component functioning without failure up to time t.
 2.  **Failure Probability F(t):** The probability of a component failing by time t. This is the cumulative distribution function (CDF).
@@ -49,7 +49,6 @@ const analyzeChartDataFlow = ai.defineFlow(
   },
   async (input) => {
     if (input.suppliers.length === 0) {
-      // Return a default empty state or throw an error if no suppliers are provided
       throw new Error("No supplier data provided for analysis.");
     }
     const { output } = await prompt(input);

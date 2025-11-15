@@ -9,7 +9,7 @@ import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
 import { Logo } from '@/components/icons';
-import AiChartAnalysis from './ai-chart-analysis';
+import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 
 const initialSuppliersData = [
   { id: '1', name: 'Supplier A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
@@ -85,7 +85,7 @@ export default function ReliabilityDashboard() {
           <AiRiskPredictor suppliers={suppliers} />
         </TabsContent>
         <TabsContent value="report">
-            <AiChartAnalysis suppliers={suppliers} />
+            <AiComprehensiveAnalysis suppliers={suppliers} />
         </TabsContent>
       </Tabs>
     </div>

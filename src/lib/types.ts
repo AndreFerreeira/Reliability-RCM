@@ -47,24 +47,6 @@ export const PredictFailureRiskFactorsOutputSchema = z.object({
 export type PredictFailureRiskFactorsOutput = z.infer<typeof PredictFailureRiskFactorsOutputSchema>;
 
 
-// SummarizeSupplierReliability
-export const SummarizeSupplierReliabilityInputSchema = z.object({
-  supplierName: z.string().describe('The name of the supplier.'),
-  beta: z.number().describe('The Weibull shape parameter (β).'),
-  eta: z.number().describe('The Weibull scale parameter (η).'),
-});
-export type SummarizeSupplierReliabilityInput = z.infer<
-  typeof SummarizeSupplierReliabilityInputSchema
->;
-
-export const SummarizeSupplierReliabilityOutputSchema = z.object({
-  summary: z.string().describe('A detailed summary of the supplier reliability performance, explaining the meaning of Beta and Eta parameters.'),
-});
-export type SummarizeSupplierReliabilityOutput = z.infer<
-  typeof SummarizeSupplierReliabilityOutputSchema
->;
-
-
 // AnalyzeChartData
 const SupplierWeibullParamsSchema = z.object({
   name: z.string().describe('The name of the supplier.'),

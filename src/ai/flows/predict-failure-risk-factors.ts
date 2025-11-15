@@ -31,15 +31,7 @@ Historical Data:
 
 Based on this data, identify and rank the top risk factors. Provide a summary of your analysis and key findings.
 
-Format your response as a JSON object with the following structure:
-{
-  "riskFactors": [
-    { "factor": "[Risk factor 1]", "importance": [Importance score 0-1] },
-    { "factor": "[Risk factor 2]", "importance": [Importance score 0-1] },
-    ...
-  ],
-  "summary": "[Summary of the analysis and key findings]"
-}`,
+Format your response as a JSON object.`,
 });
 
 const predictFailureRiskFactorsFlow = ai.defineFlow(
