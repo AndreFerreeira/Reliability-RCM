@@ -89,8 +89,8 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {renderChart('Reliability: R(t)', 'Probability of functioning correctly up to time t.', 'Rt', 'step', [0, 1])}
-      {renderChart('Failure Probability: F(t)', 'Probability of failing before time t.', 'Ft', 'step', [0, 1])}
+      {renderChart('Reliability: R(t)', 'Probability of functioning correctly up to time t.', 'Rt', 'monotone', [0, 1])}
+      {renderChart('Failure Probability: F(t)', 'Probability of failing before time t.', 'Ft', 'monotone', [0, 1])}
       {renderChart('Probability Density: f(t)', 'Relative likelihood of failure at time t.', 'ft', 'monotone', ['auto', 'auto'])}
       {renderChart('Failure Rate: λ(t)', 'Instantaneous probability of failure at time t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
     </div>
