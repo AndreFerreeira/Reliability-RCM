@@ -16,7 +16,7 @@ import type {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-pro',
+  model: 'gemini-pro',
 });
 
 const generationConfig = {
@@ -24,7 +24,6 @@ const generationConfig = {
   topP: 0.8,
   topK: 40,
   maxOutputTokens: 8192,
-  responseMimeType: 'application/json',
 };
 
 const safetySettings = [
@@ -67,7 +66,10 @@ async function runAI<T>(prompt: string): Promise<T | { error: string }> {
         throw new Error('AI returned an empty response.');
     }
 
-    return JSON.parse(responseText) as T;
+    // Clean the response to ensure it's a valid JSON string
+    const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    return JSON.parse(cleanedText) as T;
 
   } catch (error: any) {
     console.error('Error running AI:', error);
