@@ -1,3 +1,9 @@
+import ReliabilityDashboard from '@/components/dashboard/reliability-dashboard';
+
 export default function Home() {
-  return <></>;
+  return (
+    <main>
+      <ReliabilityDashboard />
+    </main>
+  );
 }

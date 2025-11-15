@@ -1,0 +1,98 @@
+'use client';
+
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import type { ReliabilityData, Supplier } from '@/lib/types';
+
+interface ReliabilityChartsProps {
+  chartData: ReliabilityData;
+  suppliers: Supplier[];
+}
+
+const formatters = {
+  percent: (value: number) => `${(value * 100).toFixed(1)}%`,
+  decimal: (value: number) => value.toFixed(4),
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-lg border bg-background p-2 shadow-sm">
+        <p className="label font-bold">{`Time: ${label}`}</p>
+        {payload.map((entry: any, index: number) => (
+           <p key={`item-${index}`} style={{ color: entry.color }}>
+             {`${entry.name}: ${entry.value.toFixed(4)}`}
+           </p>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityChartsProps) {
+  const hasData = suppliers.length > 0;
+
+  const renderChart = (title: string, description: string, dataKey: keyof ReliabilityData, lineType: 'step' | 'monotone', yDomain: any, tickFormatter?: (value: any) => string) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-72 w-full">
+        {hasData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData[dataKey]} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis 
+                dataKey="time" 
+                type="number" 
+                stroke="hsl(var(--muted-foreground))"
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                domain={['dataMin', 'dataMax']} 
+                name="Time" 
+              />
+              <YAxis 
+                stroke="hsl(var(--muted-foreground))"
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                domain={yDomain} 
+                tickFormatter={tickFormatter}
+              />
+              <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
+              <Legend wrapperStyle={{fontSize: "0.8rem"}} />
+              {suppliers.map(supplier => (
+                <Line
+                  key={supplier.id}
+                  type={lineType}
+                  dataKey={supplier.name}
+                  stroke={supplier.color}
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            Add supplier data to view charts.
+          </div>
+        )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {renderChart('Reliability: R(t)', 'Probability of functioning correctly up to time t.', 'Rt', 'step', [0, 1])}
+      {renderChart('Failure Probability: F(t)', 'Probability of failing before time t.', 'Ft', 'step', [0, 1])}
+      {renderChart('Probability Density: f(t)', 'Relative likelihood of failure at time t.', 'ft', 'monotone', ['auto', 'auto'])}
+      {renderChart('Failure Rate: λ(t)', 'Instantaneous probability of failure at time t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
+    </div>
+  );
+}
