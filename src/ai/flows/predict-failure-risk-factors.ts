@@ -24,14 +24,12 @@ const prompt = ai.definePrompt({
   name: 'predictFailureRiskFactorsPrompt',
   input: {schema: PredictFailureRiskFactorsInputSchema},
   output: {schema: PredictFailureRiskFactorsOutputSchema},
-  prompt: `You are an expert reliability engineer. Analyze the following historical failure data and identify the most significant risk factors contributing to failures.
+  prompt: `You are an expert reliability engineer. Analyze the following historical failure data to identify the most significant risk factors contributing to failures.
 
 Historical Data:
 {{{historicalData}}}
 
-Based on this data, identify and rank the top risk factors. Provide a summary of your analysis and key findings.
-
-Format your response as a JSON object.`,
+Based on this data, provide a brief summary of your analysis and then list the top 3-5 risk factors ranked by importance. The importance should be a number between 0 and 1.`,
 });
 
 const predictFailureRiskFactorsFlow = ai.defineFlow(

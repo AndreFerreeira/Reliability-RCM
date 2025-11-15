@@ -28,9 +28,10 @@ export async function getRiskFactors(
     const input = { historicalData };
     const result = await predictFailureRiskFactors(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error predicting risk factors:', error);
-    return { error: 'Failed to predict risk factors. Please try again later.' };
+    const errorMessage = error.message || 'An unknown error occurred.';
+    return { error: `Failed to predict risk factors. Details: ${errorMessage}` };
   }
 }
 
@@ -43,8 +44,9 @@ export async function getChartAnalysis(
     }
     const result = await analyzeChartData(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating chart analysis:', error);
-    return { error: 'Failed to generate chart analysis. Please try again later.' };
+    const errorMessage = error.message || 'An unknown error occurred.';
+    return { error: `Failed to generate chart analysis. Details: ${errorMessage}` };
   }
 }
