@@ -16,7 +16,7 @@ import type {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.0-pro',
+  model: 'gemini-1.5-flash-latest',
 });
 
 const generationConfig = {
