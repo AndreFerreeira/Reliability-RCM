@@ -12,12 +12,7 @@ import type {
   AnalyzeChartDataInput,
 } from '@/lib/types';
 
-
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
-
-const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash-latest',
-});
 
 const generationConfig = {
   temperature: 0.2,
@@ -27,23 +22,29 @@ const generationConfig = {
 };
 
 const safetySettings = [
-    {
-        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
 ];
+
+const model = genAI.getGenerativeModel({
+  model: 'gemini-1.5-flash-latest',
+  generationConfig,
+  safetySettings,
+});
 
 async function runAI<T>(prompt: string): Promise<T | { error: string }> {
   try {
@@ -59,7 +60,7 @@ async function runAI<T>(prompt: string): Promise<T | { error: string }> {
     
     const responseText = result.response.text();
     if (!responseText) {
-        throw new Error('AI returned an empty response.');
+      throw new Error('AI returned an empty response.');
     }
 
     // Clean the response to ensure it's a valid JSON string
@@ -73,7 +74,6 @@ async function runAI<T>(prompt: string): Promise<T | { error: string }> {
     return { error: `AI generation failed. Details: ${errorMessage}` };
   }
 }
-
 
 export async function getRiskFactors(
   suppliers: Supplier[]
