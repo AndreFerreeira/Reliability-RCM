@@ -12,7 +12,7 @@ import AiRiskPredictor from './ai-risk-predictor';
 import { Logo } from '@/components/icons';
 
 const initialSuppliersData = [
-  { id: '1', name: 'Supplier A', failureTimes: [100, 150, 220, 280, 350, 400, 410, 480, 550, 600], color: 'hsl(var(--chart-1))' },
+  { id: '1', name: 'Supplier A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
   { id: '2', name: 'Supplier B', failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], color: 'hsl(var(--chart-2))' },
   { id: '3', name: 'Supplier C', failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], color: 'hsl(var(--chart-4))' },
 ];
