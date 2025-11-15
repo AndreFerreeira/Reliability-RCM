@@ -34,9 +34,9 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Failure Risk Predictor</CardTitle>
+        <CardTitle>Previsor de Risco de Falha com IA</CardTitle>
         <CardDescription>
-          Use historical failure data to identify the most significant risk factors contributing to failures.
+          Use dados históricos de falha para identificar os fatores de risco mais significativos que contribuem para falhas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -47,21 +47,21 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
             ) : (
                 <Bot className="mr-2 h-4 w-4" />
             )}
-            Predict Risk Factors
+            Prever Fatores de Risco
             </Button>
-            {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Add supplier data on the analysis tab to enable prediction.</p>}
+            {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de fornecedores na aba de análise para habilitar a previsão.</p>}
         </div>
 
         {isPending && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <p>Analyzing historical data... This may take a moment.</p>
+            <p>Analisando dados históricos... Isso pode levar um momento.</p>
           </div>
         )}
 
         {analysis && 'error' in analysis && (
           <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>Erro</AlertTitle>
             <AlertDescription>{analysis.error}</AlertDescription>
           </Alert>
         )}
@@ -70,18 +70,18 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Risk Factor Analysis</CardTitle>
+                <CardTitle>Análise de Fatores de Risco</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50%]">Factor</TableHead>
-                      <TableHead>Importance</TableHead>
+                      <TableHead className="w-[50%]">Fator</TableHead>
+                      <TableHead>Importância</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {riskFactors.length === 0 && <TableRow><TableCell colSpan={2} className="text-center">No significant risk factors identified.</TableCell></TableRow>}
+                    {riskFactors.length === 0 && <TableRow><TableCell colSpan={2} className="text-center">Nenhum fator de risco significativo identificado.</TableCell></TableRow>}
                     {riskFactors.map((factor, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{factor.factor}</TableCell>
@@ -100,7 +100,7 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
 
             <Alert>
               <Bot className="h-4 w-4" />
-              <AlertTitle>AI Summary</AlertTitle>
+              <AlertTitle>Resumo da IA</AlertTitle>
               <AlertDescription>
                 <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
                   {analysis.summary}

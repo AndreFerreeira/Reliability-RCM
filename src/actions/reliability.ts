@@ -81,26 +81,26 @@ export async function getRiskFactors(
   if (suppliers.length === 0) {
     return {
       riskFactors: [],
-      summary: 'No supplier data available to analyze risk factors.',
+      summary: 'Nenhum dado de fornecedor disponível para analisar os fatores de risco.',
     };
   }
   const historicalData = suppliers
-    .map(s => `Supplier ${s.name} failure times: ${s.failureTimes.join(', ')}`)
+    .map(s => `Fornecedor ${s.name} tempos de falha: ${s.failureTimes.join(', ')}`)
     .join('\n');
 
-  const prompt = `You are an expert reliability engineer. Analyze the following historical failure data to identify the most significant risk factors contributing to failures.
+  const prompt = `Você é um engenheiro de confiabilidade especialista. Analise os seguintes dados históricos de falha para identificar os fatores de risco mais significativos que contribuem para as falhas.
 
-Historical Data:
+Dados Históricos:
 ${historicalData}
 
-Based on this data, provide a brief summary of your analysis and then list the top 3-5 risk factors ranked by importance. The importance should be a number between 0 and 1.
+Com base nesses dados, forneça um breve resumo de sua análise e, em seguida, liste os 3-5 principais fatores de risco classificados por importância. A importância deve ser um número entre 0 e 1.
 
-Provide the entire output in a single, valid JSON object with the following structure:
+Forneça a saída inteira em um único objeto JSON válido com a seguinte estrutura:
 {
   "riskFactors": [ { "factor": "...", "importance": 0.0 } ],
   "summary": "..."
 }
-Do not include any text or formatting outside of this JSON object.`;
+Não inclua nenhum texto ou formatação fora deste objeto JSON.`;
 
   return runAI<PredictFailureRiskFactorsOutput>(prompt);
 }
@@ -109,31 +109,31 @@ export async function getChartAnalysis(
   input: AnalyzeChartDataInput
 ): Promise<AnalyzeChartDataOutput | { error: string }> {
   if (input.suppliers.length === 0) {
-    return { error: 'No supplier data to analyze.' };
+    return { error: 'Nenhum dado de fornecedor para analisar.' };
   }
 
   const suppliersJson = JSON.stringify(input.suppliers.map(s => ({ name: s.name, beta: s.beta, eta: s.eta })), null, 2);
 
-  const prompt = `You are an expert reliability engineer. Your task is to provide a detailed, comparative analysis of the following suppliers based on their Weibull distribution parameters (Beta and Eta).
+  const prompt = `Você é um engenheiro de confiabilidade especialista. Sua tarefa é fornecer uma análise comparativa detalhada dos seguintes fornecedores com base em seus parâmetros da distribuição de Weibull (Beta e Eta).
 
-Suppliers Data:
+Dados dos Fornecedores:
 ${suppliersJson}
 
-Analyze the data and generate a detailed technical explanation for each of the following four reliability charts. For each chart, compare the suppliers and explain what their respective curves signify. Use markdown for formatting, including bolding key terms and using lists where appropriate.
+Analise os dados e gere uma explicação técnica detalhada para cada um dos quatro gráficos de confiabilidade a seguir. Para cada gráfico, compare os fornecedores e explique o que suas respectivas curvas significam. Use markdown para formatação, incluindo negrito para termos-chave e listas quando apropriado.
 
-1.  **Reliability Curve R(t):** The probability of a component functioning without failure up to time t.
-2.  **Failure Probability F(t):** The probability of a component failing by time t. This is the cumulative distribution function (CDF).
-3.  **Probability Density f(t):** The relative likelihood of failure at a specific time t. This is the probability density function (PDF).
-4.  **Failure Rate λ(t) (Hazard Function):** The instantaneous rate of failure at time t, given that the component has survived up to t.
+1.  **Curva de Confiabilidade R(t):** A probabilidade de um componente funcionar sem falha até o tempo t.
+2.  **Probabilidade de Falha F(t):** A probabilidade de um componente falhar até o tempo t. Esta é a função de distribuição acumulada (FDA).
+3.  **Densidade de Probabilidade f(t):** A probabilidade relativa de falha em um tempo específico t. Esta é a função de densidade de probabilidade (FDP).
+4.  **Taxa de Falha λ(t) (Função de Risco):** A taxa instantânea de falha no tempo t, dado que o componente sobreviveu até t.
 
-Provide the entire output in a single, valid JSON object with the following structure:
+Forneça a saída inteira em um único objeto JSON válido com a seguinte estrutura:
 {
-  "reliability": { "title": "Reliability Curve - R(t)", "analysis": "..." },
-  "failureProbability": { "title": "Failure Probability - F(t)", "analysis": "..." },
-  "probabilityDensity": { "title": "Probability Density - f(t)", "analysis": "..." },
-  "failureRate": { "title": "Failure Rate - λ(t)", "analysis": "..." }
+  "reliability": { "title": "Curva de Confiabilidade - R(t)", "analysis": "..." },
+  "failureProbability": { "title": "Probabilidade de Falha - F(t)", "analysis": "..." },
+  "probabilityDensity": { "title": "Densidade de Probabilidade - f(t)", "analysis": "..." },
+  "failureRate": { "title": "Taxa de Falha - λ(t)", "analysis": "..." }
 }
-Do not include any text or formatting outside of this JSON object.`;
+Não inclua nenhum texto ou formatação fora deste objeto JSON.`;
 
   return runAI<AnalyzeChartDataOutput>(prompt);
 }

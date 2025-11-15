@@ -18,7 +18,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
-        <p className="label font-bold">{`Time: ${label}`}</p>
+        <p className="label font-bold">{`Tempo: ${label}`}</p>
         {payload.map((entry: any, index: number) => (
            <p key={`item-${index}`} style={{ color: entry.color }}>
              {`${entry.name}: ${entry.value.toFixed(4)}`}
@@ -79,7 +79,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
-            Add supplier data to view charts.
+            Adicione dados de fornecedor para ver os gráficos.
           </div>
         )}
         </div>
@@ -89,10 +89,10 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {renderChart('Reliability: R(t)', 'Probability of functioning correctly up to time t.', 'Rt', 'monotone', [0, 1])}
-      {renderChart('Failure Probability: F(t)', 'Probability of failing before time t.', 'Ft', 'monotone', [0, 1])}
-      {renderChart('Probability Density: f(t)', 'Relative likelihood of failure at time t.', 'ft', 'monotone', ['auto', 'auto'])}
-      {renderChart('Failure Rate: λ(t)', 'Instantaneous probability of failure at time t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
+      {renderChart('Confiabilidade: R(t)', 'Probabilidade de funcionar corretamente até o tempo t.', 'Rt', 'monotone', [0, 1])}
+      {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', 'monotone', [0, 1])}
+      {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', 'monotone', ['auto', 'auto'])}
+      {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
     </div>
   );
 }

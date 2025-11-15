@@ -12,9 +12,9 @@ import { Logo } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 
 const initialSuppliersData = [
-  { id: '1', name: 'Supplier A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
-  { id: '2', name: 'Supplier B', failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], color: 'hsl(var(--chart-2))' },
-  { id: '3', name: 'Supplier C', failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], color: 'hsl(var(--chart-3))' },
+  { id: '1', name: 'Fornecedor A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
+  { id: '2', name: 'Fornecedor B', failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], color: 'hsl(var(--chart-2))' },
+  { id: '3', name: 'Fornecedor C', failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], color: 'hsl(var(--chart-3))' },
 ];
 
 const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
@@ -53,23 +53,23 @@ export default function ReliabilityDashboard() {
         <div className="flex items-center gap-4">
           <Logo className="h-10 w-10 text-accent" />
           <h1 className="text-3xl font-headline font-bold tracking-tight">
-            Reliability Analyzer
+            Analisador de Confiabilidade
           </h1>
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="analysis">Reliability Analysis</TabsTrigger>
-          <TabsTrigger value="predictions">AI Predictions</TabsTrigger>
-          <TabsTrigger value="report">AI Report</TabsTrigger>
+          <TabsTrigger value="analysis">Análise de Confiabilidade</TabsTrigger>
+          <TabsTrigger value="predictions">Previsões com IA</TabsTrigger>
+          <TabsTrigger value="report">Relatório com IA</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="col-span-full lg:col-span-2">
               <CardHeader>
-                <CardTitle>Supplier Data</CardTitle>
+                <CardTitle>Dados dos Fornecedores</CardTitle>
                 <CardDescription>
-                  Manage failure time data for each supplier.
+                  Gerencie os dados de tempo até a falha para cada fornecedor.
                 </CardDescription>
               </CardHeader>
               <CardContent className="pl-2 pr-2 sm:pl-6 sm:pr-6">

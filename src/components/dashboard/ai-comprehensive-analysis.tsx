@@ -45,9 +45,9 @@ export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAn
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Comprehensive Report</CardTitle>
+        <CardTitle>Relatório Abrangente com IA</CardTitle>
         <CardDescription>
-          Generate a detailed technical analysis comparing all suppliers across the four key reliability charts.
+          Gere uma análise técnica detalhada comparando todos os fornecedores nos quatro principais gráficos de confiabilidade.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -58,21 +58,21 @@ export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAn
             ) : (
               <Bot className="mr-2 h-4 w-4" />
             )}
-            Generate Comprehensive Analysis
+            Gerar Análise Abrangente
           </Button>
-          {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Add supplier data to enable analysis.</p>}
+          {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de fornecedores para habilitar a análise.</p>}
         </div>
 
         {isPending && (
           <div className="flex items-center justify-center gap-3 text-lg text-muted-foreground py-10">
             <Loader2 className="h-8 w-8 animate-spin" />
-            <p>Generating comparative analysis... This may take a moment.</p>
+            <p>Gerando análise comparativa... Isso pode levar um momento.</p>
           </div>
         )}
 
         {analysis && 'error' in analysis && (
           <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>Erro</AlertTitle>
             <AlertDescription>{analysis.error}</AlertDescription>
           </Alert>
         )}
@@ -81,9 +81,9 @@ export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAn
           <div className="space-y-4">
             <Alert>
               <Bot className="h-4 w-4" />
-              <AlertTitle>AI Analysis Complete</AlertTitle>
+              <AlertTitle>Análise da IA Concluída</AlertTitle>
               <AlertDescription>
-                Below is a detailed technical breakdown for each reliability chart, comparing the performance of all selected suppliers.
+                Abaixo está uma análise técnica detalhada para cada gráfico de confiabilidade, comparando o desempenho de todos os fornecedores selecionados.
               </AlertDescription>
             </Alert>
             <Accordion type="single" collapsible defaultValue={analysisItems[0].title}>

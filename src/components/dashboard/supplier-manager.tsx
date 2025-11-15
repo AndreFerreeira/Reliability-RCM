@@ -22,14 +22,14 @@ import { estimateWeibullParameters } from '@/lib/reliability';
 import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: 'Supplier name is required.' }),
-  failureTimes: z.string().min(1, { message: 'Please enter failure times.' }).refine(
+  name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
+  failureTimes: z.string().min(1, { message: 'Por favor, insira os tempos até a falha.' }).refine(
     (val) => {
       // Allow comma, space, or newline as separators. Remove dots before parsing.
       const nums = val.split(/[\s,]+/).map(v => v.trim().replace(/\./g, '')).filter(v => v !== '');
       return nums.length > 1 && nums.every(num => !isNaN(parseFloat(num)) && parseFloat(num) >= 0);
     },
-    { message: 'Must be a list of at least 2 non-negative numbers, separated by comma, space, or newline.' }
+    { message: 'Deve ser uma lista de pelo menos 2 números não negativos, separados por vírgula, espaço ou nova linha.' }
   ),
 });
 
@@ -57,8 +57,8 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     if (suppliers.length >= 5) {
       toast({
         variant: 'destructive',
-        title: 'Limit Reached',
-        description: 'You can compare a maximum of 5 suppliers at a time.',
+        title: 'Limite Atingido',
+        description: 'Você pode comparar um máximo de 5 fornecedores por vez.',
       });
       return;
     }
@@ -105,9 +105,9 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Supplier Name</FormLabel>
+                    <FormLabel>Nome do Fornecedor</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Supplier D" {...field} />
+                      <Input placeholder="ex: Fornecedor D" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -118,10 +118,10 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                 name="failureTimes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Failure Times (TTF)</FormLabel>
+                    <FormLabel>Tempos até a Falha (TTF)</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="e.g., 150, 200, 210, 300"
+                        placeholder="ex: 150, 200, 210, 300"
                         {...field}
                       />
                     </FormControl>
@@ -129,16 +129,16 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">Add Supplier</Button>
+              <Button type="submit" className="w-full">Adicionar Fornecedor</Button>
             </form>
           </Form>
         </CardContent>
       </Card>
       
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Current Suppliers</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Fornecedores Atuais</h3>
         <div className="space-y-2">
-        {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No suppliers added yet.</p>}
+        {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">Nenhum fornecedor adicionado ainda.</p>}
         {suppliers.map(supplier => (
           <div key={supplier.id} className="rounded-md border p-3">
             <div className="flex items-center justify-between">
@@ -146,7 +146,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                     <div className="w-2 h-8 rounded-full" style={{ backgroundColor: supplier.color }} />
                     <span className="font-medium">{supplier.name}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remove ${supplier.name}`}>
+                <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remover ${supplier.name}`}>
                     <X className="h-4 w-4" />
                 </Button>
             </div>
