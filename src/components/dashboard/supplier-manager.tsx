@@ -12,25 +12,32 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Supplier } from '@/lib/types';
+import type { Supplier, Distribution } from '@/lib/types';
 import { X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { estimateWeibullParameters } from '@/lib/reliability';
+import { estimateParameters } from '@/lib/reliability';
 import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
   failureTimes: z.string().min(1, { message: 'Por favor, insira os tempos até a falha.' }).refine(
     (val) => {
-      // Allow comma, space, or newline as separators. Remove dots before parsing.
       const nums = val.split(/[\s,]+/).map(v => v.trim().replace(/\./g, '')).filter(v => v !== '');
       return nums.length > 1 && nums.every(num => !isNaN(parseFloat(num)) && parseFloat(num) >= 0);
     },
     { message: 'Deve ser uma lista de pelo menos 2 números não negativos, separados por vírgula, espaço ou nova linha.' }
   ),
+  distribution: z.enum(['Weibull', 'Normal', 'Lognormal', 'Exponential']),
 });
 
 const chartColors = [
@@ -41,6 +48,8 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
+const distributionOptions: Distribution[] = ['Weibull', 'Normal', 'Lognormal', 'Exponential'];
+
 interface SupplierManagerProps {
   suppliers: Supplier[];
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void;
@@ -50,7 +59,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', failureTimes: '' },
+    defaultValues: { name: '', failureTimes: '', distribution: 'Weibull' },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -64,14 +73,15 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     }
     
     const failureTimes = values.failureTimes.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
-    const weibullParams = estimateWeibullParameters(failureTimes);
+    const params = estimateParameters(failureTimes, values.distribution as Distribution);
 
     const newSupplier: Supplier = {
       id: new Date().getTime().toString(),
       name: values.name,
       failureTimes: failureTimes,
       color: chartColors[suppliers.length % chartColors.length],
-      ...weibullParams,
+      distribution: values.distribution as Distribution,
+      params,
     };
     setSuppliers(prev => [...prev, newSupplier]);
     form.reset();
@@ -80,19 +90,75 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
   function removeSupplier(id: string) {
     setSuppliers(prev => {
       const updated = prev.filter(s => s.id !== id);
-      // Recolor remaining suppliers
       return updated.map((s, i) => ({ ...s, color: chartColors[i % chartColors.length] }));
     });
   }
+  
+  function handleDistributionChange(id: string, newDistribution: Distribution) {
+    setSuppliers(prev => 
+      prev.map(s => {
+        if (s.id === id) {
+          const newParams = estimateParameters(s.failureTimes, newDistribution);
+          return { ...s, distribution: newDistribution, params: newParams };
+        }
+        return s;
+      })
+    );
+  }
 
-  function handleParamChange(id: string, param: 'beta' | 'eta', value: string) {
+  function handleParamChange(id: string, paramName: string, value: string) {
     const numericValue = parseFloat(value);
     if (!isNaN(numericValue)) {
       setSuppliers(prev => 
-        prev.map(s => s.id === id ? { ...s, [param]: numericValue } : s)
+        prev.map(s => 
+          s.id === id 
+            ? { ...s, params: { ...s.params, [paramName]: numericValue } }
+            : s
+        )
       );
     }
   }
+
+  const renderParams = (supplier: Supplier) => {
+    switch (supplier.distribution) {
+      case 'Weibull':
+        return (
+          <>
+            <div>
+              <Label htmlFor={`beta-${supplier.id}`} className="text-xs text-muted-foreground">β (Beta)</Label>
+              <Input id={`beta-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.beta?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'beta', e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor={`eta-${supplier.id}`} className="text-xs text-muted-foreground">η (Eta)</Label>
+              <Input id={`eta-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.eta?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'eta', e.target.value)} />
+            </div>
+          </>
+        );
+      case 'Normal':
+      case 'Lognormal':
+        return (
+          <>
+            <div>
+              <Label htmlFor={`mean-${supplier.id}`} className="text-xs text-muted-foreground">{supplier.distribution === 'Lognormal' ? 'μ (Log-Média)' : 'μ (Média)'}</Label>
+              <Input id={`mean-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.mean?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'mean', e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor={`stdDev-${supplier.id}`} className="text-xs text-muted-foreground">{supplier.distribution === 'Lognormal' ? 'σ (Log-DP)' : 'σ (DP)'}</Label>
+              <Input id={`stdDev-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.stdDev?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'stdDev', e.target.value)} />
+            </div>
+          </>
+        );
+      case 'Exponential':
+        return (
+          <div className="col-span-2">
+            <Label htmlFor={`lambda-${supplier.id}`} className="text-xs text-muted-foreground">λ (Taxa)</Label>
+            <Input id={`lambda-${supplier.id}`} type="number" step="0.001" className="h-8 text-sm" value={supplier.params.lambda?.toPrecision(4) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'lambda', e.target.value)} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -120,11 +186,28 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                   <FormItem>
                     <FormLabel>Tempos até a Falha (TTF)</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="ex: 150, 200, 210, 300"
-                        {...field}
-                      />
+                      <Textarea placeholder="ex: 150, 200, 210, 300" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="distribution"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Distribuição</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma distribuição" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {distributionOptions.map(dist => <SelectItem key={dist} value={dist}>{dist}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -141,38 +224,30 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
         {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">Nenhum fornecedor adicionado ainda.</p>}
         {suppliers.map(supplier => (
           <div key={supplier.id} className="rounded-md border p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-2 h-8 rounded-full" style={{ backgroundColor: supplier.color }} />
-                    <span className="font-medium">{supplier.name}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{supplier.name}</span>
+                      <span className="text-xs text-muted-foreground">{supplier.distribution}</span>
+                    </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remover ${supplier.name}`}>
                     <X className="h-4 w-4" />
                 </Button>
             </div>
+             <div className="mt-2">
+              <Select value={supplier.distribution} onValueChange={(val) => handleDistributionChange(supplier.id, val as Distribution)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {distributionOptions.map(dist => <SelectItem key={dist} value={dist}>{dist}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-                <div>
-                  <Label htmlFor={`beta-${supplier.id}`} className="text-xs text-muted-foreground">β (Beta)</Label>
-                  <Input 
-                    id={`beta-${supplier.id}`}
-                    type="number" 
-                    step="0.01"
-                    className="h-8 text-sm"
-                    value={supplier.beta.toFixed(2)} 
-                    onChange={(e) => handleParamChange(supplier.id, 'beta', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor={`eta-${supplier.id}`} className="text-xs text-muted-foreground">η (Eta)</Label>
-                  <Input 
-                    id={`eta-${supplier.id}`}
-                    type="number" 
-                    step="0.01"
-                    className="h-8 text-sm"
-                    value={supplier.eta.toFixed(2)}
-                    onChange={(e) => handleParamChange(supplier.id, 'eta', e.target.value)}
-                  />
-                </div>
+                {renderParams(supplier)}
             </div>
           </div>
         ))}

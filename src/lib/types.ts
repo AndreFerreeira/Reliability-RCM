@@ -1,15 +1,35 @@
 import { z } from "zod";
 
+export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential';
+
 export interface WeibullParams {
   beta: number; // shape parameter
   eta: number;  // scale parameter (characteristic life)
 }
 
-export interface Supplier extends WeibullParams {
+export interface NormalParams {
+    mean: number; // mu
+    stdDev: number; // sigma
+}
+
+export interface LognormalParams {
+    mean: number; // log-mean
+    stdDev: number; // log-stdDev
+}
+
+export interface ExponentialParams {
+    lambda: number; // rate parameter
+}
+
+export type Parameters = Partial<WeibullParams & NormalParams & LognormalParams & ExponentialParams>;
+
+export interface Supplier {
   id: string;
   name: string;
   failureTimes: number[];
   color: string;
+  distribution: Distribution;
+  params: Parameters;
 }
 
 export interface ChartDataPoint {
@@ -48,16 +68,16 @@ export type PredictFailureRiskFactorsOutput = z.infer<typeof PredictFailureRiskF
 
 
 // AnalyzeChartData
-const SupplierWeibullParamsSchema = z.object({
+const SupplierAnalysisParamsSchema = z.object({
   name: z.string().describe('The name of the supplier.'),
-  beta: z.number().describe('The Weibull shape parameter (β).'),
-  eta: z.number().describe('The Weibull scale parameter (η).'),
+  distribution: z.string().describe('The probability distribution used (e.g., "Weibull", "Normal").'),
+  params: z.any().describe('An object containing the parameters for the distribution (e.g., { beta: 2.1, eta: 350 }).'),
 });
 
 export const AnalyzeChartDataInputSchema = z.object({
   suppliers: z
-    .array(SupplierWeibullParamsSchema)
-    .describe('An array of suppliers with their Weibull parameters.'),
+    .array(SupplierAnalysisParamsSchema)
+    .describe('An array of suppliers with their distribution parameters.'),
 });
 export type AnalyzeChartDataInput = z.infer<typeof AnalyzeChartDataInputSchema>;
 

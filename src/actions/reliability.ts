@@ -99,14 +99,26 @@ export async function getChartAnalysis(
     return { error: 'Nenhum dado de fornecedor para analisar.' };
   }
 
-  const suppliersJson = JSON.stringify(input.suppliers.map(s => ({ name: s.name, beta: s.beta, eta: s.eta })), null, 2);
+  const suppliersJson = JSON.stringify(input.suppliers.map(s => {
+    const params: any = { name: s.name, distribution: s.distribution };
+    if (s.distribution === 'Weibull') {
+        params.beta = s.params.beta;
+        params.eta = s.params.eta;
+    } else if (s.distribution === 'Normal' || s.distribution === 'Lognormal') {
+        params.mean = s.params.mean;
+        params.stdDev = s.params.stdDev;
+    } else if (s.distribution === 'Exponential') {
+        params.lambda = s.params.lambda;
+    }
+    return params;
+  }), null, 2);
 
-  const prompt = `Você é um engenheiro de confiabilidade especialista. Sua tarefa é fornecer uma análise comparativa detalhada dos seguintes fornecedores com base em seus parâmetros da distribuição de Weibull (Beta e Eta).
+  const prompt = `Você é um engenheiro de confiabilidade especialista. Sua tarefa é fornecer uma análise comparativa detalhada dos seguintes fornecedores com base em seus parâmetros de distribuição de probabilidade.
 
 Dados dos Fornecedores:
 ${suppliersJson}
 
-Analise os dados e gere uma explicação técnica detalhada para cada um dos quatro gráficos de confiabilidade a seguir. Para cada gráfico, compare os fornecedores e explique o que suas respectivas curvas significam. Use markdown para formatação, incluindo negrito para termos-chave e listas quando apropriado.
+Analise os dados e gere uma explicação técnica detalhada para cada um dos quatro gráficos de confiabilidade a seguir. Para cada gráfico, compare os fornecedores e explique o que suas respectivas curvas significam, levando em consideração o tipo de distribuição de cada um. Use markdown para formatação, incluindo negrito para termos-chave e listas quando apropriado.
 
 1.  **Curva de Confiabilidade R(t):** A probabilidade de um componente funcionar sem falha até o tempo t.
 2.  **Probabilidade de Falha F(t):** A probabilidade de um componente falhar até o tempo t. Esta é a função de distribuição acumulada (FDA).

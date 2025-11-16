@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getChartAnalysis } from '@/actions/reliability';
-import type { Supplier, AnalyzeChartDataOutput, ReliabilityData, ChartDataPoint } from '@/lib/types';
+import type { Supplier, AnalyzeChartDataOutput, ReliabilityData, ChartDataPoint, Distribution, WeibullParams, NormalParams, LognormalParams, ExponentialParams } from '@/lib/types';
 import { Bot, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { marked } from 'marked';
@@ -22,13 +22,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm text-foreground">
-        <p className="label font-bold">{`Tempo: ${Math.round(label)}`}</p>
-        {payload.map((entry: any, index: number) => (
-           <div key={`item-${index}`} className="flex items-center gap-2 text-xs">
-             <span className="h-2 w-2 rounded-full" style={{backgroundColor: entry.color}}></span>
-             <span>{`${entry.name}: ${entry.value.toFixed(3)}`}</span>
-           </div>
-        ))}
+        <div className="font-bold mb-2">{`Tempo: ${Math.round(label)}`}</div>
+          <div className="grid gap-1.5">
+            {payload.map((entry: any, index: number) => (
+               <div key={`item-${index}`} className="flex items-center justify-between gap-4 text-sm">
+                 <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                    <span className="text-muted-foreground">{`${entry.name}`}</span>
+                 </div>
+                 <span className="font-mono font-medium">{entry.value.toFixed(4)}</span>
+               </div>
+            ))}
+          </div>
       </div>
     );
   }
@@ -83,8 +88,13 @@ export default function AiComprehensiveAnalysis({ suppliers, chartData }: AiComp
     startTransition(async () => {
       setAnalysis(null);
       const analysisInput = {
-        suppliers: suppliers.map(({ name, beta, eta }) => ({ name, beta, eta })),
+        suppliers: suppliers.map(({ name, distribution, params }) => ({
+          name,
+          distribution,
+          params
+        })),
       };
+      // @ts-ignore
       const result = await getChartAnalysis(analysisInput);
       setAnalysis(result);
     });
