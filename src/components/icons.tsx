@@ -20,49 +20,6 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function BathtubCurveIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <defs>
-        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity="0.3" />
-          <stop offset="25%" stopColor="hsl(var(--chart-2))" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity="0" />
-          <stop offset="50%" stopColor="hsl(var(--chart-1))" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity="0" />
-          <stop offset="100%" stopColor="hsl(var(--destructive))" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
-
-      {/* Axis */}
-      <path d="M 10 90 H 190" stroke="hsl(var(--muted-foreground))" strokeWidth="0.5" />
-      <path d="M 10 90 V 10" stroke="hsl(var(--muted-foreground))" strokeWidth="0.5" />
-
-      {/* Axis Labels */}
-      <text x="100" y="98" textAnchor="middle" fontSize="5" fill="hsl(var(--muted-foreground))">Tempo</text>
-      <text x="5" y="50" textAnchor="middle" transform="rotate(-90 5 50)" fontSize="5" fill="hsl(var(--muted-foreground))">Taxa de Falha</text>
-
-      {/* Zones */}
-      <rect x="10" y="10" width="40" height="80" fill="url(#grad1)" />
-      <rect x="50" y="10" width="80" height="80" fill="url(#grad2)" />
-      <rect x="130" y="10" width="60" height="80" fill="url(#grad3)" />
-
-      {/* Bathtub Curve */}
-      <path d="M 20 20 Q 40 75, 70 75 T 140 75 Q 170 75, 180 30" stroke="hsl(var(--primary))" strokeWidth="1.5" fill="none" transform="scale(1, -1) translate(0, -100)"/>
-      
-      {/* Zone Labels */}
-      <text x="30" y="20" textAnchor="middle" fontSize="6" fill="hsl(var(--foreground))">Mortalidade Infantil</text>
-      <text x="90" y="40" textAnchor="middle" fontSize="6" fill="hsl(var(--foreground))">Vida Útil</text>
-      <text x="160" y="30" textAnchor="middle" fontSize="6" fill="hsl(var(--foreground))">Desgaste</text>
-    </svg>
-  );
-}
-
 export function PFCurveIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg" {...props}>

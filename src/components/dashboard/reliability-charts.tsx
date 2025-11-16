@@ -4,7 +4,7 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ReliabilityData, Supplier } from '@/lib/types';
-import { BathtubCurveIcon, PFCurveIcon } from '@/components/icons';
+import { PFCurveIcon } from '@/components/icons';
 
 interface ReliabilityChartsProps {
   chartData: ReliabilityData;
@@ -100,7 +100,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
         {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
         <Card>
             <CardHeader>
                 <CardTitle>Guia da Curva P-F</CardTitle>
@@ -113,25 +113,6 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                 <div className="text-sm text-muted-foreground space-y-2 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-strong:text-foreground">
                     <p>A Curva P-F ilustra a jornada de um ativo desde a detecção de uma <strong>Falha Potencial (P)</strong> até sua <strong>Falha Funcional (F)</strong>. O objetivo é atuar neste intervalo.</p>
                     <p>Ao analisar o gráfico de <strong>Taxa de Falha λ(t)</strong>, você pode identificar o ponto onde a taxa começa a aumentar (início da zona de desgaste). Isso se correlaciona com o "Início da Falha" na Curva P-F, indicando que é hora de intensificar o monitoramento (ultrassom, vibração) para detectar a falha potencial e planejar a manutenção antes que ela se torne crítica e cara.</p>
-                </div>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader>
-                <CardTitle>Guia da Curva da Banheira</CardTitle>
-                <CardDescription>Interpretando a vida útil de um componente.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-card border flex items-center justify-center">
-                    <BathtubCurveIcon className="w-full h-auto max-w-md" />
-                </div>
-                <div className="text-sm text-muted-foreground space-y-2 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-strong:text-foreground prose-ul:pl-5">
-                    <p>A Curva da Banheira mostra como a taxa de falha de um componente se comporta ao longo do tempo. Use o gráfico <strong>Taxa de Falha λ(t)</strong> para identificar em qual fase seu componente se encontra:</p>
-                    <ul className="space-y-1">
-                        <li><strong>Mortalidade Infantil:</strong> Taxa de falha decrescente. Falhas prematuras devido a defeitos de fabricação.</li>
-                        <li><strong>Vida Útil:</strong> Taxa de falha constante e baixa. Falhas ocorrem de forma aleatória.</li>
-                        <li><strong>Desgaste:</strong> Taxa de falha crescente. Falhas ocorrem por envelhecimento e uso.</li>
-                    </ul>
                 </div>
             </CardContent>
         </Card>
