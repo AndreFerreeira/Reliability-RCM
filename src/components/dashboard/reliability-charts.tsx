@@ -4,18 +4,18 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ReliabilityData, Supplier } from '@/lib/types';
+import { BathtubCurveIcon, PFCurveIcon } from '@/components/icons';
 
 interface ReliabilityChartsProps {
   chartData: ReliabilityData;
   suppliers: Supplier[];
 }
 
-const CustomTooltip = ({ active, payload, label, title }: any) => {
-    if (active && payload && payload.length) {
-      const metricName = title.split(':')[0];
-      return (
-        <div className="rounded-lg border bg-background p-2 shadow-sm text-sm">
-          <div className="font-bold mb-2">{`Tempo: ${Math.round(label)}`}</div>
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-lg border bg-background p-2 shadow-sm text-sm text-foreground">
+        <div className="font-bold mb-2">{`Tempo: ${Math.round(label)}`}</div>
           <div className="grid gap-1.5">
             {payload.map((entry: any, index: number) => (
                <div key={`item-${index}`} className="flex items-center justify-between gap-4">
@@ -27,11 +27,11 @@ const CustomTooltip = ({ active, payload, label, title }: any) => {
                </div>
             ))}
           </div>
-        </div>
-      );
-    }
-  
-    return null;
+      </div>
+    );
+  }
+
+  return null;
 };
   
 
@@ -66,7 +66,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                 domain={yDomain} 
                 tickFormatter={tickFormatter}
               />
-              <Tooltip content={<CustomTooltip title={title} />} wrapperClassName="!border-border !bg-background !shadow-lg" />
+              <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
               <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
               {suppliers.map(supplier => (
                 <Line
@@ -92,11 +92,50 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
   );
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {renderChart('Confiabilidade: R(t)', 'Probabilidade de funcionar corretamente até o tempo t.', 'Rt', 'monotone', [0, 1])}
-      {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', 'monotone', [0, 1])}
-      {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', 'monotone', ['auto', 'auto'])}
-      {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {renderChart('Confiabilidade: R(t)', 'Probabilidade de funcionar corretamente até o tempo t.', 'Rt', 'monotone', [0, 1])}
+        {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', 'monotone', [0, 1])}
+        {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', 'monotone', ['auto', 'auto'])}
+        {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+            <CardHeader>
+                <CardTitle>Guia da Curva P-F</CardTitle>
+                <CardDescription>Entendendo o intervalo entre a falha potencial e a funcional.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="p-4 rounded-lg bg-card border flex items-center justify-center">
+                    <PFCurveIcon className="w-full h-auto max-w-md" />
+                </div>
+                <div className="text-sm text-muted-foreground space-y-2">
+                    <p><strong className="text-foreground">A Curva P-F</strong> ilustra a jornada de um ativo desde a detecção de uma **Falha Potencial (P)** até sua **Falha Funcional (F)**. O objetivo é atuar neste intervalo.</p>
+                    <p>Ao analisar o gráfico de **Taxa de Falha λ(t)**, você pode identificar o ponto onde a taxa começa a aumentar (início da zona de desgaste). Isso se correlaciona com o "Início da Falha" na Curva P-F, indicando que é hora de intensificar o monitoramento (ultrassom, vibração) para detectar a falha potencial e planejar a manutenção antes que ela se torne crítica e cara.</p>
+                </div>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle>Guia da Curva da Banheira</CardTitle>
+                <CardDescription>Interpretando a vida útil de um componente.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="p-4 rounded-lg bg-card border flex items-center justify-center">
+                    <BathtubCurveIcon className="w-full h-auto max-w-md" />
+                </div>
+                <div className="text-sm text-muted-foreground space-y-2">
+                    <p>A Curva da Banheira mostra como a taxa de falha de um componente se comporta ao longo do tempo. Use o gráfico **Taxa de Falha λ(t)** para identificar em qual fase seu componente se encontra:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                        <li><strong className="text-foreground">Mortalidade Infantil:</strong> Taxa de falha decrescente. Falhas prematuras devido a defeitos de fabricação.</li>
+                        <li><strong className="text-foreground">Vida Útil:</strong> Taxa de falha constante e baixa. Falhas ocorrem de forma aleatória.</li>
+                        <li><strong className="text-foreground">Desgaste:</strong> Taxa de falha crescente. Falhas ocorrem por envelhecimento e uso.</li>
+                    </ul>
+                </div>
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
