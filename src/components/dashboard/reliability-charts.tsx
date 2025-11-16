@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ReliabilityData, Supplier } from '@/lib/types';
@@ -9,33 +10,30 @@ interface ReliabilityChartsProps {
   suppliers: Supplier[];
 }
 
-const formatters = {
-  percent: (value: number) => `${(value * 100).toFixed(1)}%`,
-  decimal: (value: number) => value.toFixed(4),
-};
-
 const CustomTooltip = ({ active, payload, label, title }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-lg border bg-background p-2 shadow-sm">
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-          <div className="col-span-2 font-bold">{`Tempo: ${Math.round(label)}`}</div>
-          {payload.map((entry: any, index: number) => (
-             <React.Fragment key={`item-${index}`}>
-               <div className="flex items-center gap-2 text-sm">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                  <span>{`${entry.name}`}</span>
+    if (active && payload && payload.length) {
+      const metricName = title.split(':')[0];
+      return (
+        <div className="rounded-lg border bg-background p-2 shadow-sm text-sm">
+          <div className="font-bold mb-2">{`Tempo: ${Math.round(label)}`}</div>
+          <div className="grid gap-1.5">
+            {payload.map((entry: any, index: number) => (
+               <div key={`item-${index}`} className="flex items-center justify-between gap-4">
+                 <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                    <span className="text-muted-foreground">{`${entry.name}`}</span>
+                 </div>
+                 <span className="font-mono font-medium">{entry.value.toFixed(4)}</span>
                </div>
-               <div className="text-right font-mono text-sm">{entry.value.toFixed(4)}</div>
-             </React.Fragment>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  return null;
+      );
+    }
+  
+    return null;
 };
+  
 
 export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityChartsProps) {
   const hasData = suppliers.length > 0;
