@@ -1,4 +1,7 @@
 import type { SVGProps } from "react";
+import { LineChart, Bot, BrainCircuit } from 'lucide-react';
+
+export { LineChart, Bot, BrainCircuit };
 
 export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
