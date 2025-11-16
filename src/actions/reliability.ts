@@ -41,7 +41,7 @@ const safetySettings = [
 ];
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash-latest',
+  model: 'gemini-2.5-flash',
   generationConfig,
   safetySettings,
 });
@@ -71,7 +71,7 @@ async function runAI<T>(prompt: string): Promise<T | { error: string }> {
   } catch (error: any) {
     console.error('Error running AI:', error);
     const errorMessage = error.message || 'An unknown error occurred.';
-    return { error: `AI model not found. Please check the model name. Details: ${errorMessage}` };
+    return { error: `AI generation failed. Details: ${errorMessage}` };
   }
 }
 
