@@ -34,10 +34,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const MiniChart = ({ data, suppliers, title }: { data: ChartDataPoint[], suppliers: Supplier[], title: string }) => (
-    <div className="h-48 w-full pr-4">
+const MiniChart = ({ data, suppliers }: { data: ChartDataPoint[], suppliers: Supplier[] }) => (
+    <div className="h-48 w-full mb-4">
         <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+            <LineChart data={data} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="2 2" strokeOpacity={0.5} />
                 <XAxis 
                     dataKey="time" 
@@ -52,7 +52,7 @@ const MiniChart = ({ data, suppliers, title }: { data: ChartDataPoint[], supplie
                     domain={['auto', 'auto']}
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                     tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                    width={35}
+                    width={40}
                     tickFormatter={(val) => typeof val === 'number' ? val.toPrecision(1) : val}
                 />
                 <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
@@ -140,14 +140,14 @@ export default function AiComprehensiveAnalysis({ suppliers, chartData }: AiComp
                 Abaixo está uma análise técnica para cada gráfico, comparando o desempenho dos fornecedores selecionados.
               </AlertDescription>
             </Alert>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {analysisItems.map((item, index) => (
                     <Card key={index} className="flex flex-col">
                         <CardHeader>
                            <CardTitle className="text-lg">{item.title}</CardTitle>
                         </CardHeader>
-                        <CardContent className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <MiniChart data={item.data} suppliers={suppliers} title={item.title} />
+                        <CardContent className="flex-1 flex flex-col">
+                            <MiniChart data={item.data} suppliers={suppliers} />
                             <div 
                              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-ul:pl-4" 
                              dangerouslySetInnerHTML={{ __html: marked.parse(item.analysis) as string }} 

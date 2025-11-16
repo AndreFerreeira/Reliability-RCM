@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getRiskFactors } from '@/actions/reliability';
 import type { Supplier } from '@/lib/types';
-import type { PredictFailureRiskFactorsOutput } from '@/ai/flows/predict-failure-risk-factors';
+import type { PredictFailureRiskFactorsOutput } from '@/lib/types';
 import { Bot, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -29,7 +29,8 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
     });
   };
 
-  const riskFactors = analysis && 'riskFactors' in analysis ? analysis.riskFactors : [];
+  const hasAnalysis = analysis && 'riskFactors' in analysis;
+  const riskFactors = hasAnalysis ? analysis.riskFactors : [];
 
   return (
     <Card>
@@ -49,7 +50,7 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
             )}
             Prever Fatores de Risco
             </Button>
-            {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de fornecedores na aba de análise para habilitar a previsão.</p>}
+            {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de fornecedores para habilitar a previsão.</p>}
         </div>
 
         {isPending && (
@@ -61,52 +62,49 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
 
         {analysis && 'error' in analysis && (
           <Alert variant="destructive">
-            <AlertTitle>Erro</AlertTitle>
+            <AlertTitle>Erro na Análise</AlertTitle>
             <AlertDescription>{analysis.error}</AlertDescription>
           </Alert>
         )}
 
-        {analysis && 'summary' in analysis && (
+        {hasAnalysis && (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Análise de Fatores de Risco</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50%]">Fator</TableHead>
-                      <TableHead>Importância</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {riskFactors.length === 0 && <TableRow><TableCell colSpan={2} className="text-center">Nenhum fator de risco significativo identificado.</TableCell></TableRow>}
-                    {riskFactors.map((factor, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{factor.factor}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Progress value={factor.importance * 100} className="w-[60%]" />
-                            <span>{(factor.importance * 100).toFixed(0)}%</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
             <Alert>
               <Bot className="h-4 w-4" />
-              <AlertTitle>Resumo da IA</AlertTitle>
+              <AlertTitle>Resumo da Análise de Risco</AlertTitle>
               <AlertDescription>
                 <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
                   {analysis.summary}
                 </div>
               </AlertDescription>
             </Alert>
+            
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold tracking-tight">Fatores de Risco Identificados</h3>
+                {riskFactors.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Nenhum fator de risco significativo foi identificado com base nos dados fornecidos.</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {riskFactors.map((factor, index) => (
+                            <Card key={index} className="flex flex-col justify-between">
+                                <CardHeader className="pb-4">
+                                    <CardDescription>Fator de Risco #{index + 1}</CardDescription>
+                                    <CardTitle className="text-base">{factor.factor}</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-medium text-muted-foreground">IMPORTÂNCIA</span>
+                                            <span className="text-lg font-bold text-primary">{(factor.importance * 100).toFixed(0)}%</span>
+                                        </div>
+                                        <Progress value={factor.importance * 100} aria-label={`Importância de ${factor.factor} é ${(factor.importance * 100).toFixed(0)}%`} />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
           </div>
         )}
       </CardContent>
