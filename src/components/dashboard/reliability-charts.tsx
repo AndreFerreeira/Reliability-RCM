@@ -4,7 +4,6 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ReliabilityData, Supplier } from '@/lib/types';
-import { PFCurveIcon } from '@/components/icons';
 
 interface ReliabilityChartsProps {
   chartData: ReliabilityData;
@@ -98,24 +97,6 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
         {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', 'monotone', [0, 1])}
         {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', 'monotone', ['auto', 'auto'])}
         {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
-        <Card>
-            <CardHeader>
-                <CardTitle>Guia da Curva P-F</CardTitle>
-                <CardDescription>Entendendo o intervalo entre a falha potencial e a funcional.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-card border flex items-center justify-center">
-                    <PFCurveIcon className="w-full h-auto max-w-md" />
-                </div>
-                <div className="text-sm text-muted-foreground space-y-2 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-strong:text-foreground">
-                    <p>A Curva P-F ilustra a jornada de um ativo desde a detecção de uma <strong>Falha Potencial (P)</strong> até sua <strong>Falha Funcional (F)</strong>. O objetivo é atuar neste intervalo.</p>
-                    <p>Ao analisar o gráfico de <strong>Taxa de Falha λ(t)</strong>, você pode identificar o ponto onde a taxa começa a aumentar (início da zona de desgaste). Isso se correlaciona com o "Início da Falha" na Curva P-F, indicando que é hora de intensificar o monitoramento (ultrassom, vibração) para detectar a falha potencial e planejar a manutenção antes que ela se torne crítica e cara.</p>
-                </div>
-            </CardContent>
-        </Card>
       </div>
     </div>
   );
