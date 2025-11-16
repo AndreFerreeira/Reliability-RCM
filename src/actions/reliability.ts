@@ -41,7 +41,7 @@ const safetySettings = [
 ];
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-1.0-pro',
   generationConfig,
   safetySettings,
 });
@@ -71,7 +71,7 @@ async function runAI<T>(prompt: string): Promise<T | { error: string }> {
   } catch (error: any) {
     console.error('Error running AI:', error);
     const errorMessage = error.message || 'An unknown error occurred.';
-    return { error: `AI generation failed. Details: ${errorMessage}` };
+    return { error: `AI model not found. Please check the model name. Details: ${errorMessage}` };
   }
 }
 
@@ -93,7 +93,7 @@ export async function getRiskFactors(
 Dados Históricos:
 ${historicalData}
 
-Com base nesses dados, forneça um breve resumo de sua análise e, em seguida, liste os 3-5 principais fatores de risco classificados por importância. A importância deve ser um número entre 0 e 1.
+Com base nestes dados, forneça um resumo técnico explicando o que os fatores de risco significam neste contexto e como o "percentual de importância" deve ser interpretado. Em seguida, liste os 3-5 principais fatores de risco classificados por importância. A importância deve ser um número entre 0 e 1, onde 1 indica o maior impacto no risco de falha. Se nenhum padrão claro emergir dos dados, retorne uma matriz vazia para "riskFactors".
 
 Forneça a saída inteira em um único objeto JSON válido com a seguinte estrutura:
 {

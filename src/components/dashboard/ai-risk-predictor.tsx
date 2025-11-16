@@ -8,7 +8,6 @@ import type { Supplier } from '@/lib/types';
 import type { PredictFailureRiskFactorsOutput } from '@/lib/types';
 import { Bot, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 
 interface AiRiskPredictorProps {
@@ -82,7 +81,9 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
             <div className="space-y-4">
                 <h3 className="text-lg font-semibold tracking-tight">Fatores de Risco Identificados</h3>
                 {riskFactors.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhum fator de risco significativo foi identificado com base nos dados fornecidos.</p>
+                    <Card className="flex flex-col justify-center items-center h-32">
+                        <p className="text-muted-foreground text-sm">Nenhum fator de risco significativo foi identificado.</p>
+                    </Card>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {riskFactors.map((factor, index) => (

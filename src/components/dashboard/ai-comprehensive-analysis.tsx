@@ -23,8 +23,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="rounded-lg border bg-background p-2 shadow-sm">
         <p className="label font-bold">{`Tempo: ${Math.round(label)}`}</p>
         {payload.map((entry: any, index: number) => (
-           <p key={`item-${index}`} style={{ color: entry.color }} className="text-xs">
-             {`${entry.name}: ${entry.value.toFixed(3)}`}
+           <p key={`item-${index}`} style={{ color: 'hsl(var(--foreground))' }} className="text-xs">
+             <span style={{color: entry.color}}>■</span> {`${entry.name}: ${entry.value.toFixed(3)}`}
            </p>
         ))}
       </div>
