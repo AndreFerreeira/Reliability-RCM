@@ -14,16 +14,22 @@ const formatters = {
   decimal: (value: number) => value.toFixed(4),
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, title }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
-        <p className="label font-bold">{`Tempo: ${label}`}</p>
-        {payload.map((entry: any, index: number) => (
-           <p key={`item-${index}`} style={{ color: entry.color }}>
-             {`${entry.name}: ${entry.value.toFixed(4)}`}
-           </p>
-        ))}
+        <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+          <div className="col-span-2 font-bold">{`Tempo: ${Math.round(label)}`}</div>
+          {payload.map((entry: any, index: number) => (
+             <React.Fragment key={`item-${index}`}>
+               <div className="flex items-center gap-2 text-sm">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                  <span>{`${entry.name}`}</span>
+               </div>
+               <div className="text-right font-mono text-sm">{entry.value.toFixed(4)}</div>
+             </React.Fragment>
+          ))}
+        </div>
       </div>
     );
   }
@@ -62,7 +68,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                 domain={yDomain} 
                 tickFormatter={tickFormatter}
               />
-              <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
+              <Tooltip content={<CustomTooltip title={title} />} wrapperClassName="!border-border !bg-background !shadow-lg" />
               <Legend wrapperStyle={{fontSize: "0.8rem"}} />
               {suppliers.map(supplier => (
                 <Line

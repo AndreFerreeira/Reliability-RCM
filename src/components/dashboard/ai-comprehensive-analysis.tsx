@@ -9,6 +9,7 @@ import { Bot, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { marked } from 'marked';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React from 'react';
 
 interface AiComprehensiveAnalysisProps {
   suppliers: Supplier[];
@@ -20,12 +21,13 @@ type AnalysisResult = AnalyzeChartDataOutput | { error?: string };
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-lg border bg-background p-2 shadow-sm">
+      <div className="rounded-lg border bg-background p-2 shadow-sm text-foreground">
         <p className="label font-bold">{`Tempo: ${Math.round(label)}`}</p>
         {payload.map((entry: any, index: number) => (
-           <p key={`item-${index}`} style={{ color: 'hsl(var(--foreground))' }} className="text-xs">
-             <span style={{color: entry.color}}>■</span> {`${entry.name}: ${entry.value.toFixed(3)}`}
-           </p>
+           <div key={`item-${index}`} className="flex items-center gap-2 text-xs">
+             <span className="h-2 w-2 rounded-full" style={{backgroundColor: entry.color}}></span>
+             <span>{`${entry.name}: ${entry.value.toFixed(3)}`}</span>
+           </div>
         ))}
       </div>
     );
