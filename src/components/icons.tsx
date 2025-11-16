@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
-import { LineChart, Bot, BrainCircuit } from 'lucide-react';
+import { LineChart, Bot, BrainCircuit, TrendingUp, TrendingDown, Target, Minus } from 'lucide-react';
 
-export { LineChart, Bot, BrainCircuit };
+export { LineChart, Bot, BrainCircuit, TrendingUp, TrendingDown, Target, Minus };
 
 export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
@@ -53,7 +53,7 @@ export function BathtubCurveIcon(props: SVGProps<SVGSVGElement>) {
       <rect x="130" y="10" width="60" height="80" fill="url(#grad3)" />
 
       {/* Bathtub Curve */}
-      <path d="M 20 20 Q 40 75, 70 75 T 140 75 Q 170 75, 180 30" stroke="hsl(var(--primary))" strokeWidth="1.5" fill="none" />
+      <path d="M 20 20 Q 40 75, 70 75 T 140 75 Q 170 75, 180 30" stroke="hsl(var(--primary))" strokeWidth="1.5" fill="none" transform="scale(1, -1) translate(0, -100)"/>
       
       {/* Zone Labels */}
       <text x="30" y="20" textAnchor="middle" fontSize="6" fill="hsl(var(--foreground))">Mortalidade Infantil</text>

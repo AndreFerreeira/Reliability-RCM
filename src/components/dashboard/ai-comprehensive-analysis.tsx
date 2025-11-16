@@ -21,8 +21,8 @@ type AnalysisResult = AnalyzeChartDataOutput | { error?: string };
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-lg border bg-background p-2 shadow-sm text-foreground">
-        <div className="font-bold mb-2">{`Tempo: ${Math.round(label)}`}</div>
+      <div className="rounded-lg border bg-background p-2 shadow-sm">
+        <div className="font-bold mb-2 text-foreground">{`Tempo: ${Math.round(label)}`}</div>
           <div className="grid gap-1.5">
             {payload.map((entry: any, index: number) => (
                <div key={`item-${index}`} className="flex items-center justify-between gap-4 text-sm">
@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
                     <span className="text-muted-foreground">{`${entry.name}`}</span>
                  </div>
-                 <span className="font-mono font-medium">{entry.value.toFixed(4)}</span>
+                 <span className="font-mono font-medium text-foreground">{entry.value.toFixed(4)}</span>
                </div>
             ))}
           </div>

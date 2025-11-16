@@ -10,6 +10,7 @@ import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
 import { Logo, Bot, LineChart as LineChartIcon } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
+import WeibullParameterAnalysis from './weibull-parameter-analysis';
 
 const initialSuppliersData = [
   { id: '1', name: 'Fornecedor A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))', distribution: 'Weibull' as const },
@@ -91,6 +92,7 @@ export default function ReliabilityDashboard() {
         </TabsContent>
         <TabsContent value="ai_analysis" className="space-y-4">
           <AiRiskPredictor suppliers={suppliers} />
+          <WeibullParameterAnalysis suppliers={suppliers} />
           <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
         </TabsContent>
       </Tabs>
