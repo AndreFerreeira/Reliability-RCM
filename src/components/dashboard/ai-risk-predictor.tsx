@@ -71,8 +71,8 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
             <Alert>
               <Bot className="h-4 w-4" />
               <AlertTitle>Resumo da Análise de Risco</AlertTitle>
-              <AlertDescription>
-                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+              <AlertDescription className="text-muted-foreground">
+                <div className="whitespace-pre-wrap">
                   {analysis.summary}
                 </div>
               </AlertDescription>
