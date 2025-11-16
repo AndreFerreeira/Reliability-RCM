@@ -67,7 +67,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                 tickFormatter={tickFormatter}
               />
               <Tooltip content={<CustomTooltip title={title} />} wrapperClassName="!border-border !bg-background !shadow-lg" />
-              <Legend wrapperStyle={{fontSize: "0.8rem"}} />
+              <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
               {suppliers.map(supplier => (
                 <Line
                   key={supplier.id}
