@@ -8,9 +8,8 @@ import type { Supplier } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { Logo, BrainCircuit, Bot, LineChart as LineChartIcon } from '@/components/icons';
+import { Logo, Bot, LineChart as LineChartIcon } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
-import DecisionAssistant from './decision-assistant';
 
 const initialSuppliersData = [
   { id: '1', name: 'Fornecedor A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))' },
@@ -59,10 +58,9 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
           <TabsTrigger value="analysis"><LineChartIcon />Análise de Confiabilidade</TabsTrigger>
           <TabsTrigger value="ai_analysis"><Bot />Análise com IA</TabsTrigger>
-          <TabsTrigger value="decision_assistant"><BrainCircuit />Assistente de Decisão</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -85,9 +83,6 @@ export default function ReliabilityDashboard() {
         <TabsContent value="ai_analysis" className="space-y-4">
           <AiRiskPredictor suppliers={suppliers} />
           <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
-        </TabsContent>
-        <TabsContent value="decision_assistant" className="space-y-4">
-          <DecisionAssistant suppliers={suppliers} />
         </TabsContent>
       </Tabs>
     </div>
