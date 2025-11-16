@@ -3,25 +3,77 @@
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { getChartAnalysis } from '@/actions/reliability';
-import type { Supplier, AnalyzeChartDataOutput } from '@/lib/types';
-import { Bot, Loader2, BarChart } from 'lucide-react';
+import type { Supplier, AnalyzeChartDataOutput, ReliabilityData, ChartDataPoint } from '@/lib/types';
+import { Bot, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { marked } from 'marked';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AiComprehensiveAnalysisProps {
   suppliers: Supplier[];
+  chartData: ReliabilityData;
 }
 
 type AnalysisResult = AnalyzeChartDataOutput | { error?: string };
 
-export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAnalysisProps) {
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-lg border bg-background p-2 shadow-sm">
+        <p className="label font-bold">{`Tempo: ${Math.round(label)}`}</p>
+        {payload.map((entry: any, index: number) => (
+           <p key={`item-${index}`} style={{ color: entry.color }} className="text-xs">
+             {`${entry.name}: ${entry.value.toFixed(3)}`}
+           </p>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const MiniChart = ({ data, suppliers, title }: { data: ChartDataPoint[], suppliers: Supplier[], title: string }) => (
+    <div className="h-48 w-full pr-4">
+        <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="2 2" strokeOpacity={0.5} />
+                <XAxis 
+                    dataKey="time" 
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                    height={20}
+                    tickFormatter={(val) => Math.round(val).toString()}
+                />
+                <YAxis
+                    domain={['auto', 'auto']}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                    width={35}
+                    tickFormatter={(val) => typeof val === 'number' ? val.toPrecision(1) : val}
+                />
+                <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
+                {suppliers.map(supplier => (
+                    <Line
+                        key={supplier.id}
+                        type="monotone"
+                        dataKey={supplier.name}
+                        stroke={supplier.color}
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                    />
+                ))}
+            </LineChart>
+        </ResponsiveContainer>
+    </div>
+);
+
+
+export default function AiComprehensiveAnalysis({ suppliers, chartData }: AiComprehensiveAnalysisProps) {
   const [isPending, startTransition] = useTransition();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
 
@@ -36,11 +88,12 @@ export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAn
     });
   };
 
-  const analysisItems = analysis && 'reliability' in analysis ? [
-    analysis.reliability,
-    analysis.failureProbability,
-    analysis.probabilityDensity,
-    analysis.failureRate,
+  const hasAnalysis = analysis && 'reliability' in analysis;
+  const analysisItems = hasAnalysis ? [
+    { key: 'reliability', data: chartData.Rt, ...analysis.reliability },
+    { key: 'failureProbability', data: chartData.Ft, ...analysis.failureProbability },
+    { key: 'probabilityDensity', data: chartData.ft, ...analysis.probabilityDensity },
+    { key: 'failureRate', data: chartData.lambda_t, ...analysis.failureRate },
   ] : [];
 
   return (
@@ -73,38 +126,36 @@ export default function AiComprehensiveAnalysis({ suppliers }: AiComprehensiveAn
 
         {analysis && 'error' in analysis && (
           <Alert variant="destructive">
-            <AlertTitle>Erro</AlertTitle>
+            <AlertTitle>Erro na Análise</AlertTitle>
             <AlertDescription>{analysis.error}</AlertDescription>
           </Alert>
         )}
 
-        {analysis && 'reliability' in analysis && (
+        {hasAnalysis && (
           <div className="space-y-4">
             <Alert>
               <Bot className="h-4 w-4" />
               <AlertTitle>Análise da IA Concluída</AlertTitle>
               <AlertDescription>
-                Abaixo está uma análise técnica detalhada para cada gráfico de confiabilidade, comparando o desempenho de todos os fornecedores selecionados.
+                Abaixo está uma análise técnica para cada gráfico, comparando o desempenho dos fornecedores selecionados.
               </AlertDescription>
             </Alert>
-            <Accordion type="single" collapsible defaultValue={analysisItems[0].title}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {analysisItems.map((item, index) => (
-                    <AccordionItem value={item.title} key={index}>
-                        <AccordionTrigger>
-                            <div className='flex items-center gap-2'>
-                                <BarChart className='h-5 w-5 text-primary' />
-                                <span className='text-base font-semibold'>{item.title}</span>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                           <div 
-                             className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground" 
+                    <Card key={index} className="flex flex-col">
+                        <CardHeader>
+                           <CardTitle className="text-lg">{item.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <MiniChart data={item.data} suppliers={suppliers} title={item.title} />
+                            <div 
+                             className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-ul:pl-4" 
                              dangerouslySetInnerHTML={{ __html: marked.parse(item.analysis) as string }} 
                            />
-                        </AccordionContent>
-                    </AccordionItem>
+                        </CardContent>
+                    </Card>
                 ))}
-            </Accordion>
+            </div>
           </div>
         )}
       </CardContent>

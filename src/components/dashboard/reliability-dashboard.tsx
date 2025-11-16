@@ -82,7 +82,7 @@ export default function ReliabilityDashboard() {
         </TabsContent>
         <TabsContent value="ai_analysis" className="space-y-4">
           <AiRiskPredictor suppliers={suppliers} />
-          <AiComprehensiveAnalysis suppliers={suppliers} />
+          <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
         </TabsContent>
       </Tabs>
     </div>
