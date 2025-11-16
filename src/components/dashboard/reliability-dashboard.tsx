@@ -87,12 +87,12 @@ export default function ReliabilityDashboard() {
             </Card>
             <div className="col-span-full lg:col-span-5 space-y-4">
               <ReliabilityCharts chartData={chartData} suppliers={suppliers} />
+              <WeibullParameterAnalysis suppliers={suppliers} />
             </div>
           </div>
         </TabsContent>
         <TabsContent value="ai_analysis" className="space-y-4">
           <AiRiskPredictor suppliers={suppliers} />
-          <WeibullParameterAnalysis suppliers={suppliers} />
           <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
         </TabsContent>
       </Tabs>
