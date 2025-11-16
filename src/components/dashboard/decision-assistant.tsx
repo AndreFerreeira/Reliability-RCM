@@ -100,9 +100,9 @@ export default function DecisionAssistant({ suppliers }: DecisionAssistantProps)
                      const betaInfo = getBetaInterpretation(supplier.beta);
                      const etaInfo = getEtaInterpretation(supplier.eta);
                      return (
-                         <Card key={supplier.id} style={{borderColor: supplier.color}}>
+                         <Card key={supplier.id} className="border-2" style={{borderColor: supplier.color}}>
                             <CardHeader>
-                               <CardTitle className="flex items-center gap-2">
+                               <CardTitle className="flex items-center gap-2 text-lg">
                                  <div className="w-3 h-3 rounded-full" style={{backgroundColor: supplier.color}}/>
                                  {supplier.name}
                                </CardTitle>
@@ -133,7 +133,7 @@ export default function DecisionAssistant({ suppliers }: DecisionAssistantProps)
 
             <div className="p-3 rounded-lg bg-secondary">
                 <h4 className="font-semibold mb-1 text-primary">Ação Recomendada:</h4>
-                <p className="text-sm text-foreground">Para maior confiabilidade, prefira fornecedores com <strong className="text-accent-foreground">maior Eta (η)</strong> (vida útil mais longa) e <strong className="text-accent-foreground">maior Beta (β)</strong> se quiser previsibilidade (falhas por desgaste). Um Beta próximo de 1 indica falhas aleatórias e difíceis de prever.</p>
+                <p className="text-sm text-foreground">Para maior confiabilidade, prefira fornecedores com <strong className="text-accent">maior Eta (η)</strong> (vida útil mais longa) e <strong className="text-accent">Beta (β) próximo de 1 ou maior</strong>. Um Beta muito menor que 1 indica falhas prematuras, enquanto um Beta maior que 1 sugere falhas por desgaste, que são mais previsíveis.</p>
             </div>
           </CardContent>
         </Card>
