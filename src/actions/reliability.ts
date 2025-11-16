@@ -12,39 +12,27 @@ import type {
   AnalyzeChartDataInput,
 } from '@/lib/types';
 
+// === CONFIRME: ESTE É O MODELO CORRETO (2025+) ===
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
-const generationConfig = {
-  temperature: 0.2,
-  topP: 0.8,
-  topK: 40,
-  maxOutputTokens: 8192,
-};
-
-const safetySettings = [
-  {
-    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-];
-
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash-latest',
-  generationConfig,
-  safetySettings,
+  model: 'gemini-2.5-flash', // <--- MODELO VÁLIDO
+  generationConfig: {
+    temperature: 0.2,
+    topP: 0.8,
+    topK: 40,
+    maxOutputTokens: 8192,
+  },
+  safetySettings: [
+    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  ],
 });
+
+// DEBUG: Confirme no console se o modelo está certo
+console.log('MODEL USED:', model.model); // Deve logar: gemini-2.5-flash
 
 async function runAI<T>(prompt: string): Promise<T | { error: string }> {
   try {
@@ -69,9 +57,8 @@ async function runAI<T>(prompt: string): Promise<T | { error: string }> {
     return JSON.parse(cleanedText) as T;
 
   } catch (error: any) {
-    console.error('Error running AI:', error);
-    const errorMessage = error.message || 'An unknown error occurred.';
-    return { error: `AI generation failed. Details: ${errorMessage}` };
+    console.error('AI Error:', error.message);
+    return { error: `AI generation failed. Details: ${error.message}` };
   }
 }
 
