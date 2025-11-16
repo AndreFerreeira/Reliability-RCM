@@ -13,17 +13,17 @@ const BetaAnalysis = ({ beta }: { beta: number }) => {
     let interpretation, Icon, colorClass, phase;
 
     if (beta < 1) {
-        interpretation = "Taxa de falha decrescente. As falhas provavelmente se devem a defeitos de fabrico ou problemas iniciais (burn-in).";
+        interpretation = "Falhas iniciais. Foco em melhorar a qualidade, comissionamento e testes de aceitação.";
         Icon = TrendingDown;
         colorClass = "text-green-500";
         phase = "Mortalidade Infantil";
     } else if (beta > 0.95 && beta < 1.05) {
-        interpretation = "Taxa de falha constante. As falhas ocorrem de forma aleatória e imprevisível. Manutenção preventiva baseada no tempo não é eficaz.";
+        interpretation = "Falhas aleatórias. Considere Manutenção Preventiva (PM) baseada no tempo ou análises de custo-benefício.";
         Icon = Minus;
         colorClass = "text-yellow-500";
         phase = "Vida Útil";
     } else { // beta > 1
-        interpretation = "Taxa de falha crescente. Os componentes estão a falhar devido ao desgaste. Este é o cenário ideal para manutenção preditiva e a Curva P-F é aplicável.";
+        interpretation = "Cenário ideal para Manutenção Preditiva (PdM), pois há um padrão de desgaste claro.";
         Icon = TrendingUp;
         colorClass = "text-red-500";
         phase = "Desgaste";
@@ -60,7 +60,7 @@ const EtaAnalysis = ({ eta }: { eta: number }) => {
                 </div>
             </div>
             <p className="text-xs text-muted-foreground pl-1">
-                Este é o tempo em que <strong className="font-semibold text-foreground">63.2%</strong> da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento e define a escala de tempo para a Curva P-F.
+                Este é o tempo em que <strong className="font-semibold text-foreground">63.2%</strong> da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento de substituições e estratégias de manutenção.
             </p>
         </div>
     );
