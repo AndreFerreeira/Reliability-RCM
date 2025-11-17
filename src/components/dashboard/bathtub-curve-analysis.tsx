@@ -16,8 +16,8 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
         <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="2 2" />
       ))}
 
-      {/* Correct "U" shaped bathtub curve path */}
-      <path d="M 10,40 Q 80,180 160,140 T 340,140 Q 420,180 490,20" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
+      {/* Correct "U" shaped bathtub curve path with a flat bottom */}
+      <path d="M 10,40 Q 80,180 160,140 L 340,140 Q 420,180 490,20" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
       
       {/* Phase separators */}
       <line x1="160" y1="10" x2="160" y2="190" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4" />
