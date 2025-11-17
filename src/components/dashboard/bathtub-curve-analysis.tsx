@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -8,7 +8,13 @@ interface BathtubCurveAnalysisProps {
   failureTimes: number[];
 }
 
-const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: number}[] }) => (
+interface Point {
+  x: number;
+  y: number;
+  time: number;
+}
+
+const BathtubCurveSVG = ({ points }: { points: Point[] }) => (
   <div className="relative">
     <svg viewBox="0 0 500 200" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
       {/* Grid lines */}
@@ -34,9 +40,9 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
     </svg>
 
     <div className="absolute top-0 left-0 w-full h-full">
-      {points.map((point, index) => (
-        <TooltipProvider key={index}>
-          <Tooltip delayDuration={0}>
+      <TooltipProvider>
+        {points.map((point, index) => (
+          <Tooltip key={index} delayDuration={0}>
             <TooltipTrigger asChild>
               <div 
                 className="absolute"
@@ -49,14 +55,14 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
               <p>Tempo de Falha: {point.time}</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
-      ))}
+        ))}
+      </TooltipProvider>
     </div>
   </div>
 );
 
 // This function maps a time value to a point on the predefined SVG curve
-const mapTimeToPoint = (time: number, minTime: number, maxTime: number): { x: number; y: number; time: number } => {
+const mapTimeToPoint = (time: number, minTime: number, maxTime: number): Point => {
     if (maxTime === minTime) { // Avoid division by zero if all times are the same
         return { x: 50, y: 70, time };
     }
@@ -104,6 +110,25 @@ const mapTimeToPoint = (time: number, minTime: number, maxTime: number): { x: nu
 
 
 export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnalysisProps) {
+  const [points, setPoints] = useState<Point[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (failureTimes.length > 0 && isClient) {
+      const sortedTimes = [...failureTimes].sort((a, b) => a - b);
+      const minTime = sortedTimes[0];
+      const maxTime = sortedTimes[sortedTimes.length - 1];
+      const calculatedPoints = sortedTimes.map(time => mapTimeToPoint(time, minTime, maxTime));
+      setPoints(calculatedPoints);
+    } else {
+      setPoints([]);
+    }
+  }, [failureTimes, isClient]);
+
   if (failureTimes.length === 0) {
     return (
       <Card>
@@ -120,12 +145,6 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
     );
   }
 
-  const sortedTimes = [...failureTimes].sort((a, b) => a - b);
-  const minTime = sortedTimes[0];
-  const maxTime = sortedTimes[sortedTimes.length - 1];
-
-  const points = sortedTimes.map(time => mapTimeToPoint(time, minTime, maxTime));
-
   return (
     <Card>
       <CardHeader>
@@ -135,7 +154,7 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
-        <BathtubCurveSVG points={points} />
+        {isClient ? <BathtubCurveSVG points={points} /> : <div className="h-[205px] w-full animate-pulse rounded-md bg-muted" />}
       </CardContent>
     </Card>
   );
