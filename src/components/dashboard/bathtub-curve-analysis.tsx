@@ -12,32 +12,22 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
   <div className="relative">
     <svg viewBox="0 0 500 200" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
       {/* Grid lines */}
-      {[20, 40, 60, 80, 100, 120, 140].map(y => (
-        <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="4 4" />
+      {[20, 40, 60, 80, 100, 120, 140, 160, 180].map(y => (
+        <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="2 2" />
       ))}
 
-      {/* Main bathtub curve */}
-      <path d="M 10,80 Q 70,10 150,50 T 350,150 Q 450,20 490,120" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
+      {/* Main bathtub curve path */}
+      <path d="M 10,120 Q 80,20 160,60 T 340,60 Q 420,20 490,140" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
       
       {/* Phase separators */}
-      <line x1="160" y1="10" x2="160" y2="190" stroke="hsl(var(--border))" strokeWidth="1" />
-      <line x1="340" y1="10" x2="340" y2="190" stroke="hsl(var(--border))" strokeWidth="1" />
+      <line x1="160" y1="10" x2="160" y2="190" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4" />
+      <line x1="340" y1="10" x2="340" y2="190" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4" />
 
       {/* Phase Labels */}
-      <text x="80" y="25" textAnchor="middle" className="text-sm font-semibold fill-muted-foreground">Fase 1</text>
-      <text x="250" y="25" textAnchor="middle" className="text-sm font-semibold fill-muted-foreground">Fase 2</text>
-      <text x="420" y="25" textAnchor="middle" className="text-sm font-semibold fill-muted-foreground">Fase 3</text>
+      <text x="80" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">Mortalidade Infantil</text>
+      <text x="250" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">Vida Útil</text>
+      <text x="420" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">Desgaste</text>
 
-      {/* Phase description boxes */}
-      <rect x="30" y="100" width="100" height="30" rx="15" fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth="1.5" />
-      <text x="80" y="120" textAnchor="middle" className="text-xs font-bold fill-primary">FALHAS INICIAIS</text>
-      
-      <rect x="200" y="160" width="100" height="30" rx="15" fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth="1.5" />
-      <text x="250" y="180" textAnchor="middle" className="text-xs font-bold fill-primary">VIDA ÚTIL</text>
-
-      <rect x="370" y="60" width="100" height="30" rx="15" fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth="1.5" />
-      <text x="420" y="80" textAnchor="middle" className="text-xs font-bold fill-primary">DESGASTE</text>
-      
       {/* Axis Labels */}
       <text x="-15" y="100" transform="rotate(-90 -15,100)" textAnchor="middle" className="text-xs font-semibold fill-foreground">Taxa de falhas</text>
       <text x="250" y="198" textAnchor="middle" className="text-xs font-semibold fill-foreground">Tempo</text>
@@ -52,8 +42,7 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
                 className="absolute"
                 style={{ left: `${point.x}%`, top: `${point.y}%` }}
               >
-                  <div className="w-2.5 h-2.5 bg-primary rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2" />
-                  <span className="absolute text-xs font-medium text-foreground transform -translate-x-1/2 -translate-y-full top-[-4px] left-1/2">{Math.round(point.time)}</span>
+                  <div className="w-2.5 h-2.5 bg-accent rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2" />
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -68,32 +57,41 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
 
 // This function maps a time value to a point on the predefined SVG curve
 const mapTimeToPoint = (time: number, minTime: number, maxTime: number): { x: number; y: number; time: number } => {
+    if (maxTime === minTime) { // Avoid division by zero if all times are the same
+        return { x: 50, y: 30, time };
+    }
     const timePercentage = (time - minTime) / (maxTime - minTime);
 
     let x, y;
+    const svgWidth = 500;
+    const svgHeight = 200;
 
-    // Phase 1: Early Failures (0% to 32% of time axis)
+    // Phase 1: Early Failures (0% to 32% of time axis) -> Mapped to x=[10, 160]
     if (timePercentage <= 0.32) {
         const phasePercentage = timePercentage / 0.32;
-        x = 10 + phasePercentage * 140; // X from 10 to 150
-        y = 80 - 30 * Math.cos(phasePercentage * Math.PI / 2); // Y decreases
+        x = 10 + phasePercentage * 150;
+        // Bezier curve: P0=(10,120), P1=(80,20), P2=(160,60)
+        const t = phasePercentage;
+        y = Math.pow(1-t, 2)*120 + 2*(1-t)*t*20 + Math.pow(t, 2)*60;
     } 
-    // Phase 2: Useful Life (32% to 68% of time axis)
+    // Phase 2: Useful Life (32% to 68% of time axis) -> Mapped to x=[160, 340]
     else if (timePercentage <= 0.68) {
         const phasePercentage = (timePercentage - 0.32) / 0.36;
-        x = 150 + phasePercentage * 200; // X from 150 to 350
-        y = 50 + 100 * Math.sin(phasePercentage * Math.PI); // Y is at the bottom part of the curve
+        x = 160 + phasePercentage * 180;
+        y = 60; // Flat part of the curve
     } 
-    // Phase 3: Wear-out (68% to 100% of time axis)
+    // Phase 3: Wear-out (68% to 100% of time axis) -> Mapped to x=[340, 490]
     else {
         const phasePercentage = (timePercentage - 0.68) / 0.32;
-        x = 350 + phasePercentage * 140; // X from 350 to 490
-        y = 150 - 130 * Math.sin(phasePercentage * Math.PI / 2); // Y increases
+        x = 340 + phasePercentage * 150;
+        // Bezier curve: P0=(340,60), P1=(420,20), P2=(490,140)
+        const t = phasePercentage;
+        y = Math.pow(1-t, 2)*60 + 2*(1-t)*t*20 + Math.pow(t, 2)*140;
     }
     
     // Convert SVG coordinates to percentage for CSS positioning
-    const xPercent = (x / 500) * 100;
-    const yPercent = (y / 200) * 100;
+    const xPercent = (x / svgWidth) * 100;
+    const yPercent = (y / svgHeight) * 100;
 
     return { x: xPercent, y: yPercent, time };
 };
@@ -130,7 +128,7 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
           Visualize os pontos de falha ao longo do ciclo de vida do componente.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         <BathtubCurveSVG points={points} />
       </CardContent>
     </Card>
