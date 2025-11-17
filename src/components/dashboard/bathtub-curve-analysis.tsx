@@ -16,8 +16,8 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
         <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="2 2" />
       ))}
 
-      {/* Correct "U" shaped bathtub curve path with a flat bottom */}
-      <path d="M 10,40 Q 80,180 160,140 L 340,140 Q 420,180 490,20" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
+      {/* Correct "U" shaped bathtub curve path with a flat bottom and smooth transitions */}
+      <path d="M 10,40 Q 80,180 160,140 L 340,140 C 380,140 420,180 490,20" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
       
       {/* Phase separators */}
       <line x1="160" y1="10" x2="160" y2="190" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4" />
@@ -84,9 +84,14 @@ const mapTimeToPoint = (time: number, minTime: number, maxTime: number): { x: nu
     else {
         const phasePercentage = (timePercentage - 0.68) / 0.32;
         x = 340 + phasePercentage * 150;
-         // Bezier curve: P0=(340,140), P1=(420,180), P2=(490,20)
+         // Cubic Bezier curve for smooth transition: P0=(340,140), P1=(380,140), P2=(420,180), P3=(490,20)
         const t = phasePercentage;
-        y = Math.pow(1-t, 2)*140 + 2*(1-t)*t*180 + Math.pow(t, 2)*20;
+        const p0 = {x: 340, y: 140};
+        const p1 = {x: 380, y: 140}; // Control point 1 to ensure smooth exit from straight line
+        const p2 = {x: 420, y: 180}; // Control point 2 for the curve shape
+        const p3 = {x: 490, y: 20};  // End point
+
+        y = Math.pow(1-t, 3)*p0.y + 3*Math.pow(1-t, 2)*t*p1.y + 3*(1-t)*Math.pow(t,2)*p2.y + Math.pow(t,3)*p3.y;
     }
     
     // Convert SVG coordinates to percentage for CSS positioning
