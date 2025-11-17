@@ -16,8 +16,8 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
         <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="2 2" />
       ))}
 
-      {/* Main bathtub curve path */}
-      <path d="M 10,120 Q 80,20 160,60 T 340,60 Q 420,20 490,140" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
+      {/* Correct "U" shaped bathtub curve path */}
+      <path d="M 10,40 Q 80,180 160,140 T 340,140 Q 420,180 490,20" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" />
       
       {/* Phase separators */}
       <line x1="160" y1="10" x2="160" y2="190" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4" />
@@ -58,7 +58,7 @@ const BathtubCurveSVG = ({ points }: { points: {x: number, y: number, time: numb
 // This function maps a time value to a point on the predefined SVG curve
 const mapTimeToPoint = (time: number, minTime: number, maxTime: number): { x: number; y: number; time: number } => {
     if (maxTime === minTime) { // Avoid division by zero if all times are the same
-        return { x: 50, y: 30, time };
+        return { x: 50, y: 70, time };
     }
     const timePercentage = (time - minTime) / (maxTime - minTime);
 
@@ -70,23 +70,23 @@ const mapTimeToPoint = (time: number, minTime: number, maxTime: number): { x: nu
     if (timePercentage <= 0.32) {
         const phasePercentage = timePercentage / 0.32;
         x = 10 + phasePercentage * 150;
-        // Bezier curve: P0=(10,120), P1=(80,20), P2=(160,60)
+        // Bezier curve: P0=(10,40), P1=(80,180), P2=(160,140)
         const t = phasePercentage;
-        y = Math.pow(1-t, 2)*120 + 2*(1-t)*t*20 + Math.pow(t, 2)*60;
+        y = Math.pow(1-t, 2)*40 + 2*(1-t)*t*180 + Math.pow(t, 2)*140;
     } 
     // Phase 2: Useful Life (32% to 68% of time axis) -> Mapped to x=[160, 340]
     else if (timePercentage <= 0.68) {
         const phasePercentage = (timePercentage - 0.32) / 0.36;
         x = 160 + phasePercentage * 180;
-        y = 60; // Flat part of the curve
+        y = 140; // Flat part of the curve
     } 
     // Phase 3: Wear-out (68% to 100% of time axis) -> Mapped to x=[340, 490]
     else {
         const phasePercentage = (timePercentage - 0.68) / 0.32;
         x = 340 + phasePercentage * 150;
-        // Bezier curve: P0=(340,60), P1=(420,20), P2=(490,140)
+         // Bezier curve: P0=(340,140), P1=(420,180), P2=(490,20)
         const t = phasePercentage;
-        y = Math.pow(1-t, 2)*60 + 2*(1-t)*t*20 + Math.pow(t, 2)*140;
+        y = Math.pow(1-t, 2)*140 + 2*(1-t)*t*180 + Math.pow(t, 2)*20;
     }
     
     // Convert SVG coordinates to percentage for CSS positioning
