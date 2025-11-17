@@ -58,6 +58,7 @@ export default function ReliabilityDashboard() {
 
   const chartData = useMemo(() => calculateReliabilityData(suppliers), [suppliers]);
   const weibullSuppliers = useMemo(() => suppliers.filter(s => s.distribution === 'Weibull' && s.params.beta != null && s.params.eta != null), [suppliers]);
+  const allFailureTimes = useMemo(() => suppliers.flatMap(s => s.failureTimes), [suppliers]);
 
   return (
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
@@ -90,7 +91,7 @@ export default function ReliabilityDashboard() {
             <div className="col-span-full lg:col-span-5 space-y-4">
               <ReliabilityCharts chartData={chartData} suppliers={suppliers} />
               <WeibullParameterAnalysis suppliers={weibullSuppliers} />
-              <BathtubCurveAnalysis suppliers={weibullSuppliers} />
+              <BathtubCurveAnalysis failureTimes={allFailureTimes} />
             </div>
           </div>
         </TabsContent>
