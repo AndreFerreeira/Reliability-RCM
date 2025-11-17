@@ -13,12 +13,12 @@ const BetaAnalysis = ({ beta }: { beta: number }) => {
     let interpretation, Icon, colorClass, phase;
 
     if (beta < 1) {
-        interpretation = "Falhas iniciais. Foco em melhorar a qualidade, comissionamento e testes de aceitação.";
+        interpretation = "Foco em melhorar a qualidade, comissionamento e testes de aceitação.";
         Icon = TrendingDown;
         colorClass = "text-green-500";
         phase = "Mortalidade Infantil";
     } else if (beta > 0.95 && beta < 1.05) {
-        interpretation = "Falhas aleatórias. Considere Manutenção Preventiva (PM) baseada no tempo ou análises de custo-benefício.";
+        interpretation = "Considere Manutenção Preventiva (PM) baseada no tempo ou análises de custo-benefício.";
         Icon = Minus;
         colorClass = "text-yellow-500";
         phase = "Vida Útil";
@@ -60,17 +60,15 @@ const EtaAnalysis = ({ eta }: { eta: number }) => {
                 </div>
             </div>
             <p className="text-xs text-muted-foreground pl-1">
-                Este é o tempo em que <strong className="font-semibold text-foreground">63.2%</strong> da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento de substituições e estratégias de manutenção.
+                Este é o tempo em que <strong className="font-semibold text-foreground">63.2%</strong> da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento.
             </p>
         </div>
     );
 };
 
 export default function WeibullParameterAnalysis({ suppliers }: WeibullParameterAnalysisProps) {
-    const weibullSuppliers = suppliers.filter(s => s.distribution === 'Weibull' && s.params.beta != null && s.params.eta != null);
-
-    if (weibullSuppliers.length === 0) {
-        return null; // Don't render the card if no suppliers are using Weibull
+    if (suppliers.length === 0) {
+        return null;
     }
 
     return (
@@ -78,12 +76,12 @@ export default function WeibullParameterAnalysis({ suppliers }: WeibullParameter
             <CardHeader>
                 <CardTitle>Analisador de Parâmetros Weibull (β & η)</CardTitle>
                 <CardDescription>
-                    Interprete os parâmetros Beta (β) e Eta (η) para entender o modo de falha e a vida útil dos seus componentes.
+                    Interprete os parâmetros Beta (forma) e Eta (vida) para entender o modo de falha e a vida útil dos seus componentes.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {weibullSuppliers.map(supplier => (
+                    {suppliers.map(supplier => (
                         <Card key={supplier.id} className="p-4" style={{ borderLeft: `4px solid ${supplier.color}` }}>
                             <h3 className="font-bold text-foreground mb-4">{supplier.name}</h3>
                             <div className="space-y-6">
