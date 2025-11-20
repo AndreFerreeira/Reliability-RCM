@@ -27,7 +27,7 @@ function normalInverse(p: number) {
 
 export default function ProbabilityPlot({ supplier, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     
-    if (!supplier || !supplier.plotData || !supplier.plotData.points || supplier.plotData.points.length === 0) {
+    if (!supplier || !supplier.plotData || !supplier.plotData.points || !supplier.plotData.line || supplier.plotData.points.length === 0) {
        return (
             <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full min-h-[450px]">
@@ -239,3 +239,5 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         </Card>
     );
 }
+
+    
