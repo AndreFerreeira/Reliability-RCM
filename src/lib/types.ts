@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential';
+export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential' | 'Loglogistic' | 'Gumbel';
 
 export interface WeibullParams {
   beta: number; // shape parameter
@@ -21,7 +21,18 @@ export interface ExponentialParams {
     lambda: number; // rate parameter
 }
 
-export type Parameters = Partial<WeibullParams & NormalParams & LognormalParams & ExponentialParams>;
+export interface LoglogisticParams {
+    beta: number; // shape
+    alpha: number; // scale (median)
+}
+
+export interface GumbelParams {
+    mu: number; // location
+    sigma: number; // scale
+}
+
+
+export type Parameters = Partial<WeibullParams & NormalParams & LognormalParams & ExponentialParams & LoglogisticParams & GumbelParams>;
 
 export interface DataTypeOptions {
   hasSuspensions: boolean; // right-censored data

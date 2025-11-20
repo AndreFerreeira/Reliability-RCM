@@ -1,6 +1,26 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams } from '@/lib/types';
+
+// --- Statistical Helpers ---
+
+// Inverse Error Function
+export function invErf(x: number): number {
+    const a = 0.147;
+    const sign = x < 0 ? -1 : 1;
+    const absX = Math.abs(x);
+    const log1MinusX2 = Math.log(1 - absX * absX);
+    const term1 = 2 / (Math.PI * a) + log1MinusX2 / 2;
+    const term2 = Math.sqrt(term1 * term1 - (log1MinusX2 / a));
+    return sign * Math.sqrt(term2 - term1);
+}
+
+// Inverse of the standard normal cumulative distribution function (CDF).
+export function invNormalCdf(p: number): number {
+  if (p <= 0 || p >= 1) return p <= 0 ? -Infinity : Infinity;
+  return Math.sqrt(2) * invErf(2 * p - 1);
+}
+
 
 // Helper for error function
 function erf(x: number): number {
@@ -32,41 +52,10 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 }
 
 // --- Parameter Estimation ---
-// Benard's approximation for median ranks
-function getMedianRank(i: number, n: number): number {
-    return (i - 0.3) / (n + 0.4);
-}
 
-export function estimateWeibullRankRegression(
-    times: number[],
-    medianRanks?: number[]
-): {
-    points: { x: number, y: number, time: number, prob: number }[],
-    line: { x: number, y: number }[],
-    params: { beta: number, eta: number },
-    rSquared: number
-} {
-    if (times.length < 2) return { points: [], line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
-
-    const sortedTimes = [...times].sort((a, b) => a - b);
-    const n = sortedTimes.length;
+function performLinearRegression(points: {x: number, y: number}[]) {
+    if (points.length < 2) return null;
     
-    const points = sortedTimes.map((time, i) => {
-        // Use provided median ranks or calculate them if not available
-        const prob = medianRanks && medianRanks.length === n ? medianRanks[i] : getMedianRank(i + 1, n);
-
-        if (prob >= 1 || time <= 0) return null;
-        return {
-            x: Math.log(time),
-            y: Math.log(Math.log(1 / (1 - prob))),
-            time: time,
-            prob: prob,
-        };
-    }).filter(p => p !== null && isFinite(p.x) && isFinite(p.y)) as { x: number, y: number, time: number, prob: number }[];
-
-    if (points.length < 2) return { points: [], line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
-
-    // Linear regression on the transformed points (y = beta * x + intercept)
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0, N = points.length;
     points.forEach(p => {
         sumX += p.x;
@@ -79,32 +68,116 @@ export function estimateWeibullRankRegression(
     const numerator = (N * sumXY - sumX * sumY);
     const denominator = (N * sumXX - sumX * sumX);
     
-    if (Math.abs(denominator) < 1e-9) { // Avoid division by zero
-        return { points, line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
-    }
+    if (Math.abs(denominator) < 1e-9) return null; // Avoid division by zero
 
-    const beta = numerator / denominator;
-    const intercept = (sumY - beta * sumX) / N;
-    const eta = Math.exp(-intercept / beta);
+    const slope = numerator / denominator;
+    const intercept = (sumY - slope * sumX) / N;
 
     const ssr = Math.pow(numerator, 2) / denominator;
     const sst = sumYY - (sumY * sumY) / N;
     const rSquared = sst === 0 ? 1 : ssr / sst;
     
-    const minX = Math.min(...points.map(p => p.x));
-    const maxX = Math.max(...points.map(p => p.x));
+    return { slope, intercept, rSquared: isNaN(rSquared) ? 0 : rSquared };
+}
+
+
+// --- Rank Regression Estimation for Various Distributions ---
+
+type AnalysisResult = {
+    points: { x: number, y: number, time: number, prob: number }[],
+    line: { x: number, y: number }[],
+    params: Parameters,
+    rSquared: number
+}
+
+export function estimateParametersByRankRegression(
+    dist: Distribution,
+    times: number[],
+    medianRanks: number[]
+): AnalysisResult | null {
+    if (times.length < 2 || times.length !== medianRanks.length) return null;
+
+    const sortedTimes = [...times].sort((a, b) => a - b);
+    
+    let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
+
+    for(let i=0; i < sortedTimes.length; i++) {
+        const time = sortedTimes[i];
+        const prob = medianRanks[i];
+        if (time <= 0 || prob <= 0 || prob >= 1) continue;
+
+        let x: number, y: number;
+        
+        switch(dist) {
+            case 'Weibull':
+                x = Math.log(time);
+                y = Math.log(Math.log(1 / (1 - prob)));
+                break;
+            case 'Lognormal':
+                x = Math.log(time);
+                y = invNormalCdf(prob);
+                break;
+            case 'Normal':
+                x = time;
+                y = invNormalCdf(prob);
+                break;
+            case 'Exponential':
+                x = time;
+                y = Math.log(1 / (1 - prob));
+                break;
+            case 'Loglogistic':
+                x = Math.log(time);
+                y = Math.log(prob / (1 - prob));
+                break;
+            case 'Gumbel':
+                x = time;
+                y = -Math.log(-Math.log(prob));
+                break;
+            default:
+                return null;
+        }
+
+        if(isFinite(x) && isFinite(y)) {
+            transformedPoints.push({ x, y, time, prob });
+        }
+    }
+
+    const regression = performLinearRegression(transformedPoints);
+    if (!regression) return null;
+
+    const { slope, intercept, rSquared } = regression;
+    let params: Parameters = {};
+
+    switch(dist) {
+        case 'Weibull':
+            params = { beta: slope, eta: Math.exp(-intercept / slope) };
+            break;
+        case 'Lognormal':
+            params = { stdDev: 1 / slope, mean: -intercept / slope };
+            break;
+        case 'Normal':
+            params = { stdDev: 1 / slope, mean: -intercept / slope };
+            break;
+        case 'Exponential':
+            params = { lambda: slope };
+            break;
+        case 'Loglogistic':
+            params = { beta: slope, alpha: Math.exp(-intercept / slope) };
+            break;
+        case 'Gumbel':
+            params = { sigma: 1 / slope, mu: -intercept / slope };
+            break;
+    }
+
+    const minX = Math.min(...transformedPoints.map(p => p.x));
+    const maxX = Math.max(...transformedPoints.map(p => p.x));
 
     const line = [
-        { x: minX, y: beta * minX + intercept },
-        { x: maxX, y: beta * maxX + intercept },
+        { x: minX, y: slope * minX + intercept },
+        { x: maxX, y: slope * maxX + intercept },
     ];
     
-    return {
-        points,
-        line,
-        params: { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta },
-        rSquared: isNaN(rSquared) ? 0 : rSquared
-    };
+    return { points: transformedPoints, line, params, rSquared };
 }
 
 
@@ -112,9 +185,9 @@ export function estimateWeibullRankRegression(
 function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
     const allData = [...failures, ...suspensions];
     if (failures.length === 0) {
-        if (allData.length > 1) { // If only suspensions, use RR
-             const rr_params = estimateWeibullRankRegression(allData).params;
-             return { beta: rr_params.beta, eta: rr_params.eta };
+        if (allData.length > 1) {
+             const rr_params = estimateParametersByRankRegression('Weibull', allData, allData.map((_, i) => (i + 1 - 0.3) / (allData.length + 0.4)))?.params;
+             return { beta: rr_params?.beta, eta: rr_params?.eta };
         }
         return { beta: 0, eta: 0 };
     }
@@ -157,8 +230,8 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) { // Fallback to Rank Regression if MLE fails
-            const rr_params = estimateWeibullRankRegression(failures).params;
-            return { beta: rr_params.beta, eta: rr_params.eta };
+            const rr_params = estimateParametersByRankRegression('Weibull', failures, failures.map((_, i) => (i + 1 - 0.3) / (failures.length + 0.4)))?.params;
+            return { beta: rr_params?.beta, eta: rr_params?.eta };
         }
 
         if (Math.abs(newBeta - beta) < tolerance) {
@@ -204,6 +277,10 @@ export function estimateParameters(failureTimes: number[], dist: Distribution, s
         case 'Normal': return estimateNormal(failureTimes);
         case 'Lognormal': return estimateLognormal(failureTimes);
         case 'Exponential': return estimateExponential(failureTimes);
+        // For rank-regression only distributions, we just return empty params as MLE is used for the main charts
+        case 'Loglogistic':
+        case 'Gumbel':
+             return {};
         default: return {};
     }
 }
@@ -237,12 +314,7 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             R_t = Math.exp(-Math.pow(tOverEta, params.beta));
             F_t = 1 - R_t;
             f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-Math.pow(tOverEta, params.beta));
-            if (R_t > 1e-9) {
-                 lambda_t = f_t / R_t;
-            } else {
-                 // For very small R(t), lambda_t can be approximated by f_t / epsilon to avoid infinity
-                 lambda_t = f_t / 1e-9;
-            }
+            lambda_t = (R_t > 1e-9) ? f_t / R_t: f_t / 1e-9;
           }
           break;
         case 'Normal':
@@ -288,7 +360,6 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
         
         let value: number | null = null;
         if (point && isFinite(point.value)) {
-            // For ft and lambda_t, ignore the very first point if it's an extreme outlier from t=0 case
             if ((dataType === 'ft' || dataType === 'lambda_t') && time === 0) {
                value = null;
             } else {
@@ -297,7 +368,6 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
         } else if (time === 0) {
             if (dataType === 'Rt') value = 1;
             else if (dataType === 'Ft') value = 0;
-            // For ft and lambda_t at t=0, it might be Inf or 0, null is safer for plotting
         }
 
         dataPoint[supplier.name] = value;

@@ -5,12 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { medianRankTables } from '@/lib/median-ranks';
 import ProbabilityPlot from './probability-plot';
-import type { Supplier } from '@/lib/types';
+import type { Supplier, Distribution } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { estimateWeibullRankRegression } from '@/lib/reliability';
+import { estimateParametersByRankRegression } from '@/lib/reliability';
 
 const PaperInfoCard = ({ paperType }: { paperType: string }) => {
     let title = '', description = '', xAxis = '', yAxis = '';
@@ -22,11 +22,11 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
             xAxis = 'ln(Tempo)';
             yAxis = 'ln(ln(1 / (1 - F(t))))';
             break;
-        case 'Exponencial':
+        case 'Exponential':
             title = 'Papel de Probabilidade Exponencial';
             description = 'Um caso especial do papel Weibull (onde β=1). Usado para verificar se os dados seguem uma distribuição exponencial, que modela eventos que ocorrem a uma taxa constante.';
             xAxis = 'Tempo';
-            yAxis = 'ln(1 / (1 - F(t)))';
+            yAxis = 'ln(1 / R(t)) = ln(1 / (1 - F(t)))';
             break;
         case 'Lognormal':
             title = 'Papel de Probabilidade Lognormal';
@@ -39,6 +39,18 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
             description = 'Usado para verificar se os dados se ajustam a uma distribuição normal (Gaussiana). Muitos fenômenos naturais seguem esta distribuição.';
             xAxis = 'Tempo';
             yAxis = 'Inversa da Normal Padrão (Z-score)';
+            break;
+        case 'Loglogistic':
+             title = 'Papel de Probabilidade Log-logístico';
+             description = 'Semelhante ao Lognormal, mas com caudas mais pesadas. Útil para modelar crescimento ou taxas de falha que primeiro aumentam e depois diminuem.';
+             xAxis = 'ln(Tempo)';
+             yAxis = 'ln(F(t) / (1 - F(t)))';
+             break;
+        case 'Gumbel':
+            title = 'Papel de Probabilidade Gumbel';
+            description = 'Também conhecida como distribuição de valor extremo Tipo-I. Frequentemente usada para modelar o valor máximo ou mínimo de várias amostras de uma distribuição.';
+            xAxis = 'Tempo';
+            yAxis = '-ln(-ln(F(t)))';
             break;
         default:
             return null;
@@ -104,14 +116,14 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
 
 
 export default function ProbabilityPaper() {
-    const [paperType, setPaperType] = useState<'Weibull' | 'Lognormal' | 'Normal' | 'Exponential'>('Weibull');
+    const [paperType, setPaperType] = useState<Distribution>('Weibull');
     const [sampleSize, setSampleSize] = useState(10);
     const [confidenceLevel, setConfidenceLevel] = useState(50);
     const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800\n2200\n2800\n3500\n4200\n5000');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
 
-    const paperTypes = ['Weibull', 'Exponencial', 'Lognormal', 'Normal'];
+    const paperTypes: Distribution[] = ['Weibull', 'Lognormal', 'Normal', 'Exponential', 'Loglogistic', 'Gumbel'];
     const sampleSizes = Array.from({ length: 24 }, (_, i) => i + 2);
 
     const handlePlot = () => {
@@ -150,11 +162,19 @@ export default function ProbabilityPaper() {
             return;
         }
 
-        // Extrai os valores de probabilidade corretos da tabela
+        // Extract correct probability values from the table
         const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
 
-        // Passa os tempos e os postos medianos correspondentes para a função de estimativa
-        const { params, points, line, rSquared } = estimateWeibullRankRegression(times, medianRanks);
+        // Pass the times and corresponding median ranks to the estimation function
+        const analysisResult = estimateParametersByRankRegression(paperType, times, medianRanks);
+        
+        if (!analysisResult) {
+            toast({ variant: 'destructive', title: 'Erro na Análise', description: `Não foi possível analisar os dados para a distribuição ${paperType}.` });
+            setLocalSupplier(null);
+            return;
+        }
+
+        const { params, points, line, rSquared } = analysisResult;
         
         const newSupplier: Supplier = {
             id: 'local_analysis',
@@ -162,11 +182,11 @@ export default function ProbabilityPaper() {
             failureTimes: times,
             suspensionTimes: [],
             color: 'hsl(var(--chart-1))',
-            distribution: 'Weibull',
+            distribution: paperType,
             params: params,
             units: 'Tempo',
             dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },
-            plotData: { points, line, rSquared } // Storing plot specific data
+            plotData: { points, line, rSquared }
         };
         setLocalSupplier(newSupplier);
     };
@@ -174,7 +194,7 @@ export default function ProbabilityPaper() {
     useEffect(() => {
         handlePlot();
          // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sampleSize, confidenceLevel, failureData]);
+    }, [sampleSize, confidenceLevel, failureData, paperType]);
 
     return (
         <div className="space-y-6">
@@ -229,9 +249,9 @@ export default function ProbabilityPaper() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Visualização Dinâmica – Weibull</CardTitle>
+                    <CardTitle>Visualização Dinâmica – {paperType}</CardTitle>
                     <CardDescription>
-                        Insira os dados de tempo até a falha para gerar um gráfico de probabilidade Weibull dinâmico e estimar os parâmetros. O número de entradas deve corresponder ao tamanho da amostra (N) selecionado acima.
+                        Insira os dados de tempo até a falha para gerar um gráfico de probabilidade dinâmico e estimar os parâmetros. O número de entradas deve corresponder ao tamanho da amostra (N) selecionado acima.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -252,7 +272,7 @@ export default function ProbabilityPaper() {
                         <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
                     </div>
                     <div className="md:col-span-2">
-                        <ProbabilityPlot supplier={localSupplier} paperType="Weibull" />
+                        <ProbabilityPlot supplier={localSupplier} paperType={paperType} />
                     </div>
                 </CardContent>
             </Card>
