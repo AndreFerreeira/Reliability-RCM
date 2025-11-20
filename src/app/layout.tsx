@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Inter, Orbitron } from 'next/font/google'
 
 export const metadata: Metadata = {
-  title: 'Analisador de Confiabilidade',
+  title: 'Reliability RCM',
   description: 'Analise e preveja a confiabilidade de componentes com ferramentas estatísticas e de IA.',
 };
 

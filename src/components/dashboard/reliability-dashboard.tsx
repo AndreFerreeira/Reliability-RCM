@@ -80,7 +80,7 @@ export default function ReliabilityDashboard() {
         <div className="flex items-center gap-4">
           <Logo className="h-10 w-10 text-accent" />
           <h1 className="text-3xl font-headline font-bold tracking-tight">
-            Analisador de Confiabilidade
+            Reliability RCM
           </h1>
         </div>
       </div>
