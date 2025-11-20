@@ -73,96 +73,71 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         );
     }
     
-    const { points: plotData, line: lineData, rSquared } = supplier.plotData;
-    const { beta, eta } = supplier.params;
+    const { points: plotData, line: lineData } = supplier.plotData;
 
     const pointsWithName = plotData.map(p => ({...p, name: supplier.name, color: supplier.color }));
     
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full items-start">
-            <div className="h-96 w-full pr-4 md:col-span-2">
-                <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 30 }}>
-                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <div className="h-96 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 30 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
 
-                        <XAxis 
-                            type="number" 
-                            dataKey="x" 
-                            name="Tempo" 
-                            domain={['dataMin', 'dataMax']}
-                            scale="log"
-                            tickFormatter={(value: number) => {
-                                const expVal = Math.exp(value);
-                                return isFinite(expVal) ? Math.round(expVal).toString() : '';
-                            }}
-                            stroke="hsl(var(--muted-foreground))"
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        >
-                            <Label value="Tempo" offset={-25} position="insideBottom" fill="hsl(var(--foreground))" />
-                        </XAxis>
+                    <XAxis 
+                        type="number" 
+                        dataKey="x" 
+                        name="Tempo" 
+                        domain={['dataMin', 'dataMax']}
+                        scale="log"
+                        tickFormatter={(value: number) => {
+                            const expVal = Math.exp(value);
+                            return isFinite(expVal) ? Math.round(expVal).toString() : '';
+                        }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    >
+                        <Label value="Tempo" offset={-25} position="insideBottom" fill="hsl(var(--foreground))" />
+                    </XAxis>
 
-                        <YAxis 
-                            type="number" 
-                            dataKey="y" 
-                            name="Probabilidade de Falha (%)"
-                            domain={[yAxisTicks[0], yAxisTicks[yAxisTicks.length -1]]}
-                            ticks={yAxisTicks}
-                            tickFormatter={(value: number) => {
-                                const prob = weibullInverseTransform(value);
-                                return isFinite(prob) ? `${prob.toFixed(1)}` : '';
-                            }}
-                            stroke="hsl(var(--muted-foreground))"
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        >
-                            <Label value="Probabilidade de Falha (%)" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: 'hsl(var(--foreground))' }} />
-                        </YAxis>
+                    <YAxis 
+                        type="number" 
+                        dataKey="y" 
+                        name="Probabilidade de Falha (%)"
+                        domain={[yAxisTicks[0], yAxisTicks[yAxisTicks.length -1]]}
+                        ticks={yAxisTicks}
+                        tickFormatter={(value: number) => {
+                            const prob = weibullInverseTransform(value);
+                            return isFinite(prob) ? `${prob.toFixed(1)}` : '';
+                        }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    >
+                        <Label value="Probabilidade de Falha (%)" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: 'hsl(var(--foreground))' }} />
+                    </YAxis>
 
-                        <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
-                        
-                        <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
-                        
-                        <Scatter 
-                            name={supplier.name} 
-                            data={pointsWithName} 
-                            fill={supplier.color}
-                            isAnimationActive={false}
-                        />
-                         <Line
-                            data={lineData}
-                            dataKey="y"
-                            stroke={supplier.color}
-                            strokeWidth={2}
-                            dot={false}
-                            strokeDasharray="5 5"
-                            name={`${supplier.name} (Ajuste)`}
-                            isAnimationActive={false}
-                            legendType="none"
-                        />
-                    </ScatterChart>
-                </ResponsiveContainer>
-            </div>
-            <div className="space-y-4">
-                 <h3 className="font-semibold text-foreground pt-4">Parâmetros Estimados (Regressão)</h3>
-                 <Card className="p-3 bg-muted/30">
-                    <p className="font-bold text-sm mb-2" style={{color: supplier.color}}>{supplier.name}</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                            <p className="text-muted-foreground">β (Forma)</p>
-                            <p className="font-mono text-base font-medium">{beta?.toFixed(2) ?? 'N/A'}</p>
-                        </div>
-                         <div>
-                            <p className="text-muted-foreground">η (Vida)</p>
-                            <p className="font-mono text-base font-medium">{eta ? Math.round(eta) : 'N/A'}</p>
-                        </div>
-                        <div className="col-span-2">
-                            <p className="text-muted-foreground">R² (Aderência)</p>
-                            <p className="font-mono text-base font-medium">{rSquared ? (rSquared * 100).toFixed(1) + '%' : 'N/A'}</p>
-                        </div>
-                    </div>
-                 </Card>
-            </div>
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
+                    
+                    <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
+                    
+                    <Scatter 
+                        name={supplier.name} 
+                        data={pointsWithName} 
+                        fill={supplier.color}
+                        isAnimationActive={false}
+                    />
+                     <Line
+                        data={lineData}
+                        dataKey="y"
+                        stroke={supplier.color}
+                        strokeWidth={2}
+                        dot={false}
+                        strokeDasharray="5 5"
+                        name={`${supplier.name} (Ajuste)`}
+                        isAnimationActive={false}
+                        legendType="none"
+                    />
+                </ScatterChart>
+            </ResponsiveContainer>
         </div>
     );
 }
-
-    
