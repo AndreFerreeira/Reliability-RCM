@@ -87,7 +87,7 @@ const MedianRankTable = ({ sampleSize }: { sampleSize: number }) => {
                     {tableData.map((row, index) => (
                         <TableRow key={index}>
                             <TableCell className="font-medium">{row[0]}</TableCell>
-                            {row.slice(1).map((cell, i) => <TableCell key={i}>{(cell * 100).toFixed(1)}</TableCell>)}
+                            {row.slice(1).map((cell, i) => <TableCell key={i}>{(cell).toFixed(5)}</TableCell>)}
                         </TableRow>
                     ))}
                 </TableBody>
@@ -177,21 +177,32 @@ export default function ProbabilityPaper() {
                 </CardContent>
             </Card>
 
-            <ProbabilityPlot suppliers={suppliersToPlot} paperType={paperType}>
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="failure-data-input">Dados de Falha</Label>
-                        <Textarea
-                            id="failure-data-input"
-                            placeholder="Insira os tempos de falha separados por vírgula, espaço ou nova linha. Ex: 105, 213, 332, 351"
-                            rows={8}
-                            value={failureData}
-                            onChange={(e) => setFailureData(e.target.value)}
-                        />
+            <Card>
+                <CardHeader>
+                    <CardTitle>Visualização Dinâmica - {paperType}</CardTitle>
+                    <CardDescription>
+                        Insira os dados de falha para plotar um gráfico de probabilidade dinâmico. A aderência dos pontos a uma linha reta indica um bom ajuste para a distribuição selecionada.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     <div className="space-y-4 md:col-span-1">
+                        <div className="space-y-2">
+                            <Label htmlFor="failure-data-input">Dados de Falha</Label>
+                            <Textarea
+                                id="failure-data-input"
+                                placeholder="Insira os tempos de falha separados por vírgula, espaço ou nova linha. Ex: 105, 213, 332, 351"
+                                rows={8}
+                                value={failureData}
+                                onChange={(e) => setFailureData(e.target.value)}
+                            />
+                        </div>
+                        <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
                     </div>
-                    <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
-                </div>
-            </ProbabilityPlot>
+                    <div className="md:col-span-2 h-96 w-full pr-4">
+                        <ProbabilityPlot suppliers={suppliersToPlot} paperType={paperType} />
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
