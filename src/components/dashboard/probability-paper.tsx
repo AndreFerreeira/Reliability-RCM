@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -99,7 +99,7 @@ const MedianRankTable = ({ sampleSize }: { sampleSize: number }) => {
 export default function ProbabilityPaper() {
     const [paperType, setPaperType] = useState<'Weibull' | 'Lognormal' | 'Normal' | 'Exponential'>('Weibull');
     const [sampleSize, setSampleSize] = useState(10);
-    const [failureData, setFailureData] = useState('');
+    const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
 
@@ -133,6 +133,11 @@ export default function ProbabilityPaper() {
         };
         setLocalSupplier(newSupplier);
     };
+
+    useEffect(() => {
+        handlePlot();
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const suppliersToPlot = localSupplier ? [localSupplier] : [];
 
