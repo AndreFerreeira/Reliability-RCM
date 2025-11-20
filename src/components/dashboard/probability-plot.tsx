@@ -17,15 +17,6 @@ function weibullInverseTransform(y: number): number {
     return F * 100;
 }
 
-// Ticks de probabilidade para o eixo Y, como em um papel Weibull clássico
-const probabilityTicksValues = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
-const yAxisTicks = probabilityTicksValues.map(prob => {
-    const F = prob / 100;
-    // y = ln( ln( 1/(1-F) ) )
-    return Math.log(Math.log(1 / (1 - F)));
-}).filter(isFinite);
-
-
 const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const data = payload.find(p => p.name !== 'Ajuste')?.payload;
@@ -50,6 +41,17 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function ProbabilityPlot({ supplier, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     
+    // Ticks para o eixo Y, convertidos para o espaço transformado
+    const yAxisProbabilityTicks = [0.1, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    const yAxisTicks = yAxisProbabilityTicks.map(prob => {
+        const F = prob / 100;
+        return Math.log(Math.log(1 / (1 - F)));
+    }).filter(isFinite);
+
+    // Ticks para o eixo X (em valor logarítmico)
+    const xAxisTimeTicks = [10, 100, 1000, 10000];
+    const xAxisTicks = xAxisTimeTicks.map(time => Math.log(time));
+
     if (paperType !== 'Weibull') {
          return (
             <Card>
@@ -88,7 +90,7 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
                         dataKey="x" 
                         name="Tempo" 
                         domain={['dataMin', 'dataMax']}
-                        scale="log"
+                        ticks={xAxisTicks}
                         tickFormatter={(value: number) => {
                             const expVal = Math.exp(value);
                             return isFinite(expVal) ? Math.round(expVal).toString() : '';
@@ -108,10 +110,7 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
                         tickFormatter={(value: number) => {
                             const prob = weibullInverseTransform(value);
                              if (!isFinite(prob)) return '';
-                            // Custom formatting to match the desired scale look
-                            if (prob < 1) return prob.toFixed(1);
-                            if (prob > 99) return prob.toFixed(1);
-                            return Math.round(prob).toString();
+                            return prob.toFixed(1);
                         }}
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
