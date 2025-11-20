@@ -69,7 +69,7 @@ const tickFormatter = (value: number) => {
     return Math.round(originalValue);
 }
 
-export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlotProps) {
+export default function ProbabilityPlot({ suppliers, paperType, children }: React.PropsWithChildren<ProbabilityPlotProps>) {
     const { plotData, lineData, analysisResults } = useMemo(() => transformData(suppliers), [suppliers]);
     
     if (paperType !== 'Weibull') {
@@ -92,7 +92,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
                     <CardTitle>Visualização Dinâmica - Papel Weibull</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-64">
-                    <p className="text-muted-foreground">Adicione dados de fornecedores para visualizar o gráfico de probabilidade.</p>
+                    <p className="text-muted-foreground">Insira os dados de falha e clique em "Plotar Gráfico" para visualizar.</p>
                 </CardContent>
             </Card>
         );
@@ -106,7 +106,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
             <CardHeader>
                 <CardTitle>Visualização Dinâmica - Papel Weibull</CardTitle>
                 <CardDescription>
-                   Pontos de falha plotados em eixos transformados, com linha de melhor ajuste. Dados que seguem uma distribuição Weibull se alinharão a uma reta.
+                   Pontos de falha plotados em eixos transformados. A linha de regressão indica o melhor ajuste para a distribuição Weibull.
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -169,7 +169,9 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
                     </ResponsiveContainer>
                 </div>
                 <div className="space-y-4">
-                     <h3 className="font-semibold text-foreground">Parâmetros Estimados (Regressão)</h3>
+                    {children}
+
+                     <h3 className="font-semibold text-foreground pt-4">Parâmetros Estimados (Regressão)</h3>
                      {analysisResults.map(res => (
                          <Card key={res.name} className="p-3 bg-muted/30">
                             <p className="font-bold text-sm mb-2" style={{color: res.color}}>{res.name}</p>

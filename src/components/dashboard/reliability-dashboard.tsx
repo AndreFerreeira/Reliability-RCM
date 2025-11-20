@@ -115,7 +115,7 @@ export default function ReliabilityDashboard() {
           <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
         </TabsContent>
         <TabsContent value="probability_paper" className="space-y-4">
-          <ProbabilityPaper suppliers={suppliers} />
+          <ProbabilityPaper />
         </TabsContent>
       </Tabs>
     </div>
