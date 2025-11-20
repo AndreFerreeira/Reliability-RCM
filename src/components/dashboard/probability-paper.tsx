@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { medianRankTables } from '@/lib/median-ranks';
 import ProbabilityPlot from './probability-plot';
 import type { Supplier } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
@@ -64,14 +66,45 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
     );
 };
 
+const MedianRankTable = ({ sampleSize }: { sampleSize: number }) => {
+    const tableData = medianRankTables.find(t => t.sampleSize === sampleSize)?.data;
+    const confidenceLevels = ["10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%"];
+
+    if (!tableData) {
+        return <p className="text-muted-foreground text-sm py-4">Selecione um tamanho de amostra entre 2 e 25 para ver a tabela de postos medianos.</p>;
+    }
+
+    return (
+        <div className="max-h-64 overflow-y-auto rounded-md border">
+            <Table>
+                <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                    <TableRow>
+                        <TableHead className="w-[80px]">O/N</TableHead>
+                        {confidenceLevels.map(level => <TableHead key={level}>{level}</TableHead>)}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {tableData.map((row, index) => (
+                        <TableRow key={index}>
+                            <TableCell className="font-medium">{row[0]}</TableCell>
+                            {row.slice(1).map((cell, i) => <TableCell key={i}>{(cell * 100).toFixed(1)}</TableCell>)}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+};
 
 export default function ProbabilityPaper() {
     const [paperType, setPaperType] = useState<'Weibull' | 'Lognormal' | 'Normal' | 'Exponential'>('Weibull');
+    const [sampleSize, setSampleSize] = useState(10);
     const [failureData, setFailureData] = useState('');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
 
     const paperTypes = ['Weibull', 'Exponencial', 'Lognormal', 'Normal'];
+    const sampleSizes = Array.from({ length: 24 }, (_, i) => i + 2);
 
     const handlePlot = () => {
         const times = failureData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
@@ -107,14 +140,24 @@ export default function ProbabilityPaper() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Laboratório de Papel de Probabilidade</CardTitle>
+                    <CardTitle>Papéis de Probabilidade e Postos Medianos</CardTitle>
                     <CardDescription>
-                        Uma ferramenta de análise gráfica independente. Cole um conjunto de tempos de falha, selecione o tipo de papel e clique em "Plotar Gráfico" para gerar uma análise visual instantânea. Os dados inseridos aqui são apenas para esta análise e não afetam outras abas.
+                        Use os filtros para exibir a tabela de postos medianos ou o cartão de informações do papel de probabilidade desejado. Esta seção é para referência e cálculos manuais.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="w-full max-w-sm space-y-4">
+                    <div className="space-y-4">
                         <p className="text-sm font-medium">Filtros</p>
+                         <Select value={sampleSize.toString()} onValueChange={(v) => setSampleSize(parseInt(v, 10))}>
+                            <SelectTrigger id="sample-size-select">
+                                <SelectValue placeholder="Tamanho da Amostra (N)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {sampleSizes.map(size => (
+                                    <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Select value={paperType} onValueChange={(v) => setPaperType(v as any)}>
                             <SelectTrigger id="paper-type-select">
                                 <SelectValue placeholder="Selecione o Tipo de Papel" />
@@ -127,6 +170,10 @@ export default function ProbabilityPaper() {
                         </Select>
                     </div>
                     <PaperInfoCard paperType={paperType} />
+                    <div className="md:col-span-2">
+                        <h3 className="text-sm font-medium mb-2">Tabela de Postos Medianos (50% de Confiança) para N = {sampleSize}</h3>
+                        <MedianRankTable sampleSize={sampleSize} />
+                    </div>
                 </CardContent>
             </Card>
 
