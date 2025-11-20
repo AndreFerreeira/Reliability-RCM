@@ -117,7 +117,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                             stroke="hsl(var(--muted-foreground))"
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         >
-                            <Label value="Tempo (t)" offset={-25} position="insideBottom" fill="hsl(var(--foreground))" />
+                            <Label value="ln(Tempo)" offset={-25} position="insideBottom" fill="hsl(var(--foreground))" />
                         </XAxis>
 
                         <YAxis 

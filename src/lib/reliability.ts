@@ -59,7 +59,7 @@ export function estimateWeibullRankRegression(times: number[]): {
     if (points.length < 2) return { points: [], line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
 
     // Linear regression on the transformed points (y = beta * x + intercept)
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0, N = points.length;
     points.forEach(p => {
         sumX += p.x;
         sumY += p.y;
@@ -68,17 +68,17 @@ export function estimateWeibullRankRegression(times: number[]): {
         sumYY += p.y * p.y;
     });
 
-    const num = points.length;
     // beta (slope)
-    const beta = (num * sumXY - sumX * sumY) / (num * sumXX - sumX * sumX);
+    const beta = (N * sumXY - sumX * sumY) / (N * sumXX - sumX * sumX);
     // intercept
-    const intercept = (sumY - beta * sumX) / num;
+    const intercept = (sumY - beta * sumX) / N;
     // eta (characteristic life)
     const eta = Math.exp(-intercept / beta);
 
     // R-squared for goodness of fit
-    const r = (num * sumXY - sumX * sumY) / Math.sqrt((num * sumXX - sumX * sumX) * (num * sumYY - sumY * sumY));
-    const rSquared = r * r;
+    const ssr = Math.pow((N * sumXY - sumX * sumY), 2) / (N * sumXX - sumX * sumX);
+    const sst = sumYY - (sumY * sumY) / N;
+    const rSquared = ssr / sst;
     
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
