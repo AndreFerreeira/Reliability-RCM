@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { medianRankTables, type MedianRankTable } from '@/lib/median-ranks';
+import ProbabilityPaperImages from './probability-paper-images';
 
 const headers = ["10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%"];
 
@@ -150,6 +151,8 @@ export default function ProbabilityPaper() {
                     </Card>
                 )
             )}
+
+            <ProbabilityPaperImages />
         </div>
     );
 }
