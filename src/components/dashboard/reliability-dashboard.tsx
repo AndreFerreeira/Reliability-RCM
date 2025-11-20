@@ -14,9 +14,33 @@ import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 
 const initialSuppliersData = [
-  { id: '1', name: 'Fornecedor A', failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], color: 'hsl(var(--chart-1))', distribution: 'Weibull' as const },
-  { id: '2', name: 'Fornecedor B', failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], color: 'hsl(var(--chart-2))', distribution: 'Weibull' as const },
-  { id: '3', name: 'Fornecedor C', failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], color: 'hsl(var(--chart-3))', distribution: 'Weibull' as const },
+  { 
+    id: '1', 
+    name: 'Fornecedor A', 
+    failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], 
+    color: 'hsl(var(--chart-1))', 
+    distribution: 'Weibull' as const, 
+    units: 'Hora (h)',
+    dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false } 
+  },
+  { 
+    id: '2', 
+    name: 'Fornecedor B', 
+    failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], 
+    color: 'hsl(var(--chart-2))', 
+    distribution: 'Weibull' as const,
+    units: 'Hora (h)',
+    dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false } 
+  },
+  { 
+    id: '3', 
+    name: 'Fornecedor C', 
+    failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], 
+    color: 'hsl(var(--chart-3))', 
+    distribution: 'Weibull' as const,
+    units: 'Hora (h)',
+    dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false }
+  },
 ];
 
 const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({

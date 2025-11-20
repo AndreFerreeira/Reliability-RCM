@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,11 +23,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Supplier, Distribution } from '@/lib/types';
-import { X } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { X, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { estimateParameters } from '@/lib/reliability';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
@@ -38,6 +46,10 @@ const formSchema = z.object({
     { message: 'Deve ser uma lista de pelo menos 2 números não negativos, separados por vírgula, espaço ou nova linha.' }
   ),
   distribution: z.enum(['Weibull', 'Normal', 'Lognormal', 'Exponential']),
+  units: z.string().min(1, { message: 'A unidade é obrigatória.' }),
+  hasSuspensions: z.boolean(),
+  hasIntervals: z.boolean(),
+  isGrouped: z.boolean(),
 });
 
 const chartColors = [
@@ -59,7 +71,15 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', failureTimes: '', distribution: 'Weibull' },
+    defaultValues: { 
+      name: '', 
+      failureTimes: '', 
+      distribution: 'Weibull',
+      units: 'Hora (h)',
+      hasSuspensions: false,
+      hasIntervals: false,
+      isGrouped: false,
+    },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -82,6 +102,12 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
       color: chartColors[suppliers.length % chartColors.length],
       distribution: values.distribution as Distribution,
       params,
+      units: values.units,
+      dataType: {
+        hasSuspensions: values.hasSuspensions,
+        hasIntervals: values.hasIntervals,
+        isGrouped: values.isGrouped,
+      }
     };
     setSuppliers(prev => [...prev, newSupplier]);
     form.reset();
@@ -163,7 +189,11 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader>
+            <CardTitle>Entrada de Dados</CardTitle>
+            <CardDescription>Adicione um novo fornecedor para análise.</CardDescription>
+        </CardHeader>
+        <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -179,6 +209,84 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                   </FormItem>
                 )}
               />
+              <Card className="bg-muted/30">
+                <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Tipo de Dados</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="units"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unidades</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Hora (h)">Hora (h)</SelectItem>
+                              <SelectItem value="Dia">Dia</SelectItem>
+                              <SelectItem value="Ciclo">Ciclo</SelectItem>
+                              <SelectItem value="Km">Km</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="space-y-2 pt-2">
+                        <Label className="text-sm font-medium">Opções para dados de Tempos-até-Falha</Label>
+                        <FormField
+                            control={form.control}
+                            name="hasSuspensions"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                    <FormControl>
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <FormLabel>O conjunto de dados contém suspensões (dados censurados à direita)</FormLabel>
+                                        <FormDescription>Selecione se seu conjunto de dados possui itens que não falharam.</FormDescription>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="hasIntervals"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                    <FormControl>
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <FormLabel>O conjunto de dados contém intervalos e/ou dados censurados à esquerda</FormLabel>
+                                        <FormDescription>Selecione se há incertezas sobre quando uma unidade falhou.</FormDescription>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="isGrouped"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                    <FormControl>
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <FormLabel>Entrar com dados agrupados</FormLabel>
+                                        <FormDescription>Selecione se há múltiplos itens com o mesmo tempo de falha.</FormDescription>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </CardContent>
+              </Card>
               <FormField
                 control={form.control}
                 name="failureTimes"
@@ -197,7 +305,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                 name="distribution"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Distribuição</FormLabel>
+                    <FormLabel>Distribuição de Probabilidade</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -229,7 +337,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                     <div className="w-2 h-8 rounded-full" style={{ backgroundColor: supplier.color }} />
                     <div className="flex flex-col">
                       <span className="font-medium">{supplier.name}</span>
-                      <span className="text-xs text-muted-foreground">{supplier.distribution}</span>
+                      <span className="text-xs text-muted-foreground">{`${supplier.distribution} / ${supplier.units}`}</span>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remover ${supplier.name}`}>

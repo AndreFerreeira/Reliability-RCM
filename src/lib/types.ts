@@ -23,13 +23,22 @@ export interface ExponentialParams {
 
 export type Parameters = Partial<WeibullParams & NormalParams & LognormalParams & ExponentialParams>;
 
+export interface DataTypeOptions {
+  hasSuspensions: boolean; // right-censored data
+  hasIntervals: boolean;   // interval and left-censored data
+  isGrouped: boolean;
+}
+
 export interface Supplier {
   id: string;
   name: string;
-  failureTimes: number[];
+  failureTimes: number[]; // For simple time-to-failure data
+  // more complex data structures will be needed for censored/grouped data
   color: string;
   distribution: Distribution;
   params: Parameters;
+  units: string;
+  dataType: DataTypeOptions;
 }
 
 export interface ChartDataPoint {
