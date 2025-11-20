@@ -78,7 +78,7 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
     );
 };
 
-const confidenceLevels = ['None', 10, 20, 30, 40, 50, 60, 70, 80, 90];
+const confidenceLevels = ['Todos', 10, 20, 30, 40, 50, 60, 70, 80, 90];
 const confidenceLevelValues = [10, 20, 30, 40, 50, 60, 70, 80, 90];
 
 const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, confidenceLevel: number | string }) => {
@@ -88,7 +88,7 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
         return <p className="text-muted-foreground text-sm py-4">Selecione um tamanho de amostra entre 2 e 25 para ver a tabela de postos medianos.</p>;
     }
     
-    if (confidenceLevel === 'None') {
+    if (confidenceLevel === 'Todos') {
         return <p className="text-muted-foreground text-sm py-4">Selecione um nível de confiança para exibir os dados.</p>;
     }
     
@@ -155,7 +155,7 @@ export default function ProbabilityPaper() {
         }
 
         const table = medianRankTables.find(t => t.sampleSize === times.length);
-        const resolvedConfidence = confidenceLevel === 'None' ? 50 : confidenceLevel;
+        const resolvedConfidence = confidenceLevel === 'Todos' ? 50 : confidenceLevel;
         const confidenceIndex = confidenceLevelValues.indexOf(resolvedConfidence as number);
 
         if (!table || confidenceIndex === -1) {
@@ -222,13 +222,13 @@ export default function ProbabilityPaper() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Select value={confidenceLevel.toString()} onValueChange={(v) => setConfidenceLevel(v === 'None' ? v : parseInt(v, 10))}>
+                        <Select value={confidenceLevel.toString()} onValueChange={(v) => setConfidenceLevel(v === 'Todos' ? v : parseInt(v, 10))}>
                             <SelectTrigger id="confidence-level-select">
                                 <SelectValue placeholder="Nível de Confiança" />
                             </SelectTrigger>
                             <SelectContent>
                                 {confidenceLevels.map(level => (
-                                    <SelectItem key={level} value={level.toString()}>{level === 'None' ? 'Nenhum' : `${level}%`}</SelectItem>
+                                    <SelectItem key={level} value={level.toString()}>{level === 'Todos' ? 'Todos' : `${level}%`}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
