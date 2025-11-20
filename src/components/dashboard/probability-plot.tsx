@@ -34,6 +34,8 @@ const CustomTooltip = ({ active, payload }: any) => {
 
         const time = data.time;
         const probability = weibullInverseTransform(data.y);
+        
+        if (isNaN(time) || isNaN(probability)) return null;
 
         return (
             <div className="rounded-lg border bg-background p-2 shadow-sm text-xs">
@@ -52,7 +54,7 @@ const transformData = (suppliers: Supplier[]) => {
     const analysisResults: any[] = [];
 
     suppliers.forEach(supplier => {
-        if (supplier.failureTimes.length < 2) return;
+        if (!supplier || supplier.failureTimes.length < 2) return;
 
         const { points, line, params, rSquared } = estimateWeibullRankRegression(supplier.failureTimes);
 
@@ -97,7 +99,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
         );
     }
 
-    if (suppliers.length === 0 || plotData.length === 0) {
+    if (!suppliers || suppliers.length === 0 || plotData.length === 0) {
        return (
             <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full min-h-[360px]">
@@ -125,7 +127,10 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                             dataKey="x" 
                             name="Tempo" 
                             domain={['dataMin', 'dataMax']}
-                            tickFormatter={(value: number) => Math.round(Math.exp(value)).toString()}
+                            tickFormatter={(value: number) => {
+                                const expVal = Math.exp(value);
+                                return isFinite(expVal) ? Math.round(expVal).toString() : '';
+                            }}
                             stroke="hsl(var(--muted-foreground))"
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         >
@@ -138,7 +143,10 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                             name="Probabilidade de Falha (%)"
                             domain={['dataMin', 'dataMax']}
                             ticks={yAxisTicks}
-                            tickFormatter={(value: number) => `${weibullInverseTransform(value).toFixed(1)}`}
+                            tickFormatter={(value: number) => {
+                                const prob = weibullInverseTransform(value);
+                                return isFinite(prob) ? `${prob.toFixed(1)}` : '';
+                            }}
                             stroke="hsl(var(--muted-foreground))"
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         >
@@ -200,3 +208,5 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
         </div>
     );
 }
+
+    
