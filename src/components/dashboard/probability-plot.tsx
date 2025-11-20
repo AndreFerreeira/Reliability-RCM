@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, Line } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label } from 'recharts';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Supplier } from '@/lib/types';
 
@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         const data = payload.find(p => p.name !== 'Ajuste')?.payload;
         if (!data) return null;
 
-        const time = data.time;
+        const time = Math.exp(data.x);
         const probability = weibullInverseTransform(data.y);
         
         if (isNaN(time) || isNaN(probability)) return null;
@@ -60,7 +60,7 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         );
     }
 
-    if (!supplier || !supplier.plotData) {
+    if (!supplier || !supplier.plotData || !supplier.plotData.points || supplier.plotData.points.length === 0) {
        return (
             <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full min-h-[360px]">
@@ -73,7 +73,7 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         );
     }
     
-    const { points: plotData, line: lineData } = supplier.plotData;
+    const { points: plotData } = supplier.plotData;
 
     const pointsWithName = plotData.map(p => ({...p, name: supplier.name, color: supplier.color }));
     
@@ -107,7 +107,11 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
                         ticks={yAxisTicks}
                         tickFormatter={(value: number) => {
                             const prob = weibullInverseTransform(value);
-                            return isFinite(prob) ? `${prob.toFixed(1)}` : '';
+                             if (!isFinite(prob)) return '';
+                            // Custom formatting to match the desired scale look
+                            if (prob < 1) return prob.toFixed(1);
+                            if (prob > 99) return prob.toFixed(1);
+                            return Math.round(prob).toString();
                         }}
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
@@ -117,24 +121,13 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
 
                     <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
                     
-                    <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
+                    <Legend verticalAlign="bottom" wrapperStyle={{fontSize: "0.8rem", paddingTop: "20px"}} iconType="line" />
                     
                     <Scatter 
                         name={supplier.name} 
                         data={pointsWithName} 
                         fill={supplier.color}
                         isAnimationActive={false}
-                    />
-                     <Line
-                        data={lineData}
-                        dataKey="y"
-                        stroke={supplier.color}
-                        strokeWidth={2}
-                        dot={false}
-                        strokeDasharray="5 5"
-                        name={`${supplier.name} (Ajuste)`}
-                        isAnimationActive={false}
-                        legendType="none"
                     />
                 </ScatterChart>
             </ResponsiveContainer>
