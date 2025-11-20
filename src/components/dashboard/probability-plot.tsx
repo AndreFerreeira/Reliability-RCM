@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, Line } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import type { Supplier } from '@/lib/types';
 import { estimateWeibullRankRegression } from '@/lib/reliability';
 
@@ -10,16 +10,36 @@ interface ProbabilityPlotProps {
     paperType: 'Weibull' | 'Lognormal' | 'Normal' | 'Exponential';
 }
 
+// Helper para converter o valor Y do espaço Weibull de volta para probabilidade (0-100)
+function weibullInverseTransform(y: number): number {
+    if (!isFinite(y)) return NaN;
+    // y = ln( ln( 1/(1-F) ) )  =>  F = 1 - exp(-exp(y))
+    const F = 1 - Math.exp(-Math.exp(y));
+    return F * 100;
+}
+
+// Ticks de probabilidade para o eixo Y, como em um papel Weibull clássico
+const probabilityTicks = [0.1, 0.5, 1, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+const yAxisTicks = probabilityTicks.map(prob => {
+    const F = prob / 100;
+    // y = ln( ln( 1/(1-F) ) )
+    return Math.log(Math.log(1 / (1 - F)));
+}).filter(isFinite);
+
+
 const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const data = payload.find(p => p.dataKey.includes('x'))?.payload;
         if (!data) return null;
 
+        const time = data.time;
+        const probability = weibullInverseTransform(data.y);
+
         return (
             <div className="rounded-lg border bg-background p-2 shadow-sm text-xs">
                 <p className="font-bold mb-1" style={{color: data.color}}>{data.name}</p>
-                <p><span className="font-medium">Tempo:</span> {data.time.toFixed(2)}</p>
-                <p><span className="font-medium">Prob. Falha (F(t)):</span> {(data.prob * 100).toFixed(2)}%</p>
+                <p><span className="font-medium">Tempo:</span> {time.toFixed(0)}</p>
+                <p><span className="font-medium">Prob. Falha (F(t)):</span> {probability.toFixed(2)}%</p>
             </div>
         );
     }
@@ -63,11 +83,6 @@ const transformData = (suppliers: Supplier[]) => {
     return { plotData, lineData, analysisResults };
 };
 
-const tickFormatter = (value: number) => {
-    const originalValue = Math.exp(value);
-    if (originalValue < 10) return originalValue.toPrecision(2);
-    return Math.round(originalValue);
-}
 
 export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     const { plotData, lineData, analysisResults } = useMemo(() => transformData(suppliers), [suppliers]);
@@ -75,9 +90,6 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
     if (paperType !== 'Weibull') {
          return (
             <Card>
-                <CardHeader>
-                    <CardTitle>Visualização de Papel de Probabilidade {paperType}</CardTitle>
-                </CardHeader>
                 <CardContent className="flex items-center justify-center h-64">
                     <p className="text-muted-foreground">Gráfico para {paperType} ainda não implementado.</p>
                 </CardContent>
@@ -113,22 +125,24 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                             dataKey="x" 
                             name="Tempo" 
                             domain={['dataMin', 'dataMax']}
-                            tickFormatter={tickFormatter}
+                            tickFormatter={(value: number) => Math.round(Math.exp(value)).toString()}
                             stroke="hsl(var(--muted-foreground))"
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         >
-                            <Label value="ln(Tempo)" offset={-25} position="insideBottom" fill="hsl(var(--foreground))" />
+                            <Label value="Tempo" offset={-25} position="insideBottom" fill="hsl(var(--foreground))" />
                         </XAxis>
 
                         <YAxis 
                             type="number" 
                             dataKey="y" 
-                            name="Probabilidade de Falha"
-                            allowDuplicatedCategory={false}
+                            name="Probabilidade de Falha (%)"
+                            domain={['dataMin', 'dataMax']}
+                            ticks={yAxisTicks}
+                            tickFormatter={(value: number) => `${weibullInverseTransform(value).toFixed(1)}`}
                             stroke="hsl(var(--muted-foreground))"
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         >
-                            <Label value="ln(ln(1/(1-F(t))))" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: 'hsl(var(--foreground))' }} />
+                            <Label value="Probabilidade de Falha (%)" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: 'hsl(var(--foreground))' }} />
                         </YAxis>
 
                         <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
