@@ -33,35 +33,61 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 
 // --- Parameter Estimation ---
 
-function estimateWeibullRankRegression(times: number[]): Parameters {
-    if (times.length < 2) return { beta: 0, eta: 0 };
+export function estimateWeibullRankRegression(times: number[]): {
+    points: { x: number, y: number, time: number, prob: number }[],
+    line: { x: number, y: number }[],
+    params: { beta: number, eta: number },
+    rSquared: number
+} {
+    if (times.length < 2) return { points: [], line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
 
     const sortedTimes = [...times].sort((a, b) => a - b);
     const n = sortedTimes.length;
-    // Using Bernard's approximation for median ranks
-    const medianRanks = sortedTimes.map((_, i) => (i + 1 - 0.3) / (n + 0.4));
     
-    const plotPoints = medianRanks.map((mr, i) => {
-        if (mr >= 1 || sortedTimes[i] <= 0) return null;
-        return { x: Math.log(sortedTimes[i]), y: Math.log(Math.log(1 / (1 - mr))) };
-    }).filter(p => p !== null) as {x: number, y: number}[];
+    const points = sortedTimes.map((time, i) => {
+        const medianRank = (i + 1 - 0.3) / (n + 0.4);
+        if (medianRank >= 1 || time <= 0) return null;
+        return {
+            x: Math.log(time),
+            y: Math.log(Math.log(1 / (1 - medianRank))),
+            time: time,
+            prob: medianRank,
+        };
+    }).filter(p => p !== null && isFinite(p.x) && isFinite(p.y)) as { x: number, y: number, time: number, prob: number }[];
 
-    if(plotPoints.length < 2) return { beta: 0, eta: 0 };
+    if (points.length < 2) return { points: [], line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
 
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    plotPoints.forEach(p => {
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
+    points.forEach(p => {
         sumX += p.x;
         sumY += p.y;
         sumXY += p.x * p.y;
         sumXX += p.x * p.x;
+        sumYY += p.y * p.y;
     });
 
-    const num = plotPoints.length;
+    const num = points.length;
     const beta = (num * sumXY - sumX * sumY) / (num * sumXX - sumX * sumX);
     const intercept = (sumY - beta * sumX) / num;
     const eta = Math.exp(-intercept / beta);
 
-    return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };
+    const r = (num * sumXY - sumX * sumY) / Math.sqrt((num * sumXX - sumX * sumX) * (num * sumYY - sumY * sumY));
+    const rSquared = r * r;
+    
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+
+    const line = [
+        { x: minX, y: beta * minX + intercept },
+        { x: maxX, y: beta * maxX + intercept },
+    ];
+    
+    return {
+        points,
+        line,
+        params: { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta },
+        rSquared: isNaN(rSquared) ? 0 : rSquared
+    };
 }
 
 
@@ -97,18 +123,18 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         const numFailures = failures.length;
 
         // First derivative of log-likelihood w.r.t beta
-        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
+        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures * sum_t_beta_logt) / sum_t_beta;
         
         // Second derivative of log-likelihood w.r.t beta
-        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * sum_t_beta_logt2 + (numFailures / Math.pow(sum_t_beta, 2)) * Math.pow(sum_t_beta_logt, 2);
+        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * (sum_t_beta_logt2 - Math.pow(sum_t_beta_logt, 2) / sum_t_beta);
 
         if (Math.abs(d2L_dbeta2) < 1e-10) break;
 
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) {
-            // Fallback to a simpler method if MLE fails to converge
-            return estimateWeibullRankRegression(failures.length > 0 ? failures : allData);
+            const rr_params = estimateWeibullRankRegression(failures.length > 0 ? failures : allData).params;
+            return { beta: rr_params.beta, eta: rr_params.eta };
         }
 
         if (Math.abs(newBeta - beta) < tolerance) {
@@ -236,10 +262,10 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
         const sData = dataBySupplier[supplier.name]?.[dataType];
         const point = sData?.find(p => Math.abs(p.time - time) < 1e-8); // Floating point comparison
         
-        let value = null;
+        let value: number | null = null;
         if (point && isFinite(point.value)) {
-            // For ft and lambda_t, ignore the very first point if it's an extreme outlier
-            if ((dataType === 'ft' || dataType === 'lambda_t') && index === 0) {
+            // For ft and lambda_t, ignore the very first point if it's an extreme outlier from t=0 case
+            if ((dataType === 'ft' || dataType === 'lambda_t') && time === 0) {
                value = null;
             } else {
                value = point.value;

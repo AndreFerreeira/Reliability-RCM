@@ -1,8 +1,9 @@
 'use client';
 import { useMemo } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, Line } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Supplier } from '@/lib/types';
+import { estimateWeibullRankRegression } from '@/lib/reliability';
 
 interface ProbabilityPlotProps {
     suppliers: Supplier[];
@@ -11,10 +12,12 @@ interface ProbabilityPlotProps {
 
 const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-        const data = payload[0].payload;
+        const data = payload.find(p => p.dataKey.includes('points-'))?.payload;
+        if (!data) return null;
+
         return (
             <div className="rounded-lg border bg-background p-2 shadow-sm text-xs">
-                <p className="font-bold mb-1" style={{color: payload[0].color}}>{data.name}</p>
+                <p className="font-bold mb-1" style={{color: data.color}}>{data.name}</p>
                 <p><span className="font-medium">Tempo:</span> {data.time.toFixed(2)}</p>
                 <p><span className="font-medium">Prob. Falha (F(t)):</span> {(data.prob * 100).toFixed(2)}%</p>
             </div>
@@ -23,47 +26,41 @@ const CustomTooltip = ({ active, payload }: any) => {
     return null;
 };
 
+const transformData = (suppliers: Supplier[]) => {
+    const plotData: any[] = [];
+    const lineData: any[] = [];
+    const analysisResults: any[] = [];
 
-const transformData = (suppliers: Supplier[], paperType: 'Weibull' | 'Lognormal' | 'Normal' | 'Exponential') => {
-    return suppliers.flatMap(supplier => {
-        const sortedTimes = [...supplier.failureTimes].sort((a, b) => a - b);
-        const n = sortedTimes.length;
-        if (n === 0) return [];
+    suppliers.forEach(supplier => {
+        if (supplier.failureTimes.length < 2) return;
 
-        return sortedTimes.map((time, i) => {
-            const order = i + 1;
-            const medianRank = (order - 0.3) / (n + 0.4);
-            if (medianRank >= 1) return null;
+        const { points, line, params, rSquared } = estimateWeibullRankRegression(supplier.failureTimes);
 
-            let x: number | null = null;
-            let y: number | null = null;
-
-            switch (paperType) {
-                case 'Weibull':
-                    x = time > 0 ? Math.log(time) : null;
-                    y = Math.log(Math.log(1 / (1 - medianRank)));
-                    break;
-                // Add cases for other paper types here in the future
-                case 'Normal':
-                case 'Lognormal':
-                case 'Exponential':
-                default:
-                    // For now, we only implement Weibull plot
-                    return null;
-            }
-
-            if (x === null || !isFinite(x) || y === null || !isFinite(y)) return null;
-
-            return {
-                x,
-                y,
-                time,
-                prob: medianRank,
+        points.forEach(p => {
+            plotData.push({
+                ...p,
                 name: supplier.name,
                 color: supplier.color,
-            };
-        }).filter(p => p !== null);
+            });
+        });
+
+        line.forEach(p => {
+             lineData.push({
+                ...p,
+                name: supplier.name,
+             })
+        });
+
+        analysisResults.push({
+            name: supplier.name,
+            color: supplier.color,
+            beta: params.beta,
+            eta: params.eta,
+            rSquared: rSquared,
+        });
     });
+
+    return { plotData, lineData, analysisResults };
 };
 
 const tickFormatter = (value: number) => {
@@ -73,7 +70,7 @@ const tickFormatter = (value: number) => {
 }
 
 export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlotProps) {
-    const plotData = useMemo(() => transformData(suppliers, paperType), [suppliers, paperType]);
+    const { plotData, lineData, analysisResults } = useMemo(() => transformData(suppliers), [suppliers]);
     
     if (paperType !== 'Weibull') {
          return (
@@ -92,7 +89,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
        return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Visualização de Papel de Probabilidade</CardTitle>
+                    <CardTitle>Visualização Dinâmica - Papel Weibull</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-64">
                     <p className="text-muted-foreground">Adicione dados de fornecedores para visualizar o gráfico de probabilidade.</p>
@@ -109,11 +106,11 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
             <CardHeader>
                 <CardTitle>Visualização Dinâmica - Papel Weibull</CardTitle>
                 <CardDescription>
-                   Pontos de falha plotados em eixos transformados. Dados que seguem uma distribuição Weibull se alinharão como uma reta.
+                   Pontos de falha plotados em eixos transformados, com linha de melhor ajuste. Dados que seguem uma distribuição Weibull se alinharão a uma reta.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="h-96 w-full pr-4">
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="h-96 w-full pr-4 md:col-span-2">
                     <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 30 }}>
                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -123,7 +120,6 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
                                 dataKey="x" 
                                 name="Tempo" 
                                 domain={['dataMin', 'dataMax']}
-                                scale="log"
                                 tickFormatter={tickFormatter}
                                 stroke="hsl(var(--muted-foreground))"
                                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
@@ -147,16 +143,52 @@ export default function ProbabilityPlot({ suppliers, paperType }: ProbabilityPlo
                             <Legend />
 
                             {suppliersToPlot.map(name => (
-                                <Scatter 
-                                    key={name}
-                                    name={name} 
-                                    data={plotData.filter(d => d.name === name)} 
-                                    fill={supplierColors[name]}
-                                    isAnimationActive={false}
-                                />
+                                <React.Fragment key={`fragment-${name}`}>
+                                    <Scatter 
+                                        key={`points-${name}`}
+                                        name={name} 
+                                        data={plotData.filter(d => d.name === name)} 
+                                        fill={supplierColors[name]}
+                                        isAnimationActive={false}
+                                        dataKey="x"
+                                    />
+                                     <Line
+                                        key={`line-${name}`}
+                                        data={lineData.filter(d => d.name === name)}
+                                        dataKey="y"
+                                        stroke={supplierColors[name]}
+                                        strokeWidth={2}
+                                        dot={false}
+                                        strokeDasharray="5 5"
+                                        name={`${name} (Ajuste)`}
+                                        isAnimationActive={false}
+                                    />
+                                </React.Fragment>
                             ))}
                         </ScatterChart>
                     </ResponsiveContainer>
+                </div>
+                <div className="space-y-4">
+                     <h3 className="font-semibold text-foreground">Parâmetros Estimados (Regressão)</h3>
+                     {analysisResults.map(res => (
+                         <Card key={res.name} className="p-3 bg-muted/30">
+                            <p className="font-bold text-sm mb-2" style={{color: res.color}}>{res.name}</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <p className="text-muted-foreground">β (Forma)</p>
+                                    <p className="font-mono text-base font-medium">{res.beta.toFixed(2)}</p>
+                                </div>
+                                 <div>
+                                    <p className="text-muted-foreground">η (Vida)</p>
+                                    <p className="font-mono text-base font-medium">{Math.round(res.eta)}</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-muted-foreground">R² (Aderência)</p>
+                                    <p className="font-mono text-base font-medium">{(res.rSquared * 100).toFixed(1)}%</p>
+                                </div>
+                            </div>
+                         </Card>
+                     ))}
                 </div>
             </CardContent>
         </Card>
