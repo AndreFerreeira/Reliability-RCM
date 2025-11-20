@@ -8,10 +8,11 @@ import type { Supplier } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { Logo, Bot, LineChart as LineChartIcon } from '@/components/icons';
+import { Logo, Bot, LineChart as LineChartIcon, BrainCircuit } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
+import WeibullPaper from './weibull-paper';
 
 const initialSuppliersData = [
   { 
@@ -84,9 +85,10 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="analysis"><LineChartIcon />Análise de Confiabilidade</TabsTrigger>
           <TabsTrigger value="ai_analysis"><Bot />Análise com IA</TabsTrigger>
+          <TabsTrigger value="weibull_paper"><BrainCircuit />Papel Weibull</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -111,6 +113,9 @@ export default function ReliabilityDashboard() {
         <TabsContent value="ai_analysis" className="space-y-4">
           <AiRiskPredictor suppliers={suppliers} />
           <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
+        </TabsContent>
+        <TabsContent value="weibull_paper" className="space-y-4">
+          <WeibullPaper />
         </TabsContent>
       </Tabs>
     </div>
