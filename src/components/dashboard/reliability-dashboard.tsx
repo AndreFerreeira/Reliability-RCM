@@ -12,7 +12,7 @@ import { Logo, Bot, LineChart as LineChartIcon, BrainCircuit } from '@/component
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
-import WeibullPaper from './weibull-paper';
+import ProbabilityPaper from './probability-paper';
 
 const initialSuppliersData = [
   { 
@@ -88,7 +88,7 @@ export default function ReliabilityDashboard() {
         <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="analysis"><LineChartIcon />Análise de Confiabilidade</TabsTrigger>
           <TabsTrigger value="ai_analysis"><Bot />Análise com IA</TabsTrigger>
-          <TabsTrigger value="weibull_paper"><BrainCircuit />Papel Weibull</TabsTrigger>
+          <TabsTrigger value="probability_paper"><BrainCircuit />Papéis de Probabilidade</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -114,8 +114,8 @@ export default function ReliabilityDashboard() {
           <AiRiskPredictor suppliers={suppliers} />
           <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
         </TabsContent>
-        <TabsContent value="weibull_paper" className="space-y-4">
-          <WeibullPaper />
+        <TabsContent value="probability_paper" className="space-y-4">
+          <ProbabilityPaper />
         </TabsContent>
       </Tabs>
     </div>
