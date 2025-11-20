@@ -181,32 +181,6 @@ export default function ProbabilityPaper() {
                     </div>
                 </CardContent>
             </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardDescription>
-                        Insira os dados de falha para plotar um gráfico de probabilidade dinâmico. A aderência dos pontos a uma linha reta indica um bom ajuste para a distribuição selecionada.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <div className="space-y-4 md:col-span-1">
-                        <div className="space-y-2">
-                            <Label htmlFor="failure-data-input">Dados de Falha</Label>
-                            <Textarea
-                                id="failure-data-input"
-                                placeholder="Insira os tempos de falha separados por vírgula, espaço ou nova linha. Ex: 105, 213, 332, 351"
-                                rows={8}
-                                value={failureData}
-                                onChange={(e) => setFailureData(e.target.value)}
-                            />
-                        </div>
-                        <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
-                    </div>
-                    <div className="md:col-span-2 h-96 w-full pr-4">
-                        <ProbabilityPlot suppliers={suppliersToPlot} paperType={paperType} />
-                    </div>
-                </CardContent>
-            </Card>
         </div>
     );
 }
