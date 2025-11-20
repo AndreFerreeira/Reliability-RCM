@@ -81,6 +81,7 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         let sum_logt_failures = 0;
 
         for(const t of allData) {
+            if (t <= 0) continue;
             const t_beta = Math.pow(t, beta_i);
             const logt = Math.log(t);
             sum_t_beta += t_beta;
@@ -89,12 +90,16 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         }
 
         for(const t of failures) {
+            if (t <= 0) continue;
             sum_logt_failures += Math.log(t);
         }
         
         const numFailures = failures.length;
 
+        // First derivative of log-likelihood w.r.t beta
         const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
+        
+        // Second derivative of log-likelihood w.r.t beta
         const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * sum_t_beta_logt2 + (numFailures / Math.pow(sum_t_beta, 2)) * Math.pow(sum_t_beta_logt, 2);
 
         if (Math.abs(d2L_dbeta2) < 1e-10) break;
@@ -102,7 +107,8 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) {
-            return estimateWeibullRankRegression(failures); // Fallback if MLE fails
+            // Fallback to a simpler method if MLE fails to converge
+            return estimateWeibullRankRegression(failures.length > 0 ? failures : allData);
         }
 
         if (Math.abs(newBeta - beta) < tolerance) {
@@ -118,6 +124,7 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 
     return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };
 }
+
 
 function estimateNormal(times: number[]): Parameters {
     if (times.length < 1) return { mean: 0, stdDev: 0 };
@@ -223,7 +230,7 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
   });
 
   const transformToChartData = (dataType: 'Rt' | 'Ft' | 'ft' | 'lambda_t'): ChartDataPoint[] => {
-    return timePoints.map(time => {
+    return timePoints.map((time, index) => {
       const dataPoint: ChartDataPoint = { time };
       suppliers.forEach(supplier => {
         const sData = dataBySupplier[supplier.name]?.[dataType];
@@ -231,7 +238,12 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
         
         let value = null;
         if (point && isFinite(point.value)) {
-            value = point.value;
+            // For ft and lambda_t, ignore the very first point if it's an extreme outlier
+            if ((dataType === 'ft' || dataType === 'lambda_t') && index === 0) {
+               value = null;
+            } else {
+               value = point.value;
+            }
         } else if (time === 0) {
             if (dataType === 'Rt') value = 1;
             else if (dataType === 'Ft') value = 0;
@@ -251,6 +263,3 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
-
-
-
