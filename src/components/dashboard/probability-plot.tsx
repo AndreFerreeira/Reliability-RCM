@@ -96,15 +96,18 @@ const getAxisConfig = (paperType: Distribution) => {
         case 'Weibull':
             timeLabel = 'Tempo (log)';
             xTickFormatter = logXTickFormatter;
-            const yProbTicksWeibull = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+            const yProbTicksWeibull = [0.1, 0.2, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 95, 97, 98, 99, 99.5, 99.8, 99.9];
             yTicks = yProbTicksWeibull.map(prob => Math.log(Math.log(1 / (1 - prob / 100)))).filter(isFinite);
             yTickFormatter = (value) => {
                 const prob = inverseTransformY(value, paperType);
                 if (!isFinite(prob)) return '';
-                if ([0.1, 1, 10, 50, 90, 99, 99.9].includes(parseFloat(prob.toFixed(1)))) {
-                    return `${prob.toFixed(1)}%`;
+                // Only show labels for major ticks to avoid clutter, similar to a real Weibull paper
+                const majorTicks = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+                const probRounded = parseFloat(prob.toFixed(1));
+                 if (majorTicks.includes(probRounded) || (prob < 1 && majorTicks.includes(parseFloat(prob.toFixed(2))))) {
+                    return `${prob.toFixed(2)}%`;
                 }
-                return ''; // Hide other labels to avoid clutter
+                return '';
             };
             break;
         case 'Lognormal':
