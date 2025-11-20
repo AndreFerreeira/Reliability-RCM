@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Supplier, Distribution } from '@/lib/types';
-import { X, Info } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { estimateParameters } from '@/lib/reliability';
@@ -35,8 +35,6 @@ const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
   failureTimes: z.string().min(1, { message: 'Por favor, insira os dados de falha.' }).refine(
     (val) => {
-      // Allow more flexible validation for now as the format can change.
-      // Basic check for some content.
       return val.trim().length > 0;
     },
     { message: 'A entrada de dados não pode estar vazia.' }
@@ -111,24 +109,49 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
       return;
     }
     
-    // NOTE: Data parsing logic will need to be updated to handle different formats
-    const failureTimes = values.failureTimes.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
+    let failureTimes: number[] = [];
+    let suspensionTimes: number[] = [];
+
+    if (values.hasSuspensions) {
+      const lines = values.failureTimes.trim().split('\n');
+      lines.forEach(line => {
+        const parts = line.trim().split(/[\s,]+/);
+        if (parts.length === 2) {
+          const part1 = parts[0].toUpperCase();
+          const part2 = parts[1].toUpperCase();
+          const time = parseFloat(part1) || parseFloat(part2);
+          const status = part1 === 'F' || part2 === 'F' ? 'F' : (part1 === 'S' || part2 === 'S' ? 'S' : null);
+
+          if (!isNaN(time) && status) {
+            if (status === 'F') {
+              failureTimes.push(time);
+            } else {
+              suspensionTimes.push(time);
+            }
+          }
+        }
+      });
+    } else {
+      // Logic for simple or grouped data (assuming grouped not implemented yet)
+      failureTimes = values.failureTimes.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
+    }
     
-    if (failureTimes.length < 2 && !values.isGrouped) {
+    if (failureTimes.length === 0) {
         toast({
             variant: 'destructive',
-            title: 'Dados Insuficientes',
-            description: 'São necessários pelo menos 2 pontos de dados de falha para a análise.'
+            title: 'Dados de Falha Insuficientes',
+            description: 'Pelo menos um ponto de falha é necessário para a análise.'
         });
         return;
     }
 
-    const params = estimateParameters(failureTimes, values.distribution as Distribution);
+    const params = estimateParameters(failureTimes, values.distribution as Distribution, suspensionTimes);
 
     const newSupplier: Supplier = {
       id: new Date().getTime().toString(),
       name: values.name,
       failureTimes: failureTimes,
+      suspensionTimes: suspensionTimes,
       color: chartColors[suppliers.length % chartColors.length],
       distribution: values.distribution as Distribution,
       params,
@@ -154,7 +177,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     setSuppliers(prev => 
       prev.map(s => {
         if (s.id === id) {
-          const newParams = estimateParameters(s.failureTimes, newDistribution);
+          const newParams = estimateParameters(s.failureTimes, newDistribution, s.suspensionTimes);
           return { ...s, distribution: newDistribution, params: newParams };
         }
         return s;
@@ -423,5 +446,3 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     </div>
   );
 }
-
-    

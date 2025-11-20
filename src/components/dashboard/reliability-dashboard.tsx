@@ -17,7 +17,8 @@ const initialSuppliersData = [
   { 
     id: '1', 
     name: 'Fornecedor A', 
-    failureTimes: [6, 105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042], 
+    failureTimes: [105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042],
+    suspensionTimes: [] as number[],
     color: 'hsl(var(--chart-1))', 
     distribution: 'Weibull' as const, 
     units: 'Hora (h)',
@@ -27,25 +28,17 @@ const initialSuppliersData = [
     id: '2', 
     name: 'Fornecedor B', 
     failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], 
+    suspensionTimes: [] as number[],
     color: 'hsl(var(--chart-2))', 
     distribution: 'Weibull' as const,
     units: 'Hora (h)',
     dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false } 
   },
-  { 
-    id: '3', 
-    name: 'Fornecedor C', 
-    failureTimes: [80, 110, 160, 200, 230, 290, 330, 380, 450, 520], 
-    color: 'hsl(var(--chart-3))', 
-    distribution: 'Weibull' as const,
-    units: 'Hora (h)',
-    dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false }
-  },
 ];
 
 const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
   ...s,
-  params: estimateParameters(s.failureTimes, s.distribution),
+  params: estimateParameters(s.failureTimes, s.distribution, s.suspensionTimes),
 }));
 
 
@@ -58,19 +51,15 @@ export default function ReliabilityDashboard() {
         
         return updatedSuppliers.map(s => {
             const originalSupplier = prev.find(ps => ps.id === s.id);
-            // Recalculate if failure times or distribution have changed
             if (
               !originalSupplier || 
               JSON.stringify(originalSupplier.failureTimes) !== JSON.stringify(s.failureTimes) ||
+              JSON.stringify(originalSupplier.suspensionTimes) !== JSON.stringify(s.suspensionTimes) ||
               originalSupplier.distribution !== s.distribution
             ) {
-                return { ...s, params: estimateParameters(s.failureTimes, s.distribution) };
+                return { ...s, params: estimateParameters(s.failureTimes, s.distribution, s.suspensionTimes) };
             }
 
-            // Also check for manual param overrides. THIS IS A COMPLEX PART.
-            // For simplicity, we can assume manual edits are not the primary flow for now
-            // and recalculation is okay. Or we add more complex logic to detect manual changes.
-            // Let's stick with the simpler recalculation logic.
             if (JSON.stringify(s.params) !== JSON.stringify(originalSupplier.params)) {
               return s; // Keep manual overrides for params
             }

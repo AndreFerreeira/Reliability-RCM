@@ -32,8 +32,8 @@ export interface DataTypeOptions {
 export interface Supplier {
   id: string;
   name: string;
-  failureTimes: number[]; // For simple time-to-failure data
-  // more complex data structures will be needed for censored/grouped data
+  failureTimes: number[];
+  suspensionTimes: number[];
   color: string;
   distribution: Distribution;
   params: Parameters;
@@ -43,7 +43,7 @@ export interface Supplier {
 
 export interface ChartDataPoint {
   time: number;
-  [supplierName: string]: number;
+  [supplierName: string]: number | null;
 }
 
 export interface ReliabilityData {
