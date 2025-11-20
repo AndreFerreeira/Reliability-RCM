@@ -171,7 +171,7 @@ export default function ProbabilityPaper() {
                     </div>
                     <PaperInfoCard paperType={paperType} />
                     <div className="md:col-span-2">
-                        <h3 className="text-sm font-medium mb-2">Tabela de Postos Medianos (50% de Confiança) para N = {sampleSize}</h3>
+                        <h3 className="text-sm font-medium mb-2">Tabela de Postos Medianos de Confiança para N = {sampleSize}</h3>
                         <MedianRankTable sampleSize={sampleSize} />
                     </div>
                 </CardContent>
