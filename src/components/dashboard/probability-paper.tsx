@@ -78,16 +78,21 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
     );
 };
 
-const confidenceLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+const confidenceLevels = ['None', 10, 20, 30, 40, 50, 60, 70, 80, 90];
+const confidenceLevelValues = [10, 20, 30, 40, 50, 60, 70, 80, 90];
 
-const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, confidenceLevel: number }) => {
+const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, confidenceLevel: number | string }) => {
     const tableData = medianRankTables.find(t => t.sampleSize === sampleSize)?.data;
     
     if (!tableData) {
         return <p className="text-muted-foreground text-sm py-4">Selecione um tamanho de amostra entre 2 e 25 para ver a tabela de postos medianos.</p>;
     }
     
-    const confidenceIndex = confidenceLevels.indexOf(confidenceLevel);
+    if (confidenceLevel === 'None') {
+        return <p className="text-muted-foreground text-sm py-4">Selecione um nível de confiança para exibir os dados.</p>;
+    }
+    
+    const confidenceIndex = confidenceLevelValues.indexOf(confidenceLevel as number);
     if (confidenceIndex === -1) {
         return <p className="text-muted-foreground text-sm py-4">Nível de confiança inválido.</p>;
     }
@@ -118,7 +123,7 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
 export default function ProbabilityPaper() {
     const [paperType, setPaperType] = useState<Distribution>('Weibull');
     const [sampleSize, setSampleSize] = useState(10);
-    const [confidenceLevel, setConfidenceLevel] = useState(50);
+    const [confidenceLevel, setConfidenceLevel] = useState<number | string>(50);
     const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800\n2200\n2800\n3500\n4200\n5000');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
@@ -129,9 +134,6 @@ export default function ProbabilityPaper() {
     const handlePlot = () => {
         const times = failureData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
         
-        const table = medianRankTables.find(t => t.sampleSize === times.length);
-        const confidenceIndex = confidenceLevels.indexOf(confidenceLevel);
-
         if (times.length < 2) {
             toast({
                 variant: 'destructive',
@@ -152,6 +154,10 @@ export default function ProbabilityPaper() {
             return;
         }
 
+        const table = medianRankTables.find(t => t.sampleSize === times.length);
+        const resolvedConfidence = confidenceLevel === 'None' ? 50 : confidenceLevel;
+        const confidenceIndex = confidenceLevelValues.indexOf(resolvedConfidence as number);
+
         if (!table || confidenceIndex === -1) {
             toast({
                 variant: 'destructive',
@@ -162,10 +168,8 @@ export default function ProbabilityPaper() {
             return;
         }
 
-        // Extract correct probability values from the table
         const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
 
-        // Pass the times and corresponding median ranks to the estimation function
         const analysisResult = estimateParametersByRankRegression(paperType, times, medianRanks);
         
         if (!analysisResult) {
@@ -218,13 +222,13 @@ export default function ProbabilityPaper() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Select value={confidenceLevel.toString()} onValueChange={(v) => setConfidenceLevel(parseInt(v, 10))}>
+                        <Select value={confidenceLevel.toString()} onValueChange={(v) => setConfidenceLevel(v === 'None' ? v : parseInt(v, 10))}>
                             <SelectTrigger id="confidence-level-select">
                                 <SelectValue placeholder="Nível de Confiança" />
                             </SelectTrigger>
                             <SelectContent>
                                 {confidenceLevels.map(level => (
-                                    <SelectItem key={level} value={level.toString()}>{level}%</SelectItem>
+                                    <SelectItem key={level} value={level.toString()}>{level === 'None' ? 'Nenhum' : `${level}%`}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
