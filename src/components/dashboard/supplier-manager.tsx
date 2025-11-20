@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -29,21 +29,17 @@ import { useToast } from '@/hooks/use-toast';
 import { estimateParameters } from '@/lib/reliability';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import React from 'react';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
-  failureTimes: z.string().min(1, { message: 'Por favor, insira os tempos até a falha.' }).refine(
+  failureTimes: z.string().min(1, { message: 'Por favor, insira os dados de falha.' }).refine(
     (val) => {
-      const nums = val.split(/[\s,]+/).map(v => v.trim().replace(/\./g, '')).filter(v => v !== '');
-      return nums.length > 1 && nums.every(num => !isNaN(parseFloat(num)) && parseFloat(num) >= 0);
+      // Allow more flexible validation for now as the format can change.
+      // Basic check for some content.
+      return val.trim().length > 0;
     },
-    { message: 'Deve ser uma lista de pelo menos 2 números não negativos, separados por vírgula, espaço ou nova linha.' }
+    { message: 'A entrada de dados não pode estar vazia.' }
   ),
   distribution: z.enum(['Weibull', 'Normal', 'Lognormal', 'Exponential']),
   units: z.string().min(1, { message: 'A unidade é obrigatória.' }),
@@ -67,6 +63,25 @@ interface SupplierManagerProps {
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void;
 }
 
+const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boolean, hasSuspensions: boolean }) => {
+    let title = "Tempos até a Falha (TTF)";
+    let placeholder = "Ex: 150, 200, 210, 300";
+    let description = "Insira um valor por linha ou separe por vírgula/espaço.";
+
+    if (isGrouped) {
+        title = "Dados Agrupados (Tempo e Quantidade)";
+        placeholder = "Ex:\n150 2\n210 5\n300 1";
+        description = "Insira em duas colunas: [Tempo] [Quantidade].";
+    } else if (hasSuspensions) {
+        title = "Dados com Suspensão (Tempo e Status)";
+        placeholder = "Ex:\n150 F\n210 S\n300 F";
+        description = "Insira em duas colunas: [Tempo] [F para Falha, S para Suspensão].";
+    }
+    
+    return { title, placeholder, description };
+};
+
+
 export default function SupplierManager({ suppliers, setSuppliers }: SupplierManagerProps) {
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -82,6 +97,10 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     },
   });
 
+  const isGrouped = useWatch({ control: form.control, name: 'isGrouped' });
+  const hasSuspensions = useWatch({ control: form.control, name: 'hasSuspensions' });
+  const { title: inputTitle, placeholder: inputPlaceholder, description: inputDescription } = DataInputInstructions({ isGrouped, hasSuspensions });
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (suppliers.length >= 5) {
       toast({
@@ -92,7 +111,18 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
       return;
     }
     
+    // NOTE: Data parsing logic will need to be updated to handle different formats
     const failureTimes = values.failureTimes.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
+    
+    if (failureTimes.length < 2 && !values.isGrouped) {
+        toast({
+            variant: 'destructive',
+            title: 'Dados Insuficientes',
+            description: 'São necessários pelo menos 2 pontos de dados de falha para a análise.'
+        });
+        return;
+    }
+
     const params = estimateParameters(failureTimes, values.distribution as Distribution);
 
     const newSupplier: Supplier = {
@@ -211,7 +241,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
               />
               <Card className="bg-muted/30">
                 <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Tipo de Dados</CardTitle>
+                    <CardTitle className="text-base">Configuração dos Dados</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <FormField
@@ -238,48 +268,76 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                       )}
                     />
                     <div className="space-y-2 pt-2">
-                        <Label className="text-sm font-medium">Opções para dados de Tempos-até-Falha</Label>
+                        <Label className="text-sm font-medium">Opções para Dados</Label>
                         <FormField
                             control={form.control}
                             name="hasSuspensions"
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                                     <FormControl>
-                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                        <Checkbox 
+                                            checked={field.value} 
+                                            onCheckedChange={(checked) => {
+                                                field.onChange(checked);
+                                                if (checked) {
+                                                    form.setValue('hasIntervals', false);
+                                                    form.setValue('isGrouped', false);
+                                                }
+                                            }} 
+                                        />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel>O conjunto de dados contém suspensões (dados censurados à direita)</FormLabel>
-                                        <FormDescription>Selecione se seu conjunto de dados possui itens que não falharam.</FormDescription>
+                                        <FormLabel>O conjunto de dados contém suspensões</FormLabel>
+                                        <FormDescription>Dados censurados à direita (itens que não falharam).</FormDescription>
                                     </div>
                                 </FormItem>
                             )}
                         />
                         <FormField
                             control={form.control}
-                            name="hasIntervals"
+                            name="isGrouped"
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                                     <FormControl>
-                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                        <Checkbox 
+                                            checked={field.value} 
+                                            onCheckedChange={(checked) => {
+                                                field.onChange(checked);
+                                                if (checked) {
+                                                    form.setValue('hasIntervals', false);
+                                                    form.setValue('hasSuspensions', false);
+                                                }
+                                            }}
+                                        />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel>O conjunto de dados contém intervalos e/ou dados censurados à esquerda</FormLabel>
-                                        <FormDescription>Selecione se há incertezas sobre quando uma unidade falhou.</FormDescription>
+                                        <FormLabel>Entrar com dados agrupados</FormLabel>
+                                        <FormDescription>Múltiplos itens com o mesmo tempo de falha.</FormDescription>
                                     </div>
                                 </FormItem>
                             )}
                         />
                          <FormField
                             control={form.control}
-                            name="isGrouped"
+                            name="hasIntervals"
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                                     <FormControl>
-                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                        <Checkbox 
+                                            checked={field.value} 
+                                            onCheckedChange={(checked) => {
+                                                field.onChange(checked);
+                                                if (checked) {
+                                                    form.setValue('hasSuspensions', false);
+                                                    form.setValue('isGrouped', false);
+                                                }
+                                            }}
+                                            disabled // Disabling until logic is implemented
+                                        />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel>Entrar com dados agrupados</FormLabel>
-                                        <FormDescription>Selecione se há múltiplos itens com o mesmo tempo de falha.</FormDescription>
+                                        <FormLabel>O conjunto de dados contém intervalos (Em breve)</FormLabel>
+                                        <FormDescription>Dados censurados por intervalo e/ou à esquerda.</FormDescription>
                                     </div>
                                 </FormItem>
                             )}
@@ -292,10 +350,11 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                 name="failureTimes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tempos até a Falha (TTF)</FormLabel>
+                    <FormLabel>{inputTitle}</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="ex: 150, 200, 210, 300" {...field} />
+                      <Textarea placeholder={inputPlaceholder} {...field} rows={6} />
                     </FormControl>
+                    <FormDescription>{inputDescription}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -364,3 +423,5 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     </div>
   );
 }
+
+    
