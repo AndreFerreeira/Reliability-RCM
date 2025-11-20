@@ -39,6 +39,11 @@ export interface Supplier {
   params: Parameters;
   units: string;
   dataType: DataTypeOptions;
+  plotData?: {
+    points: { x: number; y: number; time: number; prob: number }[];
+    line: { x: number; y: number }[];
+    rSquared: number;
+  }
 }
 
 export interface ChartDataPoint {
@@ -102,3 +107,5 @@ export const AnalyzeChartDataOutputSchema = z.object({
   failureRate: ChartAnalysisSchema,
 });
 export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema>;
+
+    

@@ -32,8 +32,15 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 }
 
 // --- Parameter Estimation ---
+// Benard's approximation for median ranks
+function getMedianRank(i: number, n: number): number {
+    return (i - 0.3) / (n + 0.4);
+}
 
-export function estimateWeibullRankRegression(times: number[]): {
+export function estimateWeibullRankRegression(
+    times: number[],
+    medianRanks?: number[]
+): {
     points: { x: number, y: number, time: number, prob: number }[],
     line: { x: number, y: number }[],
     params: { beta: number, eta: number },
@@ -45,14 +52,15 @@ export function estimateWeibullRankRegression(times: number[]): {
     const n = sortedTimes.length;
     
     const points = sortedTimes.map((time, i) => {
-        // Using Benard's approximation for median ranks, which is the standard
-        const medianRank = (i + 1 - 0.3) / (n + 0.4);
-        if (medianRank >= 1 || time <= 0) return null;
+        // Use provided median ranks or calculate them if not available
+        const prob = medianRanks && medianRanks.length === n ? medianRanks[i] : getMedianRank(i + 1, n);
+
+        if (prob >= 1 || time <= 0) return null;
         return {
             x: Math.log(time),
-            y: Math.log(Math.log(1 / (1 - medianRank))),
+            y: Math.log(Math.log(1 / (1 - prob))),
             time: time,
-            prob: medianRank,
+            prob: prob,
         };
     }).filter(p => p !== null && isFinite(p.x) && isFinite(p.y)) as { x: number, y: number, time: number, prob: number }[];
 
@@ -68,22 +76,24 @@ export function estimateWeibullRankRegression(times: number[]): {
         sumYY += p.y * p.y;
     });
 
-    // beta (slope)
-    const beta = (N * sumXY - sumX * sumY) / (N * sumXX - sumX * sumX);
-    // intercept
+    const numerator = (N * sumXY - sumX * sumY);
+    const denominator = (N * sumXX - sumX * sumX);
+    
+    if (Math.abs(denominator) < 1e-9) { // Avoid division by zero
+        return { points, line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
+    }
+
+    const beta = numerator / denominator;
     const intercept = (sumY - beta * sumX) / N;
-    // eta (characteristic life)
     const eta = Math.exp(-intercept / beta);
 
-    // R-squared for goodness of fit
-    const ssr = Math.pow((N * sumXY - sumX * sumY), 2) / (N * sumXX - sumX * sumX);
+    const ssr = Math.pow(numerator, 2) / denominator;
     const sst = sumYY - (sumY * sumY) / N;
-    const rSquared = ssr / sst;
+    const rSquared = sst === 0 ? 1 : ssr / sst;
     
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
 
-    // Generate points for the regression line
     const line = [
         { x: minX, y: beta * minX + intercept },
         { x: maxX, y: beta * maxX + intercept },
@@ -303,3 +313,5 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
+
+    

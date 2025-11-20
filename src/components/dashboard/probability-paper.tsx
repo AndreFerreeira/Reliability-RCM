@@ -76,6 +76,9 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
     }
     
     const confidenceIndex = confidenceLevels.indexOf(confidenceLevel);
+    if (confidenceIndex === -1) {
+        return <p className="text-muted-foreground text-sm py-4">Nível de confiança inválido.</p>;
+    }
 
     return (
         <div className="max-h-64 overflow-y-auto rounded-md border">
@@ -90,7 +93,7 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
                     {tableData.map((row, index) => (
                         <TableRow key={index}>
                             <TableCell className="font-medium">{row[0]}</TableCell>
-                            <TableCell>{(row[confidenceIndex + 1]).toFixed(5)}</TableCell>
+                            <TableCell>{(row[confidenceIndex + 1] * 100).toFixed(3)}%</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -104,7 +107,7 @@ export default function ProbabilityPaper() {
     const [paperType, setPaperType] = useState<'Weibull' | 'Lognormal' | 'Normal' | 'Exponential'>('Weibull');
     const [sampleSize, setSampleSize] = useState(10);
     const [confidenceLevel, setConfidenceLevel] = useState(50);
-    const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800');
+    const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800\n2200\n2800\n3500\n4200\n5000');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
 
@@ -114,6 +117,9 @@ export default function ProbabilityPaper() {
     const handlePlot = () => {
         const times = failureData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
         
+        const table = medianRankTables.find(t => t.sampleSize === times.length);
+        const confidenceIndex = confidenceLevels.indexOf(confidenceLevel);
+
         if (times.length < 2) {
             toast({
                 variant: 'destructive',
@@ -124,7 +130,31 @@ export default function ProbabilityPaper() {
             return;
         }
 
-        const { params } = estimateWeibullRankRegression(times);
+        if (times.length !== sampleSize) {
+             toast({
+                variant: 'destructive',
+                title: 'Amostra Incompatível',
+                description: `O número de tempos de falha (${times.length}) não corresponde ao tamanho da amostra selecionado (${sampleSize}).`,
+            });
+            setLocalSupplier(null);
+            return;
+        }
+
+        if (!table || confidenceIndex === -1) {
+            toast({
+                variant: 'destructive',
+                title: 'Tabela de Postos Não Encontrada',
+                description: 'Não foi possível encontrar os dados de posto mediano para a amostra e confiança selecionadas.',
+            });
+            setLocalSupplier(null);
+            return;
+        }
+
+        // Extrai os valores de probabilidade corretos da tabela
+        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
+
+        // Passa os tempos e os postos medianos correspondentes para a função de estimativa
+        const { params, points, line, rSquared } = estimateWeibullRankRegression(times, medianRanks);
         
         const newSupplier: Supplier = {
             id: 'local_analysis',
@@ -135,7 +165,8 @@ export default function ProbabilityPaper() {
             distribution: 'Weibull',
             params: params,
             units: 'Tempo',
-            dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false }
+            dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },
+            plotData: { points, line, rSquared } // Storing plot specific data
         };
         setLocalSupplier(newSupplier);
     };
@@ -143,9 +174,7 @@ export default function ProbabilityPaper() {
     useEffect(() => {
         handlePlot();
          // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const suppliersToPlot = localSupplier ? [localSupplier] : [];
+    }, [sampleSize, confidenceLevel, failureData]);
 
     return (
         <div className="space-y-6">
@@ -165,7 +194,7 @@ export default function ProbabilityPaper() {
                             </SelectTrigger>
                             <SelectContent>
                                 {sampleSizes.map(size => (
-                                    <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                                    <SelectItem key={size} value={size.toString()}>{`N = ${size}`}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -202,7 +231,7 @@ export default function ProbabilityPaper() {
                 <CardHeader>
                     <CardTitle>Visualização Dinâmica – Weibull</CardTitle>
                     <CardDescription>
-                        Insira os dados de tempo até a falha para gerar um gráfico de probabilidade Weibull dinâmico e estimar os parâmetros.
+                        Insira os dados de tempo até a falha para gerar um gráfico de probabilidade Weibull dinâmico e estimar os parâmetros. O número de entradas deve corresponder ao tamanho da amostra (N) selecionado acima.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -223,7 +252,7 @@ export default function ProbabilityPaper() {
                         <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
                     </div>
                     <div className="md:col-span-2">
-                        <ProbabilityPlot suppliers={suppliersToPlot} paperType="Weibull" />
+                        <ProbabilityPlot supplier={localSupplier} paperType="Weibull" />
                     </div>
                 </CardContent>
             </Card>

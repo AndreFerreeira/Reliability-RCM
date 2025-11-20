@@ -3,10 +3,9 @@ import React, { useMemo } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, Line } from 'recharts';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Supplier } from '@/lib/types';
-import { estimateWeibullRankRegression } from '@/lib/reliability';
 
 interface ProbabilityPlotProps {
-    suppliers: Supplier[];
+    supplier: Supplier | null;
     paperType: 'Weibull' | 'Lognormal' | 'Normal' | 'Exponential';
 }
 
@@ -19,8 +18,8 @@ function weibullInverseTransform(y: number): number {
 }
 
 // Ticks de probabilidade para o eixo Y, como em um papel Weibull clássico
-const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
-const yAxisTicks = probabilityTicks.map(prob => {
+const probabilityTicksValues = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+const yAxisTicks = probabilityTicksValues.map(prob => {
     const F = prob / 100;
     // y = ln( ln( 1/(1-F) ) )
     return Math.log(Math.log(1 / (1 - F)));
@@ -48,46 +47,8 @@ const CustomTooltip = ({ active, payload }: any) => {
     return null;
 };
 
-const transformData = (suppliers: Supplier[]) => {
-    const plotData: any[] = [];
-    const lineData: any[] = [];
-    const analysisResults: any[] = [];
 
-    suppliers.forEach(supplier => {
-        if (!supplier || supplier.failureTimes.length < 2) return;
-
-        const { points, line, params, rSquared } = estimateWeibullRankRegression(supplier.failureTimes);
-
-        points.forEach(p => {
-            plotData.push({
-                ...p,
-                name: supplier.name,
-                color: supplier.color,
-            });
-        });
-
-        line.forEach(p => {
-             lineData.push({
-                ...p,
-                name: supplier.name,
-             })
-        });
-
-        analysisResults.push({
-            name: supplier.name,
-            color: supplier.color,
-            beta: params.beta,
-            eta: params.eta,
-            rSquared: rSquared,
-        });
-    });
-
-    return { plotData, lineData, analysisResults };
-};
-
-
-export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
-    const { plotData, lineData, analysisResults } = useMemo(() => transformData(suppliers), [suppliers]);
+export default function ProbabilityPlot({ supplier, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     
     if (paperType !== 'Weibull') {
          return (
@@ -99,22 +60,24 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
         );
     }
 
-    if (!suppliers || suppliers.length === 0 || plotData.length === 0) {
+    if (!supplier || !supplier.plotData) {
        return (
             <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full min-h-[360px]">
                     <div className="text-center text-muted-foreground">
                         <p className="font-semibold">Aguardando dados...</p>
-                        <p className="text-sm mt-2">Insira os dados de falha no painel ao lado e clique em "Plotar Gráfico" para visualizar.</p>
+                        <p className="text-sm mt-2">Insira os dados de falha, ajuste as amostras e clique em "Plotar Gráfico".</p>
                     </div>
                 </CardContent>
             </Card>
         );
     }
     
-    const suppliersToPlot = [...new Set(plotData.map(d => d.name))];
-    const supplierColors = suppliers.reduce((acc, s) => ({ ...acc, [s.name]: s.color }), {} as Record<string, string>);
+    const { points: plotData, line: lineData, rSquared } = supplier.plotData;
+    const { beta, eta } = supplier.params;
 
+    const pointsWithName = plotData.map(p => ({...p, name: supplier.name, color: supplier.color }));
+    
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full items-start">
             <div className="h-96 w-full pr-4 md:col-span-2">
@@ -127,6 +90,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                             dataKey="x" 
                             name="Tempo" 
                             domain={['dataMin', 'dataMax']}
+                            scale="log"
                             tickFormatter={(value: number) => {
                                 const expVal = Math.exp(value);
                                 return isFinite(expVal) ? Math.round(expVal).toString() : '';
@@ -141,7 +105,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                             type="number" 
                             dataKey="y" 
                             name="Probabilidade de Falha (%)"
-                            domain={['dataMin', 'dataMax']}
+                            domain={[yAxisTicks[0], yAxisTicks[yAxisTicks.length -1]]}
                             ticks={yAxisTicks}
                             tickFormatter={(value: number) => {
                                 const prob = weibullInverseTransform(value);
@@ -156,54 +120,46 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                         <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
                         
                         <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
-
-                        {suppliersToPlot.map(name => (
-                            <React.Fragment key={`fragment-${name}`}>
-                                <Scatter 
-                                    key={`points-${name}`}
-                                    name={name} 
-                                    data={plotData.filter(d => d.name === name)} 
-                                    fill={supplierColors[name]}
-                                    isAnimationActive={false}
-                                />
-                                 <Line
-                                    key={`line-${name}`}
-                                    data={lineData.filter(d => d.name === name)}
-                                    dataKey="y"
-                                    stroke={supplierColors[name]}
-                                    strokeWidth={2}
-                                    dot={false}
-                                    strokeDasharray="5 5"
-                                    name={`${name} (Ajuste)`}
-                                    isAnimationActive={false}
-                                    legendType="none"
-                                />
-                            </React.Fragment>
-                        ))}
+                        
+                        <Scatter 
+                            name={supplier.name} 
+                            data={pointsWithName} 
+                            fill={supplier.color}
+                            isAnimationActive={false}
+                        />
+                         <Line
+                            data={lineData}
+                            dataKey="y"
+                            stroke={supplier.color}
+                            strokeWidth={2}
+                            dot={false}
+                            strokeDasharray="5 5"
+                            name={`${supplier.name} (Ajuste)`}
+                            isAnimationActive={false}
+                            legendType="none"
+                        />
                     </ScatterChart>
                 </ResponsiveContainer>
             </div>
             <div className="space-y-4">
                  <h3 className="font-semibold text-foreground pt-4">Parâmetros Estimados (Regressão)</h3>
-                 {analysisResults.map(res => (
-                     <Card key={res.name} className="p-3 bg-muted/30">
-                        <p className="font-bold text-sm mb-2" style={{color: res.color}}>{res.name}</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                                <p className="text-muted-foreground">β (Forma)</p>
-                                <p className="font-mono text-base font-medium">{res.beta.toFixed(2)}</p>
-                            </div>
-                             <div>
-                                <p className="text-muted-foreground">η (Vida)</p>
-                                <p className="font-mono text-base font-medium">{Math.round(res.eta)}</p>
-                            </div>
-                            <div className="col-span-2">
-                                <p className="text-muted-foreground">R² (Aderência)</p>
-                                <p className="font-mono text-base font-medium">{(res.rSquared * 100).toFixed(1)}%</p>
-                            </div>
+                 <Card className="p-3 bg-muted/30">
+                    <p className="font-bold text-sm mb-2" style={{color: supplier.color}}>{supplier.name}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <p className="text-muted-foreground">β (Forma)</p>
+                            <p className="font-mono text-base font-medium">{beta?.toFixed(2) ?? 'N/A'}</p>
                         </div>
-                     </Card>
-                 ))}
+                         <div>
+                            <p className="text-muted-foreground">η (Vida)</p>
+                            <p className="font-mono text-base font-medium">{eta ? Math.round(eta) : 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2">
+                            <p className="text-muted-foreground">R² (Aderência)</p>
+                            <p className="font-mono text-base font-medium">{rSquared ? (rSquared * 100).toFixed(1) + '%' : 'N/A'}</p>
+                        </div>
+                    </div>
+                 </Card>
             </div>
         </div>
     );
