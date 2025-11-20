@@ -41,6 +41,19 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
     }
     
     const { rSquared, params, points, line } = supplier.plotData;
+
+    if (!points || !line) {
+        return (
+             <Card className="h-full">
+                 <CardContent className="flex items-center justify-center h-full min-h-[450px]">
+                     <div className="text-center text-muted-foreground">
+                         <p className="font-semibold">Erro ao processar dados...</p>
+                         <p className="text-sm mt-2">Não foi possível gerar a linha de regressão.</p>
+                     </div>
+                 </CardContent>
+             </Card>
+         );
+    }
     
     let transformedPoints: [number, number][] = [];
     let transformedLine: [number, number][] = [];
