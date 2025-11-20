@@ -4,141 +4,26 @@ import ReactECharts from 'echarts-for-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Supplier, Distribution } from '@/lib/types';
 
-
 interface ProbabilityPlotProps {
     supplier: Supplier | null;
     paperType: Distribution;
 }
 
-const WeibullPaperClassic = ({ data }: { data: Supplier['plotData'] }) => {
-    if (!data || !data.points || !data.line) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">Gerando...</p>
-            </div>
-        );
-    }
+// Low-level approximation for the inverse of the standard normal CDF
+function normalInverse(p: number) {
+    // Safeguard for edge cases
+    if (p <= 0) p = 1e-6;
+    if (p >= 1) p = 0.999999;
     
-    const points = data.points;
-    const line = data.line;
-    const params = data.params;
-
-    const scatterData = points.map(p => [p.x, p.y]);
-    const lineData = line.map(p => [p.x, p.y]);
-
-    function weibullInverse(y: number): number {
-        const F = 1 - Math.exp(-Math.exp(y)); // 0–1
-        return F * 100;
-    }
-
-    const probTicks = [0.1, 0.2, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 95, 97, 98, 99, 99.5, 99.8, 99.9];
-    const yTicks = probTicks.map(F => {
-        const f = F / 100;
-        return Math.log(Math.log(1 / (1 - f)));
-    });
-
-    const betaLinesData: { lineStyle: any; label: any; xAxis?: number; yAxis?: number, name?: string }[] = [];
-    if (params?.beta && params?.eta) {
-        const beta = params.beta;
-        const eta = params.eta;
-
-        // Simplified logic based on Echarts example
-        const betaLines = [0.5, 0.7, 1, 1.5, 2, 3, 4, 6];
-        betaLines.forEach(b => {
-             const y = b * (Math.log(10) - Math.log(eta)) + Math.log(Math.log(1 / (1-0.5)));
-
-            betaLinesData.push({
-                name: `β=${b}`,
-                lineStyle: { color: "#777", type: "dashed", width: 1 },
-                label: {
-                    formatter: `β=${b}`,
-                    color: "#777",
-                    fontSize: 10,
-                    position: "end"
-                },
-                yAxis: y
-            });
-        });
-    }
-
-    const option = {
-        backgroundColor: "transparent",
-        grid: { left: 80, right: 50, top: 50, bottom: 60 },
-        xAxis: {
-            type: "value",
-            name: "Tempo (h) — escala log",
-            nameLocation: 'middle',
-            nameGap: 30,
-            axisLabel: {
-                formatter: (val: number) => Math.exp(val).toPrecision(2)
-            },
-            splitLine: {
-                show: true,
-                lineStyle: { color: "hsl(var(--border))", width: 1, opacity: 0.7 }
-            },
-        },
-        yAxis: {
-            type: "value",
-            name: "Probabilidade (%)",
-            nameLocation: 'middle',
-            nameGap: 55,
-            min: Math.min(...yTicks),
-            max: Math.max(...yTicks),
-            axisLabel: {
-                formatter: (val: number) => {
-                    const prob = weibullInverse(val);
-                    if (prob < 1) return prob.toFixed(1);
-                    return Math.round(prob);
-                }
-            },
-            splitLine: {
-                show: true,
-                lineStyle: { color: "hsl(var(--border))", width: 1, opacity: 0.7 }
-            },
-            axisPointer: {
-                label: {
-                    formatter: (params: any) => `${weibullInverse(params.value).toFixed(2)}%`
-                }
-            }
-        },
-        tooltip: {
-            trigger: 'axis',
-             formatter: (params: any) => {
-                const point = params.find((p:any) => p.seriesType === 'scatter');
-                if (!point) return '';
-                const time = Math.exp(point.value[0]);
-                const prob = weibullInverse(point.value[1]);
-                return `Tempo: ${time.toFixed(0)}<br/>Prob. Falha: ${prob.toFixed(2)}%`;
-            }
-        },
-        series: [
-            {
-                type: "scatter",
-                name: "Falhas",
-                data: scatterData,
-                symbolSize: 8,
-                itemStyle: { color: "hsl(var(--primary))" }
-            },
-            {
-                type: "line",
-                name: "Ajuste Weibull",
-                data: lineData,
-                showSymbol: false,
-                lineStyle: { width: 2, color: "hsl(var(--accent))" }
-            },
-        ]
-    };
-
-    return (
-        <ReactECharts
-            option={option}
-            style={{ height: "100%", width: "100%" }}
-            notMerge={true}
-            lazyUpdate={true}
-        />
-    );
-};
-
+    const y = p - 0.5;
+    const r = y * y;
+    
+    // Rational approximation
+    const a1 = -39.69683028665376, a2 = 220.9460984245205, a3 = -275.9285104469687;
+    const b1 = -54.47609879822406, b2 = 161.5858368580409, b3 = -155.6989798598866;
+    
+    return (y * (a1 + r * (a2 + r * a3))) / (1 + r * (b1 + r * (b2 + r * b3)));
+}
 
 export default function ProbabilityPlot({ supplier, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     
@@ -155,7 +40,133 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         );
     }
     
-    const { rSquared, params } = supplier.plotData;
+    const { rSquared, params, points, line } = supplier.plotData;
+    
+    let transformedPoints: [number, number][] = [];
+    let transformedLine: [number, number][] = [];
+    
+    // Data transformation based on paper type
+    switch(paperType) {
+        case 'Weibull':
+            transformedPoints = points.map(p => [p.x, p.y]);
+            transformedLine = line.map(p => [p.x, p.y]);
+            break;
+        case 'Lognormal':
+            transformedPoints = points.map(p => [Math.log(p.time), normalInverse(p.prob)]);
+            transformedLine = line.map(p => [p.x, p.y]);
+            break;
+        case 'Normal':
+            transformedPoints = points.map(p => [p.time, normalInverse(p.prob)]);
+            transformedLine = line.map(p => [p.x, p.y]);
+            break;
+        case 'Exponential':
+            transformedPoints = points.map(p => [p.time, -Math.log(1 - p.prob)]);
+            transformedLine = line.map(p => [p.x, p.y]);
+            break;
+        case 'Loglogistic':
+            transformedPoints = points.map(p => [Math.log(p.time), Math.log(p.prob / (1 - p.prob))]);
+            transformedLine = line.map(p => [p.x, p.y]);
+            break;
+        case 'Gumbel':
+            transformedPoints = points.map(p => [p.time, -Math.log(-Math.log(p.prob))]);
+            transformedLine = line.map(p => [p.x, p.y]);
+            break;
+    }
+
+    // Axis formatters
+    const axisSettings = {
+        Weibull: {
+            xLabel: (val: number) => Math.exp(val).toPrecision(2),
+            yLabel: (val: number) => (1 - Math.exp(-Math.exp(val))) * 100
+        },
+        Lognormal: {
+            xLabel: (val: number) => Math.exp(val).toPrecision(2),
+            yLabel: (val: number) => val
+        },
+        Normal: {
+            xLabel: (val: number) => val.toPrecision(2),
+            yLabel: (val: number) => val
+        },
+        Exponential: {
+            xLabel: (val: number) => val.toPrecision(2),
+            yLabel: (val: number) => val
+        },
+        Loglogistic: {
+            xLabel: (val: number) => Math.exp(val).toPrecision(2),
+            yLabel: (val: number) => val
+        },
+        Gumbel: {
+            xLabel: (val: number) => val.toPrecision(2),
+            yLabel: (val: number) => val
+        }
+    };
+    
+    // ECharts option object
+    const option = {
+        backgroundColor: "transparent",
+        grid: { left: 80, right: 50, top: 50, bottom: 60 },
+        xAxis: {
+            type: "value",
+            name: "Tempo",
+            nameLocation: 'middle',
+            nameGap: 30,
+            axisLabel: {
+                formatter: axisSettings[paperType].xLabel,
+                color: "hsl(var(--foreground))"
+            },
+            splitLine: {
+                show: true,
+                lineStyle: { color: "hsl(var(--border))", opacity: 0.7 }
+            }
+        },
+        yAxis: {
+            type: "value",
+            name: "Probabilidade (%)",
+            nameLocation: 'middle',
+            nameGap: 55,
+             axisLabel: {
+                formatter: (val: number) => {
+                    if (paperType === 'Weibull') {
+                        const prob = axisSettings.Weibull.yLabel(val);
+                        if (prob < 1) return prob.toFixed(1);
+                        return Math.round(prob);
+                    }
+                    return val.toPrecision(2);
+                },
+                 color: "hsl(var(--foreground))"
+            },
+            splitLine: {
+                show: true,
+                lineStyle: { color: "hsl(var(--border))", opacity: 0.7 }
+            }
+        },
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: any) => {
+                const point = params.find((p:any) => p.seriesType === 'scatter');
+                if (!point) return '';
+                const originalPoint = supplier.plotData!.points[point.dataIndex];
+                return `Tempo: ${originalPoint.time.toFixed(0)}<br/>Prob. Falha: ${(originalPoint.prob * 100).toFixed(2)}%`;
+            }
+        },
+        series: [
+            {
+                type: 'scatter',
+                name: 'Falhas',
+                data: transformedPoints,
+                symbolSize: 8,
+                itemStyle: { color: "hsl(var(--primary))" }
+            },
+            {
+                type: 'line',
+                name: `Ajuste ${paperType}`,
+                data: transformedLine,
+                showSymbol: false,
+                lineStyle: { width: 2, color: "hsl(var(--accent))" }
+            }
+        ]
+    };
+    
 
     const renderParams = () => {
         if (!params) return null;
@@ -198,10 +209,15 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         <Card className="h-full relative">
             <CardContent className="h-full pt-6">
                 <div className="h-[450px] w-full">
-                   <WeibullPaperClassic data={supplier.plotData} />
+                   <ReactECharts
+                        option={option}
+                        style={{ height: "100%", width: "100%" }}
+                        notMerge={true}
+                        lazyUpdate={true}
+                    />
                 </div>
             </CardContent>
-            {params && (
+            {params && Object.keys(params).length > 0 && (
               <div className="absolute bottom-4 right-4 bg-background/80 p-2 rounded-md border text-xs text-muted-foreground space-y-1">
                   {renderParams()}
                   {rSquared != null && <p><strong>R² (Aderência):</strong> {rSquared.toFixed(3)}</p>}
