@@ -38,66 +38,59 @@ function estimateWeibull(times: number[], suspensions: number[] = []): Parameter
     if (suspensions.length > 0) {
       return estimateWeibullMLE(times, suspensions);
     }
-    // Fallback to Rank Regression if no suspensions
     return estimateWeibullRankRegression(times);
 }
 
-// Maximum Likelihood Estimation for Weibull with censored data
-function estimateWeibullMLE(failures: number[], suspensions: number[], maxIterations = 50, tolerance = 1e-6): Parameters {
+// Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
+function estimateWeibullMLE(failures: number[], suspensions: number[], maxIterations = 100, tolerance = 1e-7): Parameters {
     const allData = [...failures, ...suspensions];
     if (failures.length === 0) return { beta: 0, eta: 0 };
-  
-    // Initial guess for beta using an approximation or a fixed value
-    let beta = 1.0; 
-  
-    for (let iter = 0; iter < maxIterations; iter++) {
-      const betaPow = (t: number) => Math.pow(t, beta);
-      const logT = (t: number) => Math.log(t);
-  
-      let sumBetaPowLog = 0;
-      allData.forEach(t => sumBetaPowLog += betaPow(t) * logT(t));
-      
-      let sumBetaPow = 0;
-      allData.forEach(t => sumBetaPow += betaPow(t));
 
-      let sumFailuresLog = 0;
-      failures.forEach(t => sumFailuresLog += logT(t));
-      
-      const numFailures = failures.length;
+    let beta = 1.0; // Initial guess for beta
 
-      // f(beta) - function to find root of
-      const f_beta = (sumBetaPowLog / sumBetaPow) - (sumFailuresLog / numFailures) - (1 / beta);
-      
-      // f'(beta) - derivative of f(beta)
-      let sumBetaPowLogSq = 0;
-      allData.forEach(t => sumBetaPowLogSq += betaPow(t) * Math.pow(logT(t), 2));
+    for (let i = 0; i < maxIterations; i++) {
+        const kb = beta; // Keep naming for clarity
+        const logTimes = allData.map(t => Math.log(t));
+        const t_kb = allData.map(t => Math.pow(t, kb));
+        const t_kb_logt = allData.map((t, j) => t_kb[j] * logTimes[j]);
+        const t_kb_logt2 = allData.map((t, j) => t_kb[j] * Math.pow(logTimes[j], 2));
 
-      const f_prime_beta = (sumBetaPowLogSq / sumBetaPow) - Math.pow(sumBetaPowLog / sumBetaPow, 2) + (1 / (beta * beta));
-      
-      if (Math.abs(f_prime_beta) < 1e-10) { // Avoid division by zero
-        break;
-      }
-      
-      const newBeta = beta - f_beta / f_prime_beta;
-  
-      if (!isFinite(newBeta) || newBeta <= 0) {
-          break; // Stop if beta becomes invalid
-      }
-      
-      if (Math.abs(newBeta - beta) < tolerance) {
+        const sum_t_kb = t_kb.reduce((a, b) => a + b, 0);
+        const sum_t_kb_logt = t_kb_logt.reduce((a, b) => a + b, 0);
+        const sum_t_kb_logt2 = t_kb_logt2.reduce((a, b) => a + b, 0);
+        
+        const sum_logt_failures = failures.reduce((a, b) => a + Math.log(b), 0);
+        
+        const N_f = failures.length;
+
+        // First derivative of the log-likelihood function w.r.t. beta
+        const dL_dbeta = (N_f / kb) + sum_logt_failures - (N_f / sum_t_kb) * sum_t_kb_logt;
+
+        // Second derivative of the log-likelihood function w.r.t. beta
+        const d2L_dbeta2 = (-N_f / (kb * kb)) - (N_f / sum_t_kb) * sum_t_kb_logt2 + (N_f / Math.pow(sum_t_kb, 2)) * Math.pow(sum_t_kb_logt, 2);
+
+        if (Math.abs(d2L_dbeta2) < 1e-10) break; // Avoid division by zero
+
+        const newBeta = beta - dL_dbeta / d2L_dbeta2;
+
+        if (!isFinite(newBeta) || newBeta <= 0) {
+            break; // Stop if beta becomes invalid
+        }
+
+        if (Math.abs(newBeta - beta) < tolerance) {
+            beta = newBeta;
+            break;
+        }
         beta = newBeta;
-        break;
-      }
-      beta = newBeta;
     }
     
-    // Ensure beta is a reasonable value
-    beta = Math.max(0.01, beta);
+    beta = Math.max(0.01, beta); // Ensure beta is positive
 
     const eta = Math.pow(allData.reduce((acc, t) => acc + Math.pow(t, beta), 0) / failures.length, 1 / beta);
-  
+
     return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };
 }
+
 
 function estimateWeibullRankRegression(times: number[]): Parameters {
     if (times.length < 2) return { beta: 0, eta: 0 };
@@ -186,17 +179,10 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
         case 'Weibull':
           if (params.eta && params.eta > 0 && params.beta && params.beta > 0) {
             const tOverEta = time / params.eta;
-            const tOverEtaPowBeta = Math.pow(tOverEta, params.beta);
-            R_t = Math.exp(-tOverEtaPowBeta);
+            R_t = Math.exp(-Math.pow(tOverEta, params.beta));
             F_t = 1 - R_t;
-            f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-tOverEtaPowBeta);
-            // Cap lambda_t to avoid infinity for beta < 1 at t=0
-            if (params.beta < 1 && time < 1) {
-                 lambda_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1);
-                 lambda_t = Math.min(lambda_t, 1e6); // Cap at a large number
-            } else {
-                 lambda_t = (R_t > 1e-9) ? f_t / R_t : (f_t / 1e-9);
-            }
+            f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-Math.pow(tOverEta, params.beta));
+            lambda_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1);
           }
           break;
         case 'Normal':
@@ -241,11 +227,12 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
         const point = sData?.find(p => Math.abs(p.time - time) < 1e-8); // Floating point comparison
         
         let value = null;
-        if (point) {
+        if (point && isFinite(point.value)) {
             value = point.value;
         } else if (time === 0) {
             if (dataType === 'Rt') value = 1;
             else if (dataType === 'Ft' || dataType === 'ft') value = 0;
+            // For lambda_t at t=0, it might be Inf or 0, null is safer for plotting
         }
 
         dataPoint[supplier.name] = value;

@@ -140,8 +140,9 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                 }
             });
         } else {
-             // Lógica para dados simples ou agrupados
-            failureTimes = rawInput.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
+             // Logic for simple or grouped data
+             // Remove dots as thousand separators before parsing
+             failureTimes = rawInput.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
         }
 
         if (failureTimes.length === 0) {
