@@ -37,7 +37,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityChartsProps) {
   const hasData = suppliers.length > 0;
 
-  const renderChart = (title: string, description: string, dataKey: keyof ReliabilityData, lineType: 'step' | 'monotone', yDomain: any, tickFormatter?: (value: any) => string) => (
+  const renderChart = (title: string, description: string, dataKey: keyof ReliabilityData, yDomain: any) => (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
@@ -63,14 +63,17 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
                 tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                 domain={yDomain} 
-                tickFormatter={tickFormatter}
+                tickFormatter={(tick) => {
+                    if (tick >= 1000) return `${(tick / 1000).toPrecision(2)}k`;
+                    return tick.toPrecision(2);
+                }}
               />
               <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
               <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
               {suppliers.map(supplier => (
                 <Line
                   key={supplier.id}
-                  type={lineType}
+                  type="monotone"
                   dataKey={supplier.name}
                   stroke={supplier.color}
                   strokeWidth={2}
@@ -93,10 +96,10 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {renderChart('Confiabilidade: R(t)', 'Probabilidade de funcionar corretamente até o tempo t.', 'Rt', 'monotone', [0, 1])}
-        {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', 'monotone', [0, 1])}
-        {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', 'monotone', ['auto', 'auto'])}
-        {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', 'monotone', ['auto', 'auto'])}
+        {renderChart('Confiabilidade: R(t)', 'Probabilidade de funcionar corretamente até o tempo t.', 'Rt', [0, 1])}
+        {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', [0, 1])}
+        {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', [0, 'dataMax * 1.2'])}
+        {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', [0, 'dataMax * 1.2'])}
       </div>
     </div>
   );

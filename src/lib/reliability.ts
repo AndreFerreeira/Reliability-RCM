@@ -171,7 +171,13 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             R_t = Math.exp(-tOverEtaPowBeta);
             F_t = 1 - R_t;
             f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-tOverEtaPowBeta);
-            lambda_t = (R_t > 1e-9) ? f_t / R_t : (f_t / 1e-9);
+            // Cap lambda_t to avoid infinity for beta < 1 at t=0
+            if (params.beta < 1 && time < 1) {
+                 lambda_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1);
+                 lambda_t = Math.min(lambda_t, 1e6); // Cap at a large number
+            } else {
+                 lambda_t = (R_t > 1e-9) ? f_t / R_t : (f_t / 1e-9);
+            }
           }
           break;
         case 'Normal':
@@ -220,7 +226,7 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             value = point.value;
         } else if (time === 0) {
             if (dataType === 'Rt') value = 1;
-            else if (dataType === 'Ft') value = 0;
+            else if (dataType === 'Ft' || dataType === 'ft') value = 0;
         }
 
         dataPoint[supplier.name] = value;
