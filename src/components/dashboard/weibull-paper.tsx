@@ -1,61 +1,16 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-const sampleSize21 = [
-    [1, 0.0050, 0.0106, 0.0168, 0.0240, 0.0325, 0.0427, 0.0557, 0.0738, 0.1039],
-    [2, 0.0256, 0.0394, 0.0521, 0.0650, 0.0786, 0.0940, 0.1122, 0.1360, 0.1729],
-    [3, 0.0537, 0.0740, 0.0914, 0.1081, 0.1253, 0.1440, 0.1656, 0.1929, 0.2341],
-    [4, 0.0858, 0.1114, 0.1325, 0.1522, 0.1721, 0.1933, 0.2173, 0.2471, 0.2910],
-    [5, 0.1206, 0.1507, 0.1748, 0.1970, 0.2189, 0.2420, 0.2678, 0.2994, 0.3452],
-    [6, 0.1576, 0.1914, 0.2180, 0.2421, 0.2657, 0.2903, 0.3175, 0.3503, 0.3973],
-    [7, 0.1962, 0.2333, 0.2620, 0.2877, 0.3126, 0.3382, 0.3664, 0.4001, 0.4477],
-    [8, 0.2363, 0.2762, 0.3066, 0.3335, 0.3594, 0.3859, 0.4147, 0.4489, 0.4966],
-    [9, 0.2778, 0.3199, 0.3517, 0.3797, 0.4063, 0.4333, 0.4624, 0.4967, 0.5442],
-    [10, 0.3205, 0.3646, 0.3974, 0.4261, 0.4531, 0.4804, 0.5097, 0.5438, 0.5905],
-    [11, 0.3644, 0.4100, 0.4436, 0.4727, 0.5000, 0.5273, 0.5564, 0.5900, 0.6356],
-    [12, 0.4095, 0.4562, 0.4904, 0.5196, 0.5469, 0.5739, 0.6026, 0.6354, 0.6795],
-    [13, 0.4558, 0.5033, 0.5376, 0.5667, 0.5937, 0.6203, 0.6483, 0.6801, 0.7222],
-    [14, 0.5034, 0.5511, 0.5853, 0.6141, 0.6406, 0.6665, 0.6934, 0.7239, 0.7637],
-    [15, 0.5523, 0.5999, 0.6336, 0.6618, 0.6874, 0.7123, 0.7380, 0.7667, 0.8038],
-    [16, 0.6027, 0.6497, 0.6825, 0.7097, 0.7343, 0.7579, 0.7820, 0.8086, 0.8425],
-    [17, 0.6548, 0.7006, 0.7322, 0.7580, 0.7811, 0.8031, 0.8252, 0.8493, 0.8794],
-    [18, 0.7090, 0.7529, 0.7827, 0.8067, 0.8279, 0.8478, 0.8675, 0.8886, 0.9142],
-    [19, 0.7660, 0.8071, 0.8344, 0.8560, 0.8747, 0.8919, 0.9086, 0.9260, 0.9463],
-    [20, 0.8271, 0.8640, 0.8878, 0.9060, 0.9214, 0.9350, 0.9479, 0.9606, 0.9744],
-    [21, 0.8961, 0.9262, 0.9443, 0.9573, 0.9675, 0.9760, 0.9832, 0.9894, 0.9950]
-];
-
-const sampleSize22 = [
-    [1, 0.0048, 0.0101, 0.0161, 0.0230, 0.0310, 0.0408, 0.0533, 0.0705, 0.0994],
-    [2, 0.0244, 0.0376, 0.0498, 0.0620, 0.0751, 0.0898, 0.1073, 0.1301, 0.1656],
-    [3, 0.0512, 0.0706, 0.0872, 0.1032, 0.1197, 0.1376, 0.1584, 0.1846, 0.2242],
-    [4, 0.0817, 0.1062, 0.1264, 0.1453, 0.1644, 0.1847, 0.2078, 0.2365, 0.2789],
-    [5, 0.1149, 0.1436, 0.1667, 0.1880, 0.2091, 0.2313, 0.2562, 0.2867, 0.3310],
-    [6, 0.1500, 0.1824, 0.2080, 0.2311, 0.2538, 0.2775, 0.3038, 0.3356, 0.3812],
-    [7, 0.1867, 0.2223, 0.2498, 0.2746, 0.2986, 0.3234, 0.3506, 0.3833, 0.4297],
-    [8, 0.2248, 0.2631, 0.2923, 0.3183, 0.3434, 0.3690, 0.3969, 0.4302, 0.4768],
-    [9, 0.2642, 0.3047, 0.3353, 0.3623, 0.3881, 0.4143, 0.4427, 0.4762, 0.5228],
-    [10, 0.3046, 0.3471, 0.3788, 0.4066, 0.4329, 0.4594, 0.4880, 0.5215, 0.5675],
-    [11, 0.3462, 0.3902, 0.4228, 0.4510, 0.4776, 0.5043, 0.5329, 0.5660, 0.6112],
-    [12, 0.3888, 0.4340, 0.4672, 0.4957, 0.5224, 0.5490, 0.5772, 0.6098, 0.6538],
-    [13, 0.4325, 0.4785, 0.5120, 0.5406, 0.5671, 0.5935, 0.6212, 0.6529, 0.6954],
-    [14, 0.4773, 0.5238, 0.5573, 0.5857, 0.6119, 0.6377, 0.6647, 0.6953, 0.7358],
-    [15, 0.5232, 0.5698, 0.6031, 0.6310, 0.6567, 0.6817, 0.7077, 0.7370, 0.7752],
-    [16, 0.5703, 0.6167, 0.6494, 0.6766, 0.7014, 0.7254, 0.7502, 0.7777, 0.8133],
-    [17, 0.6188, 0.6645, 0.6963, 0.7225, 0.7462, 0.7689, 0.7921, 0.8176, 0.8500],
-    [18, 0.6690, 0.7133, 0.7438, 0.7687, 0.7909, 0.8119, 0.8333, 0.8564, 0.8851],
-    [19, 0.7211, 0.7635, 0.7922, 0.8153, 0.8356, 0.8547, 0.8736, 0.8938, 0.9183],
-    [20, 0.7758, 0.8154, 0.8416, 0.8624, 0.8803, 0.8968, 0.9128, 0.9294, 0.9488],
-    [21, 0.8344, 0.8699, 0.8927, 0.9102, 0.9249, 0.9380, 0.9502, 0.9624, 0.9756],
-    [22, 0.9006, 0.9295, 0.9467, 0.9592, 0.9690, 0.9771, 0.9839, 0.9899, 0.9952]
-];
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { medianRankTables, type MedianRankTable } from '@/lib/median-ranks';
 
 const headers = ["10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%"];
 
-const RankTable = ({ title, data }: { title: string, data: number[][] }) => (
+const RankTable = ({ table }: { table: MedianRankTable }) => (
     <Card>
         <CardHeader>
-            <CardTitle>{title}</CardTitle>
+            <CardTitle>Postos Medianos para Tamanho da Amostra = {table.sampleSize}</CardTitle>
+            <CardDescription>Use a coluna O/N (Ordem/Nº da Falha) para encontrar o posto mediano na porcentagem de confiança desejada.</CardDescription>
         </CardHeader>
         <CardContent>
             <div className="overflow-x-auto">
@@ -69,11 +24,11 @@ const RankTable = ({ title, data }: { title: string, data: number[][] }) => (
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {data.map((row, rowIndex) => (
+                        {table.data.map((row, rowIndex) => (
                             <TableRow key={rowIndex}>
                                 {row.map((cell, cellIndex) => (
-                                    <TableCell key={cellIndex} className={`text-center ${cellIndex === 0 ? 'font-bold' : 'font-mono'}`}>
-                                        {cellIndex === 0 ? cell : cell.toFixed(5)}
+                                    <TableCell key={cellIndex} className={`text-center ${cellIndex === 0 ? 'font-bold' : 'font-mono text-xs'}`}>
+                                        {cellIndex === 0 ? cell : cell.toFixed(4)}
                                     </TableCell>
                                 ))}
                             </TableRow>
@@ -86,18 +41,48 @@ const RankTable = ({ title, data }: { title: string, data: number[][] }) => (
 );
 
 export default function WeibullPaper() {
+    const [selectedSize, setSelectedSize] = useState<number | null>(null);
+
+    const selectedTable = selectedSize ? medianRankTables.find(t => t.sampleSize === selectedSize) : null;
+    const availableSizes = medianRankTables.map(t => t.sampleSize).sort((a,b) => a - b);
+
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Papel de Probabilidade Weibull</CardTitle>
                     <CardDescription>
-                        Use estas tabelas de Postos Medianos (Median Ranks) para plotar pontos de dados em um papel de probabilidade Weibull e realizar uma análise gráfica. Ordene seus tempos de falha e use a coluna O/N (Ordem) correspondente para encontrar o valor do posto mediano na porcentagem de confiança desejada.
+                        Use estas tabelas de Postos Medianos (Median Ranks) para plotar pontos de dados em um papel de probabilidade Weibull e realizar uma análise gráfica. Ordene seus tempos de falha e use a coluna O/N (Ordem) correspondente para encontrar o valor do posto mediano.
                     </CardDescription>
                 </CardHeader>
+                <CardContent>
+                    <div className="max-w-xs">
+                        <label htmlFor="sample-size-select" className="text-sm font-medium">Selecione o Tamanho da Amostra (N)</label>
+                        <Select onValueChange={(value) => setSelectedSize(parseInt(value))}>
+                            <SelectTrigger id="sample-size-select">
+                                <SelectValue placeholder="Escolha um tamanho de amostra..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableSizes.map(size => (
+                                    <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardContent>
             </Card>
-            <RankTable title="Tamanho da Amostra = 21" data={sampleSize21} />
-            <RankTable title="Tamanho da Amostra = 22" data={sampleSize22} />
+
+            {selectedTable ? (
+                <RankTable table={selectedTable} />
+            ) : (
+                selectedSize && (
+                    <Card>
+                        <CardContent className="p-6">
+                            <p className="text-center text-muted-foreground">Tabela para o tamanho de amostra {selectedSize} não disponível.</p>
+                        </CardContent>
+                    </Card>
+                )
+            )}
         </div>
     );
 }
