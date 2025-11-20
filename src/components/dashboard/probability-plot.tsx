@@ -89,7 +89,10 @@ const getAxisConfig = (paperType: Distribution) => {
     const generalXTickFormatter = (value: number) => Math.round(value).toString();
     const logXTickFormatter = (value: number) => {
         const expVal = Math.exp(value);
-        return isFinite(expVal) ? Math.round(expVal).toString() : '';
+        // Format for log scale, e.g., 10, 100, 1k, 10k
+        if (expVal < 1000) return Math.round(expVal).toString();
+        if (expVal < 1000000) return (expVal / 1000).toPrecision(3) + 'k';
+        return (expVal / 1000000).toPrecision(3) + 'M';
     };
 
     switch (paperType) {
@@ -101,11 +104,14 @@ const getAxisConfig = (paperType: Distribution) => {
             yTickFormatter = (value) => {
                 const prob = inverseTransformY(value, paperType);
                 if (!isFinite(prob)) return '';
-                // Only show labels for major ticks to avoid clutter, similar to a real Weibull paper
-                const majorTicks = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
-                const probRounded = parseFloat(prob.toFixed(1));
-                 if (majorTicks.includes(probRounded) || (prob < 1 && majorTicks.includes(parseFloat(prob.toFixed(2))))) {
-                    return `${prob.toFixed(2)}%`;
+                const majorTicks = [0.1, 1, 10, 50, 90, 99, 99.9];
+                const probFixed1 = parseFloat(prob.toFixed(1));
+                if (majorTicks.includes(probFixed1)) {
+                    return `${probFixed1}%`;
+                }
+                const probFixed2 = parseFloat(prob.toFixed(2));
+                 if (prob < 1 && majorTicks.includes(probFixed2)) {
+                    return `${probFixed2}%`;
                 }
                 return '';
             };
