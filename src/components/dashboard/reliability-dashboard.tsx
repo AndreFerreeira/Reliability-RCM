@@ -8,7 +8,7 @@ import type { Supplier } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { Logo, Bot, LineChart as LineChartIcon, BrainCircuit } from '@/components/icons';
+import { Bot, LineChart as LineChartIcon, BrainCircuit } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
@@ -78,7 +78,6 @@ export default function ReliabilityDashboard() {
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
         <div className="flex items-center gap-4">
-          <Logo className="h-10 w-10" />
           <h1 className="text-3xl font-headline font-bold tracking-tight">
             Reliability RCM
           </h1>
