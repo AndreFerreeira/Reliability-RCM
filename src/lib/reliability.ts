@@ -33,48 +33,41 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 
 // --- Parameter Estimation ---
 
-function estimateWeibull(times: number[], suspensions: number[] = []): Parameters {
-    if (times.length === 0) return { beta: 0, eta: 0 };
-    if (suspensions.length > 0) {
-      return estimateWeibullMLE(times, suspensions);
-    }
-    return estimateWeibullRankRegression(times);
-}
-
 // Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
-function estimateWeibullMLE(failures: number[], suspensions: number[], maxIterations = 100, tolerance = 1e-7): Parameters {
+function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
     const allData = [...failures, ...suspensions];
     if (failures.length === 0) return { beta: 0, eta: 0 };
 
     let beta = 1.0; // Initial guess for beta
 
     for (let i = 0; i < maxIterations; i++) {
-        const kb = beta; // Keep naming for clarity
+        const beta_i = beta; // Keep naming for clarity
         const logTimes = allData.map(t => Math.log(t));
-        const t_kb = allData.map(t => Math.pow(t, kb));
-        const t_kb_logt = allData.map((t, j) => t_kb[j] * logTimes[j]);
-        const t_kb_logt2 = allData.map((t, j) => t_kb[j] * Math.pow(logTimes[j], 2));
+        const t_beta = allData.map(t => Math.pow(t, beta_i));
+        const t_beta_logt = allData.map((t, j) => t_beta[j] * logTimes[j]);
+        const t_beta_logt2 = allData.map((t, j) => t_beta[j] * Math.pow(logTimes[j], 2));
 
-        const sum_t_kb = t_kb.reduce((a, b) => a + b, 0);
-        const sum_t_kb_logt = t_kb_logt.reduce((a, b) => a + b, 0);
-        const sum_t_kb_logt2 = t_kb_logt2.reduce((a, b) => a + b, 0);
+        const sum_t_beta = t_beta.reduce((a, b) => a + b, 0);
+        const sum_t_beta_logt = t_beta_logt.reduce((a, b) => a + b, 0);
+        const sum_t_beta_logt2 = t_beta_logt2.reduce((a, b) => a + b, 0);
         
         const sum_logt_failures = failures.reduce((a, b) => a + Math.log(b), 0);
         
-        const N_f = failures.length;
+        const numFailures = failures.length;
 
         // First derivative of the log-likelihood function w.r.t. beta
-        const dL_dbeta = (N_f / kb) + sum_logt_failures - (N_f / sum_t_kb) * sum_t_kb_logt;
+        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
 
         // Second derivative of the log-likelihood function w.r.t. beta
-        const d2L_dbeta2 = (-N_f / (kb * kb)) - (N_f / sum_t_kb) * sum_t_kb_logt2 + (N_f / Math.pow(sum_t_kb, 2)) * Math.pow(sum_t_kb_logt, 2);
+        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * sum_t_beta_logt2 + (numFailures / Math.pow(sum_t_beta, 2)) * Math.pow(sum_t_beta_logt, 2);
 
         if (Math.abs(d2L_dbeta2) < 1e-10) break; // Avoid division by zero
 
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) {
-            break; // Stop if beta becomes invalid
+            // Fallback to a simpler estimation if Newton-Raphson fails
+            return estimateWeibullRankRegression(failures);
         }
 
         if (Math.abs(newBeta - beta) < tolerance) {
@@ -97,6 +90,7 @@ function estimateWeibullRankRegression(times: number[]): Parameters {
 
     const sortedTimes = [...times].sort((a, b) => a - b);
     const n = sortedTimes.length;
+    // Using Bernard's approximation for median ranks
     const medianRanks = sortedTimes.map((_, i) => (i + 1 - 0.3) / (n + 0.4));
     
     const plotPoints = medianRanks.map((mr, i) => {
@@ -134,6 +128,7 @@ function estimateNormal(times: number[]): Parameters {
 function estimateLognormal(times: number[]): Parameters {
     if (times.length < 1) return { mean: 0, stdDev: 0 };
     const logTimes = times.map(t => Math.log(t)).filter(t => isFinite(t));
+    if (logTimes.length === 0) return { mean: 0, stdDev: 0 };
     return estimateNormal(logTimes);
 }
 
@@ -145,7 +140,11 @@ function estimateExponential(times: number[]): Parameters {
 
 export function estimateParameters(failureTimes: number[], dist: Distribution, suspensionTimes: number[] = []): Parameters {
     switch (dist) {
-        case 'Weibull': return estimateWeibull(failureTimes, suspensionTimes);
+        case 'Weibull': 
+             if (suspensionTimes.length > 0) {
+                return estimateWeibullMLE(failureTimes, suspensionTimes);
+             }
+             return estimateWeibullRankRegression(failureTimes);
         case 'Normal': return estimateNormal(failureTimes);
         case 'Lognormal': return estimateLognormal(failureTimes);
         case 'Exponential': return estimateExponential(failureTimes);
@@ -182,7 +181,11 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             R_t = Math.exp(-Math.pow(tOverEta, params.beta));
             F_t = 1 - R_t;
             f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-Math.pow(tOverEta, params.beta));
-            lambda_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1);
+            if (params.beta < 1 && time < 1e-6) {
+                lambda_t = f_t / (R_t > 1e-9 ? R_t : 1e-9);
+            } else {
+                lambda_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1);
+            }
           }
           break;
         case 'Normal':
@@ -190,7 +193,7 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             F_t = normalCdf(time, params.mean, params.stdDev);
             R_t = 1 - F_t;
             f_t = normalPdf(time, params.mean, params.stdDev);
-            lambda_t = (R_t > 1e-9) ? f_t / R_t : (f_t / 1e-9);
+            lambda_t = (R_t > 1e-9) ? f_t / R_t : 0;
           }
           break;
         case 'Lognormal':
@@ -199,7 +202,7 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             F_t = normalCdf(logTime, params.mean, params.stdDev);
             R_t = 1 - F_t;
             f_t = normalPdf(logTime, params.mean, params.stdDev) / time;
-            lambda_t = (R_t > 1e-9) ? f_t / R_t : (f_t / 1e-9);
+            lambda_t = (R_t > 1e-9) ? f_t / R_t : 0;
           }
           break;
         case 'Exponential':
@@ -231,8 +234,8 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             value = point.value;
         } else if (time === 0) {
             if (dataType === 'Rt') value = 1;
-            else if (dataType === 'Ft' || dataType === 'ft') value = 0;
-            // For lambda_t at t=0, it might be Inf or 0, null is safer for plotting
+            else if (dataType === 'Ft') value = 0;
+            // For ft and lambda_t at t=0, it might be Inf or 0, null is safer for plotting
         }
 
         dataPoint[supplier.name] = value;
@@ -248,4 +251,5 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
+
 
