@@ -181,6 +181,36 @@ export default function ProbabilityPaper() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Visualização Dinâmica – Weibull</CardTitle>
+                    <CardDescription>
+                        Insira os dados de tempo até a falha para gerar um gráfico de probabilidade Weibull dinâmico e estimar os parâmetros.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="failure-data-input">Tempos até a Falha (TTF)</Label>
+                            <Textarea
+                                id="failure-data-input"
+                                value={failureData}
+                                onChange={(e) => setFailureData(e.target.value)}
+                                placeholder="Ex: 500, 900, 1200..."
+                                rows={8}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Insira valores separados por vírgula, espaço ou nova linha.
+                            </p>
+                        </div>
+                        <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
+                    </div>
+                    <div className="md:col-span-2">
+                        <ProbabilityPlot suppliers={suppliersToPlot} paperType="Weibull" />
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

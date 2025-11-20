@@ -89,7 +89,7 @@ export default function ProbabilityPlot({ suppliers, paperType, children }: Reac
        return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Visualização Dinâmica - Papel Weibull</CardTitle>
+                    <CardTitle>Visualização Dinâmica – Weibull</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-96">
                     <div className="text-center text-muted-foreground">
