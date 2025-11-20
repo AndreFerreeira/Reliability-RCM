@@ -12,7 +12,7 @@ interface ProbabilityPlotProps {
 
 const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-        const data = payload.find(p => p.dataKey.includes('points-'))?.payload;
+        const data = payload.find(p => p.dataKey.includes('x'))?.payload;
         if (!data) return null;
 
         return (
@@ -91,8 +91,11 @@ export default function ProbabilityPlot({ suppliers, paperType, children }: Reac
                 <CardHeader>
                     <CardTitle>Visualização Dinâmica - Papel Weibull</CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center h-64">
-                    <p className="text-muted-foreground">Insira os dados de falha e clique em "Plotar Gráfico" para visualizar.</p>
+                <CardContent className="flex items-center justify-center h-96">
+                    <div className="text-center text-muted-foreground">
+                        <p className="font-semibold">Aguardando dados...</p>
+                        <p className="text-sm mt-2">Insira os dados de falha no painel ao lado e clique em "Plotar Gráfico" para visualizar.</p>
+                    </div>
                 </CardContent>
             </Card>
         );
@@ -140,7 +143,7 @@ export default function ProbabilityPlot({ suppliers, paperType, children }: Reac
 
                             <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
                             
-                            <Legend />
+                            <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
 
                             {suppliersToPlot.map(name => (
                                 <React.Fragment key={`fragment-${name}`}>
@@ -162,6 +165,7 @@ export default function ProbabilityPlot({ suppliers, paperType, children }: Reac
                                         strokeDasharray="5 5"
                                         name={`${name} (Ajuste)`}
                                         isAnimationActive={false}
+                                        legendType="none"
                                     />
                                 </React.Fragment>
                             ))}
