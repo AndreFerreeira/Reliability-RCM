@@ -146,11 +146,13 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
                     </ResponsiveContainer>
                 </div>
             </CardContent>
-            <div className="absolute bottom-4 right-4 bg-background/80 p-2 rounded-md border text-xs text-muted-foreground space-y-1">
-                {params.beta != null && <p><strong>β (Forma):</strong> {params.beta.toFixed(3)}</p>}
-                {params.eta != null && <p><strong>η (Vida):</strong> {params.eta.toFixed(1)}</p>}
-                {rSquared != null && <p><strong>R² (Aderência):</strong> {rSquared.toFixed(3)}</p>}
-            </div>
+            {params && (
+              <div className="absolute bottom-4 right-4 bg-background/80 p-2 rounded-md border text-xs text-muted-foreground space-y-1">
+                  {params.beta != null && <p><strong>β (Forma):</strong> {params.beta.toFixed(3)}</p>}
+                  {params.eta != null && <p><strong>η (Vida):</strong> {params.eta.toFixed(1)}</p>}
+                  {rSquared != null && <p><strong>R² (Aderência):</strong> {rSquared.toFixed(3)}</p>}
+              </div>
+            )}
         </Card>
     );
 }
