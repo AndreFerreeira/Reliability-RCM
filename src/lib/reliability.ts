@@ -33,58 +33,6 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 
 // --- Parameter Estimation ---
 
-// Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
-function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
-    const allData = [...failures, ...suspensions];
-    if (failures.length === 0) return { beta: 0, eta: 0 };
-
-    let beta = 1.0; // Initial guess for beta
-
-    for (let i = 0; i < maxIterations; i++) {
-        const beta_i = beta; // Keep naming for clarity
-        const logTimes = allData.map(t => Math.log(t));
-        const t_beta = allData.map(t => Math.pow(t, beta_i));
-        const t_beta_logt = allData.map((t, j) => t_beta[j] * logTimes[j]);
-        const t_beta_logt2 = allData.map((t, j) => t_beta[j] * Math.pow(logTimes[j], 2));
-
-        const sum_t_beta = t_beta.reduce((a, b) => a + b, 0);
-        const sum_t_beta_logt = t_beta_logt.reduce((a, b) => a + b, 0);
-        const sum_t_beta_logt2 = t_beta_logt2.reduce((a, b) => a + b, 0);
-        
-        const sum_logt_failures = failures.reduce((a, b) => a + Math.log(b), 0);
-        
-        const numFailures = failures.length;
-
-        // First derivative of the log-likelihood function w.r.t. beta
-        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
-
-        // Second derivative of the log-likelihood function w.r.t. beta
-        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * sum_t_beta_logt2 + (numFailures / Math.pow(sum_t_beta, 2)) * Math.pow(sum_t_beta_logt, 2);
-
-        if (Math.abs(d2L_dbeta2) < 1e-10) break; // Avoid division by zero
-
-        const newBeta = beta - dL_dbeta / d2L_dbeta2;
-
-        if (!isFinite(newBeta) || newBeta <= 0) {
-            // Fallback to a simpler estimation if Newton-Raphson fails
-            return estimateWeibullRankRegression(failures);
-        }
-
-        if (Math.abs(newBeta - beta) < tolerance) {
-            beta = newBeta;
-            break;
-        }
-        beta = newBeta;
-    }
-    
-    beta = Math.max(0.01, beta); // Ensure beta is positive
-
-    const eta = Math.pow(allData.reduce((acc, t) => acc + Math.pow(t, beta), 0) / failures.length, 1 / beta);
-
-    return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };
-}
-
-
 function estimateWeibullRankRegression(times: number[]): Parameters {
     if (times.length < 2) return { beta: 0, eta: 0 };
 
@@ -117,6 +65,60 @@ function estimateWeibullRankRegression(times: number[]): Parameters {
 }
 
 
+// Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
+function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
+    const allData = [...failures, ...suspensions];
+    if (failures.length === 0) return { beta: 0, eta: 0 };
+
+    let beta = 1.0; // Initial guess for beta
+
+    for (let i = 0; i < maxIterations; i++) {
+        const beta_i = beta;
+        
+        let sum_t_beta_logt = 0;
+        let sum_t_beta_logt2 = 0;
+        let sum_t_beta = 0;
+        let sum_logt_failures = 0;
+
+        for(const t of allData) {
+            const t_beta = Math.pow(t, beta_i);
+            const logt = Math.log(t);
+            sum_t_beta += t_beta;
+            sum_t_beta_logt += t_beta * logt;
+            sum_t_beta_logt2 += t_beta * logt * logt;
+        }
+
+        for(const t of failures) {
+            sum_logt_failures += Math.log(t);
+        }
+        
+        const numFailures = failures.length;
+
+        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
+        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * sum_t_beta_logt2 + (numFailures / Math.pow(sum_t_beta, 2)) * Math.pow(sum_t_beta_logt, 2);
+
+        if (Math.abs(d2L_dbeta2) < 1e-10) break;
+
+        const newBeta = beta - dL_dbeta / d2L_dbeta2;
+
+        if (!isFinite(newBeta) || newBeta <= 0) {
+            return estimateWeibullRankRegression(failures); // Fallback if MLE fails
+        }
+
+        if (Math.abs(newBeta - beta) < tolerance) {
+            beta = newBeta;
+            break;
+        }
+        beta = newBeta;
+    }
+    
+    beta = Math.max(0.01, beta);
+
+    const eta = Math.pow(allData.reduce((acc, t) => acc + Math.pow(t, beta), 0) / failures.length, 1 / beta);
+
+    return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };
+}
+
 function estimateNormal(times: number[]): Parameters {
     if (times.length < 1) return { mean: 0, stdDev: 0 };
     const n = times.length;
@@ -141,10 +143,7 @@ function estimateExponential(times: number[]): Parameters {
 export function estimateParameters(failureTimes: number[], dist: Distribution, suspensionTimes: number[] = []): Parameters {
     switch (dist) {
         case 'Weibull': 
-             if (suspensionTimes.length > 0) {
-                return estimateWeibullMLE(failureTimes, suspensionTimes);
-             }
-             return estimateWeibullRankRegression(failureTimes);
+             return estimateWeibullMLE(failureTimes, suspensionTimes);
         case 'Normal': return estimateNormal(failureTimes);
         case 'Lognormal': return estimateLognormal(failureTimes);
         case 'Exponential': return estimateExponential(failureTimes);
@@ -181,10 +180,11 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
             R_t = Math.exp(-Math.pow(tOverEta, params.beta));
             F_t = 1 - R_t;
             f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-Math.pow(tOverEta, params.beta));
-            if (params.beta < 1 && time < 1e-6) {
-                lambda_t = f_t / (R_t > 1e-9 ? R_t : 1e-9);
+            if (R_t > 1e-9) {
+                 lambda_t = f_t / R_t;
             } else {
-                lambda_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1);
+                 // For very small R(t), lambda_t can be approximated by f_t / epsilon to avoid infinity
+                 lambda_t = f_t / 1e-9;
             }
           }
           break;
@@ -251,5 +251,6 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
+
 
 
