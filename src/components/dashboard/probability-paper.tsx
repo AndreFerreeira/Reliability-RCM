@@ -184,7 +184,6 @@ export default function ProbabilityPaper() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Visualização Dinâmica - {paperType}</CardTitle>
                     <CardDescription>
                         Insira os dados de falha para plotar um gráfico de probabilidade dinâmico. A aderência dos pontos a uma linha reta indica um bom ajuste para a distribuição selecionada.
                     </CardDescription>
