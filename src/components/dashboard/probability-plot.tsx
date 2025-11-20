@@ -3,7 +3,7 @@ import React from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, Line } from 'recharts';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Supplier, Distribution } from '@/lib/types';
-import { invErf, invNormalCdf } from '@/lib/reliability';
+import { invErf } from '@/lib/reliability';
 
 
 interface ProbabilityPlotProps {
@@ -52,7 +52,7 @@ const CustomTooltip = ({ active, payload, paperType }: any) => {
         if (!data) return null;
 
         let time = data.time;
-        if (paperType === 'Lognormal' || paperType === 'Loglogistic') {
+        if (paperType === 'Lognormal' || paperType === 'Loglogistic' || paperType === 'Weibull') {
              time = Math.exp(data.x);
         }
 
@@ -72,46 +72,82 @@ const CustomTooltip = ({ active, payload, paperType }: any) => {
 };
 
 const getAxisConfig = (paperType: Distribution) => {
-    const timeLabel = (paperType === 'Lognormal' || paperType === 'Loglogistic') ? 'Tempo (log)' : 'Tempo';
-    
-    // Ticks for Y-axis (probability)
-    const yProbTicks = [0.1, 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99, 99.9];
+    let timeLabel: string;
     let yTicks: number[] = [];
-    
-    switch(paperType) {
-        case 'Weibull':
-            yTicks = yProbTicks.map(prob => Math.log(Math.log(1 / (1 - prob / 100)))).filter(isFinite);
-            break;
-        case 'Lognormal':
-        case 'Normal':
-            yTicks = [-3, -2, -1, 0, 1, 2, 3]; // Z-scores
-            break;
-        case 'Exponential':
-            yTicks = [0.1, 0.5, 1, 2, 3, 4, 5]; // Values of ln(1/R)
-            break;
-        case 'Loglogistic':
-             yTicks = yProbTicks.map(prob => Math.log((prob/100) / (1 - prob/100))).filter(isFinite);
-             break;
-        case 'Gumbel':
-            yTicks = [-1, 0, 1, 2, 3, 4, 5, 6, 7]; // Values of -ln(-ln(F))
-            break;
-    }
-    
-    const yTickFormatter = (value: number) => {
+    let yTickFormatter: (value: number) => string;
+    let xTickFormatter: (value: number) => string;
+
+    const generalYTickFormatter = (value: number) => {
         const prob = inverseTransformY(value, paperType);
         if (!isFinite(prob)) return '';
-        if (paperType === 'Lognormal' || paperType === 'Normal') {
-             return `${prob.toFixed(1)}% (Z=${value.toFixed(1)})`;
-        }
-        return prob.toFixed(1);
-    }
+        // Heuristic to decide precision
+        if (prob < 1) return prob.toFixed(2);
+        if (prob < 10) return prob.toFixed(1);
+        return `${Math.round(prob)}%`;
+    };
 
-    const xTickFormatter = (value: number) => {
-        if (paperType === 'Lognormal' || paperType === 'Loglogistic') {
-            const expVal = Math.exp(value);
-            return isFinite(expVal) ? Math.round(expVal).toString() : '';
-        }
-        return Math.round(value).toString();
+    const generalXTickFormatter = (value: number) => Math.round(value).toString();
+    const logXTickFormatter = (value: number) => {
+        const expVal = Math.exp(value);
+        return isFinite(expVal) ? Math.round(expVal).toString() : '';
+    };
+
+    switch (paperType) {
+        case 'Weibull':
+            timeLabel = 'Tempo (log)';
+            xTickFormatter = logXTickFormatter;
+            const yProbTicksWeibull = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+            yTicks = yProbTicksWeibull.map(prob => Math.log(Math.log(1 / (1 - prob / 100)))).filter(isFinite);
+            yTickFormatter = (value) => {
+                const prob = inverseTransformY(value, paperType);
+                if (!isFinite(prob)) return '';
+                if ([0.1, 1, 10, 50, 90, 99, 99.9].includes(parseFloat(prob.toFixed(1)))) {
+                    return `${prob.toFixed(1)}%`;
+                }
+                return ''; // Hide other labels to avoid clutter
+            };
+            break;
+        case 'Lognormal':
+            timeLabel = 'Tempo (log)';
+            xTickFormatter = logXTickFormatter;
+            yTicks = [-3, -2, -1, 0, 1, 2, 3]; // Z-scores
+            yTickFormatter = (value) => {
+                 const prob = inverseTransformY(value, paperType);
+                 return `${prob.toFixed(1)}%`;
+            };
+            break;
+        case 'Loglogistic':
+            timeLabel = 'Tempo (log)';
+            xTickFormatter = logXTickFormatter;
+            const yProbTicksLogistic = [1, 5, 10, 20, 50, 80, 90, 95, 99];
+            yTicks = yProbTicksLogistic.map(prob => Math.log((prob / 100) / (1 - prob / 100))).filter(isFinite);
+            yTickFormatter = generalYTickFormatter;
+            break;
+        case 'Normal':
+            timeLabel = 'Tempo';
+            xTickFormatter = generalXTickFormatter;
+            yTicks = [-3, -2, -1, 0, 1, 2, 3]; // Z-scores
+             yTickFormatter = (value) => {
+                 const prob = inverseTransformY(value, paperType);
+                 return `${prob.toFixed(1)}%`;
+            };
+            break;
+        case 'Exponential':
+            timeLabel = 'Tempo';
+            xTickFormatter = generalXTickFormatter;
+            yTicks = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4];
+            yTickFormatter = generalYTickFormatter;
+            break;
+        case 'Gumbel':
+            timeLabel = 'Tempo';
+            xTickFormatter = generalXTickFormatter;
+            yTicks = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7];
+            yTickFormatter = generalYTickFormatter;
+            break;
+        default:
+            timeLabel = 'Tempo';
+            xTickFormatter = (v) => v.toString();
+            yTickFormatter = (v) => v.toString();
     }
     
     return { timeLabel, yTicks, yTickFormatter, xTickFormatter };
@@ -243,5 +279,3 @@ export default function ProbabilityPlot({ supplier, paperType }: React.PropsWith
         </Card>
     );
 }
-
-    
