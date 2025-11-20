@@ -19,7 +19,7 @@ function weibullInverseTransform(y: number): number {
 }
 
 // Ticks de probabilidade para o eixo Y, como em um papel Weibull clássico
-const probabilityTicks = [0.1, 0.5, 1, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
 const yAxisTicks = probabilityTicks.map(prob => {
     const F = prob / 100;
     // y = ln( ln( 1/(1-F) ) )
@@ -29,7 +29,7 @@ const yAxisTicks = probabilityTicks.map(prob => {
 
 const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-        const data = payload.find(p => p.dataKey.includes('x'))?.payload;
+        const data = payload.find(p => p.name !== 'Ajuste')?.payload;
         if (!data) return null;
 
         const time = data.time;
@@ -100,7 +100,7 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
     if (suppliers.length === 0 || plotData.length === 0) {
        return (
             <Card className="h-full">
-                <CardContent className="flex items-center justify-center h-full">
+                <CardContent className="flex items-center justify-center h-full min-h-[360px]">
                     <div className="text-center text-muted-foreground">
                         <p className="font-semibold">Aguardando dados...</p>
                         <p className="text-sm mt-2">Insira os dados de falha no painel ao lado e clique em "Plotar Gráfico" para visualizar.</p>
@@ -157,7 +157,6 @@ export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWit
                                     data={plotData.filter(d => d.name === name)} 
                                     fill={supplierColors[name]}
                                     isAnimationActive={false}
-                                    dataKey="x"
                                 />
                                  <Line
                                     key={`line-${name}`}
