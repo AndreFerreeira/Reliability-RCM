@@ -43,38 +43,57 @@ function estimateWeibull(times: number[], suspensions: number[] = []): Parameter
 }
 
 // Maximum Likelihood Estimation for Weibull with censored data
-function estimateWeibullMLE(failures: number[], suspensions: number[], maxIterations = 50, tolerance = 1e-5): Parameters {
+function estimateWeibullMLE(failures: number[], suspensions: number[], maxIterations = 50, tolerance = 1e-6): Parameters {
     const allData = [...failures, ...suspensions];
     if (failures.length === 0) return { beta: 0, eta: 0 };
   
-    // Initial guess for beta using an approximation
-    let beta = 1;
+    // Initial guess for beta using an approximation or a fixed value
+    let beta = 1.0; 
   
     for (let iter = 0; iter < maxIterations; iter++) {
-      const beta_pow = (t: number) => Math.pow(t, beta);
-      const log_t = (t: number) => Math.log(t);
+      const betaPow = (t: number) => Math.pow(t, beta);
+      const logT = (t: number) => Math.log(t);
   
-      const sum_beta_pow = allData.reduce((acc, t) => acc + beta_pow(t), 0);
-      const sum_failures_beta_pow_log = failures.reduce((acc, t) => acc + beta_pow(t) * log_t(t), 0);
-      const sum_failures_log = failures.reduce((acc, t) => acc + log_t(t), 0);
-  
-      const f_beta = (sum_failures_beta_pow_log / sum_beta_pow) - (1 / beta) - (sum_failures_log / failures.length);
-  
-      const sum_beta_pow_log_sq = allData.reduce((acc, t) => acc + beta_pow(t) * Math.pow(log_t(t), 2), 0);
+      let sumBetaPowLog = 0;
+      allData.forEach(t => sumBetaPowLog += betaPow(t) * logT(t));
       
-      const f_prime_beta = (
-        (sum_beta_pow_log_sq * sum_beta_pow - Math.pow(sum_failures_beta_pow_log, 2)) / Math.pow(sum_beta_pow, 2)
-      ) + (1 / (beta * beta));
+      let sumBetaPow = 0;
+      allData.forEach(t => sumBetaPow += betaPow(t));
+
+      let sumFailuresLog = 0;
+      failures.forEach(t => sumFailuresLog += logT(t));
+      
+      const numFailures = failures.length;
+
+      // f(beta) - function to find root of
+      const f_beta = (sumBetaPowLog / sumBetaPow) - (sumFailuresLog / numFailures) - (1 / beta);
+      
+      // f'(beta) - derivative of f(beta)
+      let sumBetaPowLogSq = 0;
+      allData.forEach(t => sumBetaPowLogSq += betaPow(t) * Math.pow(logT(t), 2));
+
+      const f_prime_beta = (sumBetaPowLogSq / sumBetaPow) - Math.pow(sumBetaPowLog / sumBetaPow, 2) + (1 / (beta * beta));
+      
+      if (Math.abs(f_prime_beta) < 1e-10) { // Avoid division by zero
+        break;
+      }
       
       const newBeta = beta - f_beta / f_prime_beta;
   
-      if (Math.abs(newBeta - beta) < tolerance || newBeta <= 0) {
-        beta = newBeta > 0 ? newBeta : beta;
+      if (!isFinite(newBeta) || newBeta <= 0) {
+          break; // Stop if beta becomes invalid
+      }
+      
+      if (Math.abs(newBeta - beta) < tolerance) {
+        beta = newBeta;
         break;
       }
       beta = newBeta;
     }
-  
+    
+    // Ensure beta is a reasonable value
+    beta = Math.max(0.01, beta);
+
     const eta = Math.pow(allData.reduce((acc, t) => acc + Math.pow(t, beta), 0) / failures.length, 1 / beta);
   
     return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };

@@ -112,35 +112,47 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     let failureTimes: number[] = [];
     let suspensionTimes: number[] = [];
 
-    if (values.hasSuspensions) {
-      const lines = values.failureTimes.trim().split('\n');
-      lines.forEach(line => {
-        const parts = line.trim().split(/[\s,]+/);
-        if (parts.length === 2) {
-          const part1 = parts[0].toUpperCase();
-          const part2 = parts[1].toUpperCase();
-          const time = parseFloat(part1) || parseFloat(part2);
-          const status = part1 === 'F' || part2 === 'F' ? 'F' : (part1 === 'S' || part2 === 'S' ? 'S' : null);
+    const rawInput = values.failureTimes.trim();
 
-          if (!isNaN(time) && status) {
-            if (status === 'F') {
-              failureTimes.push(time);
-            } else {
-              suspensionTimes.push(time);
-            }
-          }
+    try {
+        if (values.hasSuspensions) {
+            const lines = rawInput.split('\n');
+            lines.forEach(line => {
+                const parts = line.trim().split(/[\s,]+/);
+                if (parts.length === 2) {
+                    const part1 = parts[0].toUpperCase().replace(/\./g, '');
+                    const part2 = parts[1].toUpperCase().replace(/\./g, '');
+                    
+                    const time = parseFloat(part1) || parseFloat(part2);
+                    const status = (part1 === 'F' || part2 === 'F') ? 'F' : ((part1 === 'S' || part2 === 'S') ? 'S' : null);
+
+                    if (!isNaN(time) && status) {
+                        if (status === 'F') {
+                            failureTimes.push(time);
+                        } else {
+                            suspensionTimes.push(time);
+                        }
+                    } else {
+                       throw new Error(`Linha inválida encontrada: "${line}". Use o formato [Tempo] [Status].`);
+                    }
+                } else {
+                    throw new Error(`Linha inválida encontrada: "${line}". Use o formato [Tempo] [Status].`);
+                }
+            });
+        } else {
+             // Lógica para dados simples ou agrupados
+            failureTimes = rawInput.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
         }
-      });
-    } else {
-      // Logic for simple or grouped data (assuming grouped not implemented yet)
-      failureTimes = values.failureTimes.split(/[\s,]+/).map(v => parseFloat(v.trim().replace(/\./g, ''))).filter(v => !isNaN(v));
-    }
-    
-    if (failureTimes.length === 0) {
+
+        if (failureTimes.length === 0) {
+            throw new Error('Pelo menos um ponto de falha válido é necessário para a análise.');
+        }
+
+    } catch (e: any) {
         toast({
             variant: 'destructive',
-            title: 'Dados de Falha Insuficientes',
-            description: 'Pelo menos um ponto de falha é necessário para a análise.'
+            title: 'Erro ao Processar Dados',
+            description: e.message || 'Verifique o formato dos dados de entrada.'
         });
         return;
     }
