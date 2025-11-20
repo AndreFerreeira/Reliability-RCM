@@ -115,6 +115,7 @@ export default function ProbabilityPaper() {
                 title: 'Dados Insuficientes',
                 description: 'Por favor, insira pelo menos dois tempos de falha válidos para plotar.',
             });
+            setLocalSupplier(null);
             return;
         }
 
@@ -184,7 +185,6 @@ export default function ProbabilityPaper() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Visualização Dinâmica – Weibull</CardTitle>
                     <CardDescription>
                         Insira os dados de tempo até a falha para gerar um gráfico de probabilidade Weibull dinâmico e estimar os parâmetros.
                     </CardDescription>

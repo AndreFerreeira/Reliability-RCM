@@ -45,6 +45,7 @@ export function estimateWeibullRankRegression(times: number[]): {
     const n = sortedTimes.length;
     
     const points = sortedTimes.map((time, i) => {
+        // Using Benard's approximation for median ranks, which is the standard
         const medianRank = (i + 1 - 0.3) / (n + 0.4);
         if (medianRank >= 1 || time <= 0) return null;
         return {
@@ -57,6 +58,7 @@ export function estimateWeibullRankRegression(times: number[]): {
 
     if (points.length < 2) return { points: [], line: [], params: { beta: 0, eta: 0 }, rSquared: 0 };
 
+    // Linear regression on the transformed points (y = beta * x + intercept)
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
     points.forEach(p => {
         sumX += p.x;
@@ -67,16 +69,21 @@ export function estimateWeibullRankRegression(times: number[]): {
     });
 
     const num = points.length;
+    // beta (slope)
     const beta = (num * sumXY - sumX * sumY) / (num * sumXX - sumX * sumX);
+    // intercept
     const intercept = (sumY - beta * sumX) / num;
+    // eta (characteristic life)
     const eta = Math.exp(-intercept / beta);
 
+    // R-squared for goodness of fit
     const r = (num * sumXY - sumX * sumY) / Math.sqrt((num * sumXX - sumX * sumX) * (num * sumYY - sumY * sumY));
     const rSquared = r * r;
     
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
 
+    // Generate points for the regression line
     const line = [
         { x: minX, y: beta * minX + intercept },
         { x: maxX, y: beta * maxX + intercept },
@@ -94,7 +101,14 @@ export function estimateWeibullRankRegression(times: number[]): {
 // Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
 function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
     const allData = [...failures, ...suspensions];
-    if (failures.length === 0) return { beta: 0, eta: 0 };
+    if (failures.length === 0) {
+        if (allData.length > 1) { // If only suspensions, use RR
+             const rr_params = estimateWeibullRankRegression(allData).params;
+             return { beta: rr_params.beta, eta: rr_params.eta };
+        }
+        return { beta: 0, eta: 0 };
+    }
+
 
     let beta = 1.0; // Initial guess for beta
 
@@ -132,8 +146,8 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
-        if (!isFinite(newBeta) || newBeta <= 0) {
-            const rr_params = estimateWeibullRankRegression(failures.length > 0 ? failures : allData).params;
+        if (!isFinite(newBeta) || newBeta <= 0) { // Fallback to Rank Regression if MLE fails
+            const rr_params = estimateWeibullRankRegression(failures).params;
             return { beta: rr_params.beta, eta: rr_params.eta };
         }
 

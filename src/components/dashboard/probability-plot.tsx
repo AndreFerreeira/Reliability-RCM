@@ -69,7 +69,7 @@ const tickFormatter = (value: number) => {
     return Math.round(originalValue);
 }
 
-export default function ProbabilityPlot({ suppliers, paperType, children }: React.PropsWithChildren<ProbabilityPlotProps>) {
+export default function ProbabilityPlot({ suppliers, paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     const { plotData, lineData, analysisResults } = useMemo(() => transformData(suppliers), [suppliers]);
     
     if (paperType !== 'Weibull') {
@@ -87,11 +87,8 @@ export default function ProbabilityPlot({ suppliers, paperType, children }: Reac
 
     if (suppliers.length === 0 || plotData.length === 0) {
        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Visualização Dinâmica – Weibull</CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-96">
+            <Card className="h-full">
+                <CardContent className="flex items-center justify-center h-full">
                     <div className="text-center text-muted-foreground">
                         <p className="font-semibold">Aguardando dados...</p>
                         <p className="text-sm mt-2">Insira os dados de falha no painel ao lado e clique em "Plotar Gráfico" para visualizar.</p>
