@@ -88,29 +88,52 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
         return <p className="text-muted-foreground text-sm py-4">Selecione um tamanho de amostra entre 2 e 25 para ver a tabela de postos medianos.</p>;
     }
     
-    if (confidenceLevel === 'Todos') {
-        return <p className="text-muted-foreground text-sm py-4">Selecione um nível de confiança para exibir os dados.</p>;
+    if (confidenceLevel !== 'Todos') {
+        const confidenceIndex = confidenceLevelValues.indexOf(confidenceLevel as number);
+        if (confidenceIndex === -1) {
+            return <p className="text-muted-foreground text-sm py-4">Nível de confiança inválido.</p>;
+        }
+        return (
+            <div className="max-h-64 overflow-y-auto rounded-md border">
+                <Table>
+                    <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                        <TableRow>
+                            <TableHead className="w-[120px]">Ordem da Falha (i)</TableHead>
+                            <TableHead>Posto Mediano ({confidenceLevel}%)</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {tableData.map((row, index) => (
+                            <TableRow key={index}>
+                                <TableCell className="font-medium">{row[0]}</TableCell>
+                                <TableCell>{(row[confidenceIndex + 1] * 100).toFixed(3)}%</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        );
     }
     
-    const confidenceIndex = confidenceLevelValues.indexOf(confidenceLevel as number);
-    if (confidenceIndex === -1) {
-        return <p className="text-muted-foreground text-sm py-4">Nível de confiança inválido.</p>;
-    }
-
+    // Render all columns when confidenceLevel is 'Todos'
     return (
-        <div className="max-h-64 overflow-y-auto rounded-md border">
+        <div className="max-h-96 overflow-auto rounded-md border">
             <Table>
                 <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                     <TableRow>
-                        <TableHead className="w-[120px]">Ordem da Falha (i)</TableHead>
-                        <TableHead>Posto Mediano ({confidenceLevel}%)</TableHead>
+                        <TableHead className="w-[80px]">Ordem (i)</TableHead>
+                        {confidenceLevelValues.map(level => (
+                            <TableHead key={level}>{level}%</TableHead>
+                        ))}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {tableData.map((row, index) => (
                         <TableRow key={index}>
                             <TableCell className="font-medium">{row[0]}</TableCell>
-                            <TableCell>{(row[confidenceIndex + 1] * 100).toFixed(3)}%</TableCell>
+                            {row.slice(1).map((value, valueIndex) => (
+                                <TableCell key={valueIndex}>{(value * 100).toFixed(3)}%</TableCell>
+                            ))}
                         </TableRow>
                     ))}
                 </TableBody>
