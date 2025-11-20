@@ -1,9 +1,15 @@
+'use client';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { medianRankTables, type MedianRankTable } from '@/lib/median-ranks';
-import ProbabilityPaperImages from './probability-paper-images';
+import ProbabilityPlot from './probability-paper-images';
+import type { Supplier } from '@/lib/types';
+
+interface ProbabilityPaperProps {
+  suppliers: Supplier[];
+}
 
 const headers = ["10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%"];
 
@@ -95,9 +101,9 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
     );
 };
 
-export default function ProbabilityPaper() {
+export default function ProbabilityPaper({ suppliers }: ProbabilityPaperProps) {
     const [selectedSize, setSelectedSize] = useState<number | null>(null);
-    const [paperType, setPaperType] = useState('Weibull');
+    const [paperType, setPaperType] = useState<'Weibull' | 'Lognormal' | 'Normal' | 'Exponential'>('Weibull');
 
     const selectedTable = selectedSize ? medianRankTables.find(t => t.sampleSize === selectedSize) : null;
     const availableSizes = medianRankTables.map(t => t.sampleSize).sort((a,b) => a - b);
@@ -125,7 +131,7 @@ export default function ProbabilityPaper() {
                                 ))}
                             </SelectContent>
                         </Select>
-                         <Select value={paperType} onValueChange={setPaperType}>
+                         <Select value={paperType} onValueChange={(v) => setPaperType(v as any)}>
                             <SelectTrigger>
                                 <SelectValue placeholder="2. Selecione o Tipo de Papel" />
                             </SelectTrigger>
@@ -152,7 +158,7 @@ export default function ProbabilityPaper() {
                 )
             )}
 
-            <ProbabilityPaperImages />
+            <ProbabilityPlot suppliers={suppliers} paperType={paperType} />
         </div>
     );
 }
