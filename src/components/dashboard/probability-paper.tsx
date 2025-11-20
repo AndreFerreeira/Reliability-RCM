@@ -290,7 +290,7 @@ export default function ProbabilityPaper() {
                                 value={failureData}
                                 onChange={(e) => setFailureData(e.target.value)}
                                 placeholder="Ex: 500, 900, 1200..."
-                                rows={8}
+                                rows={6}
                             />
                             <p className="text-xs text-muted-foreground">
                                 Insira valores separados por vírgula, espaço ou nova linha.
