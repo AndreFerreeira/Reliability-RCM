@@ -66,28 +66,31 @@ const PaperInfoCard = ({ paperType }: { paperType: string }) => {
     );
 };
 
-const MedianRankTable = ({ sampleSize }: { sampleSize: number }) => {
-    const tableData = medianRankTables.find(t => t.sampleSize === sampleSize)?.data;
-    const confidenceLevels = ["10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%"];
+const confidenceLevels = [10, 20, 30, 40, 50, 60, 70, 80, 90];
 
+const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, confidenceLevel: number }) => {
+    const tableData = medianRankTables.find(t => t.sampleSize === sampleSize)?.data;
+    
     if (!tableData) {
         return <p className="text-muted-foreground text-sm py-4">Selecione um tamanho de amostra entre 2 e 25 para ver a tabela de postos medianos.</p>;
     }
+    
+    const confidenceIndex = confidenceLevels.indexOf(confidenceLevel);
 
     return (
         <div className="max-h-64 overflow-y-auto rounded-md border">
             <Table>
                 <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                     <TableRow>
-                        <TableHead className="w-[80px]">O/N</TableHead>
-                        {confidenceLevels.map(level => <TableHead key={level}>{level}</TableHead>)}
+                        <TableHead className="w-[120px]">Ordem da Falha (i)</TableHead>
+                        <TableHead>Posto Mediano ({confidenceLevel}%)</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {tableData.map((row, index) => (
                         <TableRow key={index}>
                             <TableCell className="font-medium">{row[0]}</TableCell>
-                            {row.slice(1).map((cell, i) => <TableCell key={i}>{(cell).toFixed(5)}</TableCell>)}
+                            <TableCell>{(row[confidenceIndex + 1]).toFixed(5)}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -96,9 +99,11 @@ const MedianRankTable = ({ sampleSize }: { sampleSize: number }) => {
     );
 };
 
+
 export default function ProbabilityPaper() {
     const [paperType, setPaperType] = useState<'Weibull' | 'Lognormal' | 'Normal' | 'Exponential'>('Weibull');
     const [sampleSize, setSampleSize] = useState(10);
+    const [confidenceLevel, setConfidenceLevel] = useState(50);
     const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
@@ -164,6 +169,16 @@ export default function ProbabilityPaper() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select value={confidenceLevel.toString()} onValueChange={(v) => setConfidenceLevel(parseInt(v, 10))}>
+                            <SelectTrigger id="confidence-level-select">
+                                <SelectValue placeholder="Nível de Confiança" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {confidenceLevels.map(level => (
+                                    <SelectItem key={level} value={level.toString()}>{level}%</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Select value={paperType} onValueChange={(v) => setPaperType(v as any)}>
                             <SelectTrigger id="paper-type-select">
                                 <SelectValue placeholder="Selecione o Tipo de Papel" />
@@ -177,8 +192,8 @@ export default function ProbabilityPaper() {
                     </div>
                     <PaperInfoCard paperType={paperType} />
                     <div className="md:col-span-2">
-                        <h3 className="text-sm font-medium mb-2">Tabela de Postos Medianos de Confiança para N = {sampleSize}</h3>
-                        <MedianRankTable sampleSize={sampleSize} />
+                        <h3 className="text-sm font-medium mb-2">Tabela de Postos Medianos de Confiança (N = {sampleSize})</h3>
+                        <MedianRankTable sampleSize={sampleSize} confidenceLevel={confidenceLevel} />
                     </div>
                 </CardContent>
             </Card>
