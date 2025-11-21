@@ -1,6 +1,7 @@
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams } from '@/lib/types';
+import { medianRankTables } from './median-ranks';
 
 // --- Statistical Helpers ---
 
@@ -271,9 +272,21 @@ function estimateExponential(times: number[]): Parameters {
 }
 
 export function estimateParameters(failureTimes: number[], dist: Distribution, suspensionTimes: number[] = []): Parameters {
+    if (dist === 'Weibull') {
+        const n = failureTimes.length;
+        if (n < 2) return { beta: undefined, eta: undefined };
+        const table = medianRankTables.find(t => t.sampleSize === n);
+        if (!table) return { beta: undefined, eta: undefined };
+        
+        // Using 50% confidence level (median rank)
+        const confidenceIndex = 4; // 50%
+        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
+        
+        const result = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
+        return result?.params ?? { beta: undefined, eta: undefined };
+    }
+    
     switch (dist) {
-        case 'Weibull': 
-             return estimateWeibullMLE(failureTimes, suspensionTimes);
         case 'Normal': return estimateNormal(failureTimes);
         case 'Lognormal': return estimateLognormal(failureTimes);
         case 'Exponential': return estimateExponential(failureTimes);
