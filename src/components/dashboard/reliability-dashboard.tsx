@@ -13,7 +13,7 @@ import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import ProbabilityPaper from './probability-paper';
-import ProbabilityPlotCard from './probability-plot-card';
+import ProbabilityPlot from './probability-plot';
 
 const initialSuppliersData = [
   { 
@@ -88,6 +88,9 @@ export default function ReliabilityDashboard() {
   const weibullSuppliers = useMemo(() => suppliers.filter(s => s.distribution === 'Weibull' && s.params.beta != null && s.params.eta != null), [suppliers]);
   const allFailureTimes = useMemo(() => suppliers.flatMap(s => s.failureTimes), [suppliers]);
 
+  // Assume all suppliers in the plot share the same distribution type as the first one.
+  const plotDistributionType = suppliers.length > 0 ? suppliers[0].distribution : 'Weibull';
+
   return (
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
@@ -126,15 +129,13 @@ export default function ReliabilityDashboard() {
                {suppliers.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Gráficos de Probabilidade</CardTitle>
+                      <CardTitle>Gráfico de Probabilidade ({plotDistributionType})</CardTitle>
                       <CardDescription>
-                        Análise de aderência dos dados para cada fornecedor. Quanto mais próximos os pontos da linha, melhor o ajuste.
+                        Análise de aderência dos dados. Quanto mais próximos os pontos da linha de ajuste, melhor a aderência do modelo.
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                      {suppliers.map(supplier => (
-                          <ProbabilityPlotCard key={supplier.id} supplier={supplier} />
-                      ))}
+                    <CardContent className="-mt-4">
+                        <ProbabilityPlot suppliers={suppliers} paperType={plotDistributionType} />
                     </CardContent>
                   </Card>
                )}
