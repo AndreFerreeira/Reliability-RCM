@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { calculateReliabilityData, estimateParameters } from '@/lib/reliability';
-import type { Supplier } from '@/lib/types';
+import type { Supplier, EstimationMethod } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
@@ -39,12 +39,18 @@ const initialSuppliersData = [
 
 const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
   ...s,
-  params: estimateParameters(s.failureTimes, s.distribution, s.suspensionTimes),
+  params: estimateParameters({
+    dist: s.distribution, 
+    failureTimes: s.failureTimes, 
+    suspensionTimes: s.suspensionTimes, 
+    method: 'SRM'
+  }),
 }));
 
 
 export default function ReliabilityDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const [estimationMethod, setEstimationMethod] = useState<EstimationMethod>('SRM');
 
   const handleSetSuppliers = (updater: (prev: Supplier[]) => Supplier[]) => {
     setSuppliers(prev => {
@@ -58,7 +64,15 @@ export default function ReliabilityDashboard() {
               JSON.stringify(originalSupplier.suspensionTimes) !== JSON.stringify(s.suspensionTimes) ||
               originalSupplier.distribution !== s.distribution
             ) {
-                return { ...s, params: estimateParameters(s.failureTimes, s.distribution, s.suspensionTimes) };
+                return { 
+                  ...s, 
+                  params: estimateParameters({ 
+                    dist: s.distribution, 
+                    failureTimes: s.failureTimes, 
+                    suspensionTimes: s.suspensionTimes, 
+                    method: estimationMethod 
+                  }) 
+                };
             }
 
             if (JSON.stringify(s.params) !== JSON.stringify(originalSupplier.params)) {
@@ -99,7 +113,12 @@ export default function ReliabilityDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pl-2 pr-2 sm:pl-6 sm:pr-6">
-                <SupplierManager suppliers={suppliers} setSuppliers={handleSetSuppliers} />
+                <SupplierManager 
+                  suppliers={suppliers} 
+                  setSuppliers={handleSetSuppliers} 
+                  estimationMethod={estimationMethod}
+                  setEstimationMethod={setEstimationMethod}
+                />
               </CardContent>
             </Card>
             <div className="col-span-full lg:col-span-5 space-y-4">

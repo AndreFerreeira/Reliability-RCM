@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams } from '@/lib/types';
 import { medianRankTables } from './median-ranks';
 
 // --- Statistical Helpers ---
@@ -75,8 +75,13 @@ function performLinearRegression(points: {x: number, y: number}[]) {
     const intercept = (sumY - slope * sumX) / N;
 
     // To calculate rSquared (coefficient of determination)
-    const ssr = Math.pow(N * sumXY - sumX * sumY, 2) / ((N * sumXX - sumX * sumX) * (N * sumYY - sumY * sumY));
-    const rSquared = isNaN(ssr) ? 0 : ssr;
+    const rSquaredNumerator = (N * sumXY - sumX * sumY);
+    const rSquaredDenominator = Math.sqrt((N * sumXX - sumX * sumX) * (N * sumYY - sumY * sumY));
+    if(Math.abs(rSquaredDenominator) < 1e-9) return { slope, intercept, rSquared: 1 };
+    
+    const r = rSquaredNumerator / rSquaredDenominator;
+    const rSquared = r*r;
+
 
     return { slope, intercept, rSquared };
 }
@@ -154,19 +159,19 @@ export function estimateParametersByRankRegression(
             params = { beta: slope, eta: Math.exp(-intercept / slope), rho: rSquared };
             break;
         case 'Lognormal':
-            params = { stdDev: 1 / slope, mean: -intercept / slope };
+            params = { stdDev: 1 / slope, mean: -intercept / slope, rho: rSquared };
             break;
         case 'Normal':
-            params = { stdDev: 1 / slope, mean: -intercept / slope };
+            params = { stdDev: 1 / slope, mean: -intercept / slope, rho: rSquared };
             break;
         case 'Exponential':
-            params = { lambda: slope };
+            params = { lambda: slope, rho: rSquared };
             break;
         case 'Loglogistic':
-            params = { beta: slope, alpha: Math.exp(-intercept / slope) };
+            params = { beta: slope, alpha: Math.exp(-intercept / slope), rho: rSquared };
             break;
         case 'Gumbel':
-            params = { sigma: 1 / slope, mu: -intercept / slope };
+            params = { sigma: 1 / slope, mu: -intercept / slope, rho: rSquared };
             break;
     }
 
@@ -186,53 +191,51 @@ export function estimateParametersByRankRegression(
 function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
     const allData = [...failures, ...suspensions];
     if (failures.length === 0) {
-        if (allData.length > 1) {
-             const rr_params = estimateParametersByRankRegression('Weibull', allData, allData.map((_, i) => (i + 1 - 0.3) / (allData.length + 0.4)))?.params;
-             return { beta: rr_params?.beta, eta: rr_params?.eta };
-        }
-        return { beta: 0, eta: 0 };
+        return { beta: undefined, eta: undefined };
     }
-
 
     let beta = 1.0; // Initial guess for beta
 
-    for (let i = 0; i < maxIterations; i++) {
+    for (let iter = 0; iter < maxIterations; iter++) {
         const beta_i = beta;
         
         let sum_t_beta_logt = 0;
-        let sum_t_beta_logt2 = 0;
         let sum_t_beta = 0;
+        let sum_t_beta_logt_sq = 0;
         let sum_logt_failures = 0;
-
-        for(const t of allData) {
+        
+        for (const t of allData) {
             if (t <= 0) continue;
             const t_beta = Math.pow(t, beta_i);
             const logt = Math.log(t);
             sum_t_beta += t_beta;
             sum_t_beta_logt += t_beta * logt;
-            sum_t_beta_logt2 += t_beta * logt * logt;
+            sum_t_beta_logt_sq += t_beta * logt * logt;
         }
 
-        for(const t of failures) {
+        for (const t of failures) {
             if (t <= 0) continue;
             sum_logt_failures += Math.log(t);
         }
         
         const numFailures = failures.length;
+        if (numFailures === 0) return { beta: undefined, eta: undefined };
 
         // First derivative of log-likelihood w.r.t beta
-        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures * sum_t_beta_logt) / sum_t_beta;
+        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
         
-        // Second derivative of log-likelihood w.r.t beta
-        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - (numFailures / sum_t_beta) * (sum_t_beta_logt2 - Math.pow(sum_t_beta_logt, 2) / sum_t_beta);
+        // Second derivative (Hessian)
+        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - numFailures * (
+            (sum_t_beta_logt_sq * sum_t_beta - Math.pow(sum_t_beta_logt, 2)) / Math.pow(sum_t_beta, 2)
+        );
 
-        if (Math.abs(d2L_dbeta2) < 1e-10) break;
+        if (Math.abs(d2L_dbeta2) < 1e-10) break; // Avoid division by zero
 
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
-        if (!isFinite(newBeta) || newBeta <= 0) { // Fallback to Rank Regression if MLE fails
-            const rr_params = estimateParametersByRankRegression('Weibull', failures, failures.map((_, i) => (i + 1 - 0.3) / (failures.length + 0.4)))?.params;
-            return { beta: rr_params?.beta, eta: rr_params?.eta };
+        if (!isFinite(newBeta) || newBeta <= 0) {
+             const rr_params = estimateParametersByRankRegression('Weibull', failures, failures.map((_, i) => (i + 1 - 0.3) / (failures.length + 0.4)))?.params;
+             return { beta: rr_params?.beta, eta: rr_params?.eta };
         }
 
         if (Math.abs(newBeta - beta) < tolerance) {
@@ -246,7 +249,7 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 
     const eta = Math.pow(allData.reduce((acc, t) => acc + Math.pow(t, beta), 0) / failures.length, 1 / beta);
 
-    return { beta: isNaN(beta) ? 0 : beta, eta: isNaN(eta) ? 0 : eta };
+    return { beta: isNaN(beta) ? undefined : beta, eta: isNaN(eta) ? undefined : eta, rho: undefined };
 }
 
 
@@ -271,29 +274,31 @@ function estimateExponential(times: number[]): Parameters {
     return { lambda: mean > 0 ? 1 / mean : 0 };
 }
 
-export function estimateParameters(failureTimes: number[], dist: Distribution, suspensionTimes: number[] = []): Parameters {
+export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM' }: EstimateParams): Parameters {
+    const allTimes = [...failureTimes, ...suspensionTimes];
+    const n = allTimes.length;
+    if (n === 0) return {};
+
     if (dist === 'Weibull') {
-        const n = failureTimes.length;
-        if (n < 2) return { beta: undefined, eta: undefined };
-        const table = medianRankTables.find(t => t.sampleSize === n);
-        if (!table) return { beta: undefined, eta: undefined };
-        
-        // Using 50% confidence level (median rank)
-        const confidenceIndex = 4; // 50%
-        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
-        
-        const result = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
-        return result?.params ?? { beta: undefined, eta: undefined, rho: undefined };
+        if (method === 'MLE' || suspensionTimes.length > 0) {
+            return estimateWeibullMLE(failureTimes, suspensionTimes);
+        } else { // SRM
+            const table = medianRankTables.find(t => t.sampleSize === n);
+            if (!table) return { beta: undefined, eta: undefined };
+            const confidenceIndex = 4; // 50%
+            const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
+            const result = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
+            return result?.params ?? { beta: undefined, eta: undefined, rho: undefined };
+        }
     }
     
     switch (dist) {
         case 'Normal': return estimateNormal(failureTimes);
         case 'Lognormal': return estimateLognormal(failureTimes);
         case 'Exponential': return estimateExponential(failureTimes);
-        // For rank-regression only distributions, we just return empty params as MLE is used for the main charts
         case 'Loglogistic':
         case 'Gumbel':
-             return {};
+             return {}; // Not implemented for main charts, only for probability paper
         default: return {};
     }
 }

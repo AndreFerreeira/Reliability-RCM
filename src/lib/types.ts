@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential' | 'Loglogistic' | 'Gumbel';
+export type EstimationMethod = 'SRM' | 'MLE';
 
 export interface WeibullParams {
   beta: number; // shape parameter
@@ -11,25 +12,30 @@ export interface WeibullParams {
 export interface NormalParams {
     mean: number; // mu
     stdDev: number; // sigma
+    rho: number;
 }
 
 export interface LognormalParams {
     mean: number; // log-mean
     stdDev: number; // log-stdDev
+    rho: number;
 }
 
 export interface ExponentialParams {
     lambda: number; // rate parameter
+    rho: number;
 }
 
 export interface LoglogisticParams {
     beta: number; // shape
     alpha: number; // scale (median)
+    rho: number;
 }
 
 export interface GumbelParams {
     mu: number; // location
     sigma: number; // scale
+    rho: number;
 }
 
 
@@ -39,6 +45,13 @@ export interface DataTypeOptions {
   hasSuspensions: boolean; // right-censored data
   hasIntervals: boolean;   // interval and left-censored data
   isGrouped: boolean;
+}
+
+export interface EstimateParams {
+  dist: Distribution;
+  failureTimes: number[];
+  suspensionTimes?: number[];
+  method?: EstimationMethod;
 }
 
 export interface Supplier {
@@ -120,5 +133,3 @@ export const AnalyzeChartDataOutputSchema = z.object({
   failureRate: ChartAnalysisSchema,
 });
 export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema>;
-
-    

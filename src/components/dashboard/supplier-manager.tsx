@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Supplier, Distribution } from '@/lib/types';
+import type { Supplier, Distribution, EstimationMethod } from '@/lib/types';
 import { X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,7 @@ import { estimateParameters } from '@/lib/reliability';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import React from 'react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
@@ -59,6 +60,8 @@ const distributionOptions: Distribution[] = ['Weibull', 'Normal', 'Lognormal', '
 interface SupplierManagerProps {
   suppliers: Supplier[];
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void;
+  estimationMethod: EstimationMethod;
+  setEstimationMethod: (method: EstimationMethod) => void;
 }
 
 const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boolean, hasSuspensions: boolean }) => {
@@ -80,7 +83,7 @@ const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boole
 };
 
 
-export default function SupplierManager({ suppliers, setSuppliers }: SupplierManagerProps) {
+export default function SupplierManager({ suppliers, setSuppliers, estimationMethod, setEstimationMethod }: SupplierManagerProps) {
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -142,7 +145,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
         } else {
              // Logic for simple or grouped data
              // Remove dots as thousand separators before parsing
-             failureTimes = rawInput.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+             failureTimes = rawInput.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
         }
 
         if (failureTimes.length === 0) {
@@ -158,7 +161,12 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
         return;
     }
 
-    const params = estimateParameters(failureTimes, values.distribution as Distribution, suspensionTimes);
+    const params = estimateParameters({
+      dist: values.distribution,
+      failureTimes,
+      suspensionTimes,
+      method: estimationMethod,
+    });
 
     const newSupplier: Supplier = {
       id: new Date().getTime().toString(),
@@ -190,7 +198,12 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
     setSuppliers(prev => 
       prev.map(s => {
         if (s.id === id) {
-          const newParams = estimateParameters(s.failureTimes, newDistribution, s.suspensionTimes);
+          const newParams = estimateParameters({
+            dist: newDistribution,
+            failureTimes: s.failureTimes,
+            suspensionTimes: s.suspensionTimes,
+            method: estimationMethod,
+          });
           return { ...s, distribution: newDistribution, params: newParams };
         }
         return s;
@@ -225,7 +238,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
               <Input id={`eta-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.eta?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'eta', e.target.value)} />
             </div>
             <div>
-                <Label htmlFor={`rho-${supplier.id}`} className="text-xs text-muted-foreground">ρ (Rho)</Label>
+                <Label htmlFor={`rho-${supplier.id}`} className="text-xs text-muted-foreground">ρ (R²)</Label>
                 <Input id={`rho-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.rho?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'rho', e.target.value)} disabled />
             </div>
           </>
@@ -279,6 +292,37 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                   </FormItem>
                 )}
               />
+
+              <Card className="bg-muted/30">
+                  <CardHeader className="pb-4">
+                      <CardTitle className="text-base">Configurações da Análise</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <RadioGroup
+                          defaultValue={estimationMethod}
+                          onValueChange={(value: EstimationMethod) => setEstimationMethod(value)}
+                          className="grid grid-cols-2 gap-4"
+                      >
+                          <Label
+                              htmlFor="srm"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                          >
+                              <RadioGroupItem value="SRM" id="srm" className="sr-only" />
+                              SRM
+                              <span className="text-xs text-muted-foreground">Regressão</span>
+                          </Label>
+                          <Label
+                              htmlFor="mle"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                          >
+                              <RadioGroupItem value="MLE" id="mle" className="sr-only" />
+                              MLE
+                              <span className="text-xs text-muted-foreground">Verossimilhança</span>
+                          </Label>
+                      </RadioGroup>
+                  </CardContent>
+              </Card>
+
               <Card className="bg-muted/30">
                 <CardHeader className="pb-4">
                     <CardTitle className="text-base">Configuração dos Dados</CardTitle>
