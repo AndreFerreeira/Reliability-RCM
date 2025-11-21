@@ -47,6 +47,13 @@ export interface DataTypeOptions {
   isGrouped: boolean;
 }
 
+export type PlotData = {
+    points: { x: number; y: number; time: number; prob: number }[];
+    line: { x: number; y: number }[];
+    rSquared: number;
+    angle?: number;
+};
+
 export interface EstimateParams {
   dist: Distribution;
   failureTimes: number[];
@@ -64,12 +71,7 @@ export interface Supplier {
   params: Parameters;
   units: string;
   dataType: DataTypeOptions;
-  plotData?: {
-    points: { x: number; y: number; time: number; prob: number }[];
-    line: { x: number; y: number }[];
-    rSquared: number;
-    angle?: number;
-  }
+  plotData?: PlotData;
 }
 
 export interface ChartDataPoint {

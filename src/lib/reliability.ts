@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData } from '@/lib/types';
 import { medianRankTables } from './median-ranks';
 
 // --- Statistical Helpers ---
@@ -90,10 +90,8 @@ function performLinearRegression(points: {x: number, y: number}[]) {
 // --- Rank Regression Estimation for Various Distributions ---
 
 type AnalysisResult = {
-    points: { x: number, y: number, time: number, prob: number }[],
-    line: { x: number, y: number }[],
-    params: Parameters,
-    rSquared: number
+    plotData: PlotData,
+    params: Parameters
 }
 
 export function estimateParametersByRankRegression(
@@ -182,8 +180,13 @@ export function estimateParametersByRankRegression(
         { x: minX, y: slope * minX + intercept },
         { x: maxX, y: slope * maxX + intercept },
     ];
+
+    const angle = Math.atan(slope) * (180 / Math.PI);
     
-    return { points: transformedPoints, line, params, rSquared };
+    return { 
+        plotData: { points: transformedPoints, line, rSquared, angle },
+        params
+    };
 }
 
 
@@ -274,33 +277,38 @@ function estimateExponential(times: number[]): Parameters {
     return { lambda: mean > 0 ? 1 / mean : 0 };
 }
 
-export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM' }: EstimateParams): Parameters {
+export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM' }: EstimateParams): { params: Parameters, plotData?: PlotData } {
     const allTimes = [...failureTimes, ...suspensionTimes];
     const n = allTimes.length;
-    if (n === 0) return {};
+    if (n === 0) return { params: {} };
+    
+    // For SRM, we need median ranks
+    if (method === 'SRM' || dist === 'Normal' || dist === 'Lognormal' || dist === 'Exponential') {
+        const table = medianRankTables.find(t => t.sampleSize === n);
+        if (!table) return { params: {} }; // Cannot perform SRM without ranks
+        
+        const confidenceIndex = 4; // 50% Median Rank
+        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
 
-    if (dist === 'Weibull') {
-        if (method === 'MLE' || suspensionTimes.length > 0) {
-            return estimateWeibullMLE(failureTimes, suspensionTimes);
-        } else { // SRM
-            const table = medianRankTables.find(t => t.sampleSize === n);
-            if (!table) return { beta: undefined, eta: undefined };
-            const confidenceIndex = 4; // 50%
-            const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
-            const result = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
-            return result?.params ?? { beta: undefined, eta: undefined, rho: undefined };
-        }
+        const srmResult = estimateParametersByRankRegression(dist, failureTimes, medianRanks);
+        return { params: srmResult?.params ?? {}, plotData: srmResult?.plotData };
+    }
+
+    if (dist === 'Weibull' && method === 'MLE') {
+        const params = estimateWeibullMLE(failureTimes, suspensionTimes);
+        
+        // Generate plot data for MLE results
+        const table = medianRankTables.find(t => t.sampleSize === n);
+        if (!table || !params.beta) return { params };
+
+        const confidenceIndex = 4; // 50% Median Rank
+        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
+        const plotResult = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
+        
+        return { params, plotData: plotResult?.plotData };
     }
     
-    switch (dist) {
-        case 'Normal': return estimateNormal(failureTimes);
-        case 'Lognormal': return estimateLognormal(failureTimes);
-        case 'Exponential': return estimateExponential(failureTimes);
-        case 'Loglogistic':
-        case 'Gumbel':
-             return {}; // Not implemented for main charts, only for probability paper
-        default: return {};
-    }
+    return { params: {} };
 }
 
 // --- Reliability Calculations ---

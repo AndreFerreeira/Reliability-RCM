@@ -13,6 +13,7 @@ import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import ProbabilityPaper from './probability-paper';
+import ProbabilityPlotCard from './probability-plot-card';
 
 const initialSuppliersData = [
   { 
@@ -58,25 +59,28 @@ export default function ReliabilityDashboard() {
         
         return updatedSuppliers.map(s => {
             const originalSupplier = prev.find(ps => ps.id === s.id);
-            if (
-              !originalSupplier || 
+            const needsReEstimation = !originalSupplier || 
               JSON.stringify(originalSupplier.failureTimes) !== JSON.stringify(s.failureTimes) ||
               JSON.stringify(originalSupplier.suspensionTimes) !== JSON.stringify(s.suspensionTimes) ||
-              originalSupplier.distribution !== s.distribution
-            ) {
-                return { 
-                  ...s, 
-                  params: estimateParameters({ 
+              originalSupplier.distribution !== s.distribution;
+
+            if (needsReEstimation) {
+                const newParamsAndPlotData = estimateParameters({ 
                     dist: s.distribution, 
                     failureTimes: s.failureTimes, 
                     suspensionTimes: s.suspensionTimes, 
                     method: estimationMethod 
-                  }) 
+                });
+                return { 
+                  ...s, 
+                  params: newParamsAndPlotData.params,
+                  plotData: newParamsAndPlotData.plotData
                 };
             }
-
+            
+            // Keep manual overrides for params if data hasn't changed
             if (JSON.stringify(s.params) !== JSON.stringify(originalSupplier.params)) {
-              return s; // Keep manual overrides for params
+              return s; 
             }
 
             return originalSupplier;
@@ -123,6 +127,21 @@ export default function ReliabilityDashboard() {
             </Card>
             <div className="col-span-full lg:col-span-5 space-y-4">
               <ReliabilityCharts chartData={chartData} suppliers={suppliers} />
+               {suppliers.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Gráficos de Probabilidade</CardTitle>
+                      <CardDescription>
+                        Análise de aderência dos dados para cada fornecedor. Quanto mais próximos os pontos da linha, melhor o ajuste.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {suppliers.map(supplier => (
+                          <ProbabilityPlotCard key={supplier.id} supplier={supplier} />
+                      ))}
+                    </CardContent>
+                  </Card>
+               )}
               <WeibullParameterAnalysis suppliers={weibullSuppliers} />
               <BathtubCurveAnalysis failureTimes={allFailureTimes} />
             </div>

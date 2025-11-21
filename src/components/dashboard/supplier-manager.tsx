@@ -161,7 +161,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
         return;
     }
 
-    const params = estimateParameters({
+    const { params, plotData } = estimateParameters({
       dist: values.distribution,
       failureTimes,
       suspensionTimes,
@@ -181,7 +181,8 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
         hasSuspensions: values.hasSuspensions,
         hasIntervals: values.hasIntervals,
         isGrouped: values.isGrouped,
-      }
+      },
+      plotData: plotData,
     };
     setSuppliers(prev => [...prev, newSupplier]);
     form.reset();
@@ -198,13 +199,13 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
     setSuppliers(prev => 
       prev.map(s => {
         if (s.id === id) {
-          const newParams = estimateParameters({
+          const { params, plotData } = estimateParameters({
             dist: newDistribution,
             failureTimes: s.failureTimes,
             suspensionTimes: s.suspensionTimes,
             method: estimationMethod,
           });
-          return { ...s, distribution: newDistribution, params: newParams };
+          return { ...s, distribution: newDistribution, params, plotData };
         }
         return s;
       })
