@@ -201,7 +201,7 @@ export default function ProbabilityPaper() {
             return;
         }
 
-        const { params, points, line, rSquared } = analysisResult;
+        const { params, plotData } = analysisResult;
         
         const newSupplier: Supplier = {
             id: 'local_analysis',
@@ -213,7 +213,7 @@ export default function ProbabilityPaper() {
             params: params,
             units: 'Tempo',
             dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },
-            plotData: { points, line, rSquared }
+            plotData: plotData
         };
         setLocalSupplier(newSupplier);
     };
@@ -296,10 +296,9 @@ export default function ProbabilityPaper() {
                                 Insira valores separados por vírgula, espaço ou nova linha.
                             </p>
                         </div>
-                        <Button onClick={handlePlot} className="w-full">Plotar Gráfico</Button>
                     </div>
                     <div className="md:col-span-2">
-                        <ProbabilityPlot supplier={localSupplier} paperType={paperType} />
+                        <ProbabilityPlot suppliers={localSupplier ? [localSupplier] : []} paperType={paperType} />
                     </div>
                 </CardContent>
             </Card>
