@@ -54,11 +54,16 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 
 // --- Parameter Estimation ---
 
-function performLinearRegression(points: {x: number, y: number}[]) {
+function performLinearRegression(points: {x: number, y: number}[], regressOnX: boolean = false) {
     if (points.length < 2) return null;
+
+    let pts = points;
+    if (regressOnX) {
+        pts = points.map(p => ({ x: p.y, y: p.x }));
+    }
     
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0, N = points.length;
-    points.forEach(p => {
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0, N = pts.length;
+    pts.forEach(p => {
         sumX += p.x;
         sumY += p.y;
         sumXY += p.x * p.y;
@@ -71,9 +76,17 @@ function performLinearRegression(points: {x: number, y: number}[]) {
     
     if (Math.abs(denominator) < 1e-9) return null; // Avoid division by zero
 
-    const slope = numerator / denominator;
-    const intercept = (sumY - slope * sumX) / N;
+    let slope = numerator / denominator;
+    let intercept = (sumY - slope * sumX) / N;
 
+    if (regressOnX) {
+        // If we regressed on X, the roles of slope and intercept are swapped
+        // The new equation is y = (1/slope) * x - (intercept/slope)
+        const newSlope = 1 / slope;
+        intercept = -intercept / slope;
+        slope = newSlope;
+    }
+    
     // To calculate rSquared (coefficient of determination)
     const rSquaredNumerator = (N * sumXY - sumX * sumY);
     const rSquaredDenominator = Math.sqrt((N * sumXX - sumX * sumX) * (N * sumYY - sumY * sumY));
@@ -97,7 +110,8 @@ type AnalysisResult = {
 export function estimateParametersByRankRegression(
     dist: Distribution,
     times: number[],
-    medianRanks: number[]
+    medianRanks: number[],
+    method: 'SRM' | 'RRX'
 ): AnalysisResult | null {
     if (times.length < 2 || times.length !== medianRanks.length) return null;
 
@@ -146,7 +160,8 @@ export function estimateParametersByRankRegression(
         }
     }
 
-    const regression = performLinearRegression(transformedPoints);
+    const regressOnX = method === 'RRX';
+    const regression = performLinearRegression(transformedPoints, regressOnX);
     if (!regression) return null;
 
     const { slope, intercept, rSquared } = regression;
@@ -237,7 +252,7 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) {
-             const rr_params = estimateParametersByRankRegression('Weibull', failures, failures.map((_, i) => (i + 1 - 0.3) / (failures.length + 0.4)))?.params;
+             const rr_params = estimateParametersByRankRegression('Weibull', failures, failures.map((_, i) => (i + 1 - 0.3) / (failures.length + 0.4)), 'SRM')?.params;
              return { beta: rr_params?.beta, eta: rr_params?.eta };
         }
 
@@ -282,28 +297,28 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     const n = allTimes.length;
     if (n === 0) return { params: {} };
     
-    // For SRM, we need median ranks
-    if (method === 'SRM' || dist === 'Normal' || dist === 'Lognormal' || dist === 'Exponential') {
+    // For SRM (Rank Regression on Y) and RRX (Rank Regression on X)
+    if (method === 'SRM' || method === 'RRX') {
         const table = medianRankTables.find(t => t.sampleSize === n);
-        if (!table) return { params: {} }; // Cannot perform SRM without ranks
+        if (!table) return { params: {} }; // Cannot perform regression without ranks
         
         const confidenceIndex = 4; // 50% Median Rank
         const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
 
-        const srmResult = estimateParametersByRankRegression(dist, failureTimes, medianRanks);
+        const srmResult = estimateParametersByRankRegression(dist, failureTimes, medianRanks, method);
         return { params: srmResult?.params ?? {}, plotData: srmResult?.plotData };
     }
 
     if (dist === 'Weibull' && method === 'MLE') {
         const params = estimateWeibullMLE(failureTimes, suspensionTimes);
         
-        // Generate plot data for MLE results
+        // Generate plot data for MLE results (using SRM for visualization)
         const table = medianRankTables.find(t => t.sampleSize === n);
         if (!table || !params.beta) return { params };
 
         const confidenceIndex = 4; // 50% Median Rank
         const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
-        const plotResult = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
+        const plotResult = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks, 'SRM');
         
         return { params, plotData: plotResult?.plotData };
     }
