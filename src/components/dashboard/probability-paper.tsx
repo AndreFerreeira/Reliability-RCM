@@ -146,7 +146,7 @@ const MedianRankTable = ({ sampleSize, confidenceLevel }: { sampleSize: number, 
 export default function ProbabilityPaper() {
     const [paperType, setPaperType] = useState<Distribution>('Weibull');
     const [sampleSize, setSampleSize] = useState(10);
-    const [confidenceLevel, setConfidenceLevel] = useState<number | string>(50);
+    const [confidenceLevel, setConfidenceLevel] = useState<number | string>('Todos');
     const [failureData, setFailureData] = useState('500\n900\n1200\n1600\n1800\n2200\n2800\n3500\n4200\n5000');
     const [localSupplier, setLocalSupplier] = useState<Supplier | null>(null);
     const { toast } = useToast();
@@ -193,7 +193,7 @@ export default function ProbabilityPaper() {
 
         const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
 
-        const analysisResult = estimateParametersByRankRegression(paperType, times, medianRanks);
+        const analysisResult = estimateParametersByRankRegression(paperType, times, medianRanks, 'SRM');
         
         if (!analysisResult) {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: `Não foi possível analisar os dados para a distribuição ${paperType}.` });
