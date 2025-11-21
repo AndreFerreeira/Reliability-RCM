@@ -26,16 +26,6 @@ const initialSuppliersData = [
     units: 'Hora (h)',
     dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false } 
   },
-  { 
-    id: '2', 
-    name: 'Fornecedor B', 
-    failureTimes: [120, 180, 250, 300, 380, 420, 500, 580, 650, 700], 
-    suspensionTimes: [] as number[],
-    color: 'hsl(var(--chart-2))', 
-    distribution: 'Weibull' as const,
-    units: 'Hora (h)',
-    dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false } 
-  },
 ];
 
 const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
@@ -45,7 +35,13 @@ const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
     failureTimes: s.failureTimes, 
     suspensionTimes: s.suspensionTimes, 
     method: 'SRM'
-  }),
+  }).params,
+  plotData: estimateParameters({
+    dist: s.distribution, 
+    failureTimes: s.failureTimes, 
+    suspensionTimes: s.suspensionTimes, 
+    method: 'SRM'
+  }).plotData
 }));
 
 
@@ -83,7 +79,7 @@ export default function ReliabilityDashboard() {
               return s; 
             }
 
-            return originalSupplier;
+            return { ...s, plotData: originalSupplier.plotData, params: originalSupplier.params };
         });
     });
   };
