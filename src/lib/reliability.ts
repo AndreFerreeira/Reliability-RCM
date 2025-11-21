@@ -74,11 +74,11 @@ function performLinearRegression(points: {x: number, y: number}[]) {
     const slope = numerator / denominator;
     const intercept = (sumY - slope * sumX) / N;
 
-    const ssr = Math.pow(numerator, 2) / denominator;
-    const sst = sumYY - (sumY * sumY) / N;
-    const rSquared = sst === 0 ? 1 : ssr / sst;
-    
-    return { slope, intercept, rSquared: isNaN(rSquared) ? 0 : rSquared };
+    // To calculate rSquared (coefficient of determination)
+    const ssr = Math.pow(N * sumXY - sumX * sumY, 2) / ((N * sumXX - sumX * sumX) * (N * sumYY - sumY * sumY));
+    const rSquared = isNaN(ssr) ? 0 : ssr;
+
+    return { slope, intercept, rSquared };
 }
 
 
@@ -151,7 +151,7 @@ export function estimateParametersByRankRegression(
 
     switch(dist) {
         case 'Weibull':
-            params = { beta: slope, eta: Math.exp(-intercept / slope) };
+            params = { beta: slope, eta: Math.exp(-intercept / slope), rho: rSquared };
             break;
         case 'Lognormal':
             params = { stdDev: 1 / slope, mean: -intercept / slope };
@@ -283,7 +283,7 @@ export function estimateParameters(failureTimes: number[], dist: Distribution, s
         const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
         
         const result = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks);
-        return result?.params ?? { beta: undefined, eta: undefined };
+        return result?.params ?? { beta: undefined, eta: undefined, rho: undefined };
     }
     
     switch (dist) {

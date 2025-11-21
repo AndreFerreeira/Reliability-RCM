@@ -224,6 +224,10 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
               <Label htmlFor={`eta-${supplier.id}`} className="text-xs text-muted-foreground">η (Eta)</Label>
               <Input id={`eta-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.eta?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'eta', e.target.value)} />
             </div>
+            <div>
+                <Label htmlFor={`rho-${supplier.id}`} className="text-xs text-muted-foreground">ρ (Rho)</Label>
+                <Input id={`rho-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.rho?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'rho', e.target.value)} disabled />
+            </div>
           </>
         );
       case 'Normal':
@@ -449,7 +453,7 @@ export default function SupplierManager({ suppliers, setSuppliers }: SupplierMan
                 </SelectContent>
               </Select>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-3 gap-2">
                 {renderParams(supplier)}
             </div>
           </div>

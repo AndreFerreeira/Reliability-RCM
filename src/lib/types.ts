@@ -5,6 +5,7 @@ export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential' | 
 export interface WeibullParams {
   beta: number; // shape parameter
   eta: number;  // scale parameter (characteristic life)
+  rho: number; // correlation coefficient (R-squared)
 }
 
 export interface NormalParams {
@@ -54,6 +55,7 @@ export interface Supplier {
     points: { x: number; y: number; time: number; prob: number }[];
     line: { x: number; y: number }[];
     rSquared: number;
+    angle?: number;
   }
 }
 
