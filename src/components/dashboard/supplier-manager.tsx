@@ -302,7 +302,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                       <RadioGroup
                           defaultValue={estimationMethod}
                           onValueChange={(value: EstimationMethod) => setEstimationMethod(value)}
-                          className="grid grid-cols-2 gap-4"
+                          className="grid grid-cols-3 gap-4"
                       >
                           <Label
                               htmlFor="srm"
@@ -319,6 +319,14 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                               <RadioGroupItem value="MLE" id="mle" className="sr-only" />
                               MLE
                               <span className="text-xs text-muted-foreground">Verossimilhança</span>
+                          </Label>
+                           <Label
+                              htmlFor="rrx"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                          >
+                              <RadioGroupItem value="RRX" id="rrx" className="sr-only" />
+                              RRX
+                              <span className="text-xs text-muted-foreground">Regressão X</span>
                           </Label>
                       </RadioGroup>
                   </CardContent>

@@ -1,7 +1,9 @@
+'use client';
+
 import { z } from "zod";
 
 export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential' | 'Loglogistic' | 'Gumbel';
-export type EstimationMethod = 'SRM' | 'MLE';
+export type EstimationMethod = 'SRM' | 'MLE' | 'RRX';
 
 export interface WeibullParams {
   beta: number; // shape parameter
