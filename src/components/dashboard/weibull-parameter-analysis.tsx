@@ -76,7 +76,7 @@ export default function WeibullParameterAnalysis({ suppliers }: WeibullParameter
             <CardHeader>
                 <CardTitle>Analisador de Parâmetros Weibull (β & η)</CardTitle>
                 <CardDescription>
-                    Interprete os parâmetros Beta (forma) e Eta (vida) para entender o modo de falha e a vida útil dos seus componentes.
+                    Interprete os parâmetros Beta (forma) e Eta (vida) para entender o modo de falha e a vida útil de seus equipamentos.
                 </CardDescription>
             </CardHeader>
             <CardContent>

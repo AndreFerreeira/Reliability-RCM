@@ -85,7 +85,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
-            Adicione dados de fornecedor para ver os gráficos.
+            Adicione dados do equipamento para ver os gráficos.
           </div>
         )}
         </div>

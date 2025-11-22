@@ -32,7 +32,7 @@ function normalInverse(p: number): number {
 
 export default function ProbabilityPlot({ suppliers = [], paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     
-    const validSuppliers = suppliers.filter(s => s && s.plotData && s.plotData.points && s.plotData.line && s.plotData.points.length > 0 && s.distribution === paperType);
+    const validSuppliers = (suppliers || []).filter(s => s && s.plotData && s.plotData.points && s.plotData.line && s.plotData.points.length > 0 && s.distribution === paperType);
 
     if (validSuppliers.length === 0) {
        return (
@@ -40,7 +40,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                 <CardContent className="flex items-center justify-center h-full min-h-[450px]">
                     <div className="text-center text-muted-foreground">
                         <p className="font-semibold">Aguardando dados...</p>
-                        <p className="text-sm mt-2">Adicione ou selecione fornecedores com a distribuição "{paperType}" para ver o gráfico.</p>
+                        <p className="text-sm mt-2">Adicione ou selecione equipamentos com a distribuição "{paperType}" para ver o gráfico.</p>
                     </div>
                 </CardContent>
             </Card>

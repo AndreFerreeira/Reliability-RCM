@@ -113,7 +113,7 @@ export default function AiComprehensiveAnalysis({ suppliers, chartData }: AiComp
       <CardHeader>
         <CardTitle>Relatório Abrangente com IA</CardTitle>
         <CardDescription>
-          Gere uma análise técnica detalhada comparando todos os fornecedores nos quatro principais gráficos de confiabilidade.
+          Gere uma análise técnica detalhada comparando todos os equipamentos nos quatro principais gráficos de confiabilidade.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -126,7 +126,7 @@ export default function AiComprehensiveAnalysis({ suppliers, chartData }: AiComp
             )}
             Gerar Análise Abrangente
           </Button>
-          {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de fornecedores para habilitar a análise.</p>}
+          {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de equipamentos para habilitar a análise.</p>}
         </div>
 
         {isPending && (
@@ -149,7 +149,7 @@ export default function AiComprehensiveAnalysis({ suppliers, chartData }: AiComp
               <Bot className="h-4 w-4" />
               <AlertTitle>Análise da IA Concluída</AlertTitle>
               <AlertDescription>
-                Abaixo está uma análise técnica para cada gráfico, comparando o desempenho dos fornecedores selecionados.
+                Abaixo está uma análise técnica para cada gráfico, comparando o desempenho dos equipamentos selecionados.
               </AlertDescription>
             </Alert>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

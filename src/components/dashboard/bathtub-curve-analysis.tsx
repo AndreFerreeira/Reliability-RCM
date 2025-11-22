@@ -139,7 +139,7 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-48">
-          <p className="text-muted-foreground">Adicione dados de fornecedores para ver a análise.</p>
+          <p className="text-muted-foreground">Adicione dados de equipamentos para ver a análise.</p>
         </CardContent>
       </Card>
     );

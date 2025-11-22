@@ -49,7 +49,7 @@ export default function AiRiskPredictor({ suppliers }: AiRiskPredictorProps) {
             )}
             Prever Fatores de Risco
             </Button>
-            {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de fornecedores para habilitar a previsão.</p>}
+            {suppliers.length === 0 && <p className="text-sm text-muted-foreground">Adicione dados de equipamentos para habilitar a previsão.</p>}
         </div>
 
         {isPending && (

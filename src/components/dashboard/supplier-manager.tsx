@@ -33,7 +33,7 @@ import React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: 'O nome do fornecedor é obrigatório.' }),
+  name: z.string().min(1, { message: 'O nome do equipamento é obrigatório.' }),
   failureTimes: z.string().min(1, { message: 'Por favor, insira os dados de falha.' }).refine(
     (val) => {
       return val.trim().length > 0;
@@ -107,7 +107,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
       toast({
         variant: 'destructive',
         title: 'Limite Atingido',
-        description: 'Você pode comparar um máximo de 5 fornecedores por vez.',
+        description: 'Você pode comparar um máximo de 5 equipamentos por vez.',
       });
       return;
     }
@@ -275,7 +275,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
       <Card>
         <CardHeader>
             <CardTitle>Entrada de Dados</CardTitle>
-            <CardDescription>Adicione um novo fornecedor para análise.</CardDescription>
+            <CardDescription>Adicione um novo equipamento para análise.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -285,9 +285,9 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nome do Fornecedor</FormLabel>
+                    <FormLabel>Nome do Equipamento</FormLabel>
                     <FormControl>
-                      <Input placeholder="ex: Fornecedor D" {...field} />
+                      <Input placeholder="ex: Equipamento A" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -472,16 +472,16 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">Adicionar Fornecedor</Button>
+              <Button type="submit" className="w-full">Adicionar Equipamento</Button>
             </form>
           </Form>
         </CardContent>
       </Card>
       
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Fornecedores Atuais</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Equipamentos Atuais</h3>
         <div className="space-y-2">
-        {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">Nenhum fornecedor adicionado ainda.</p>}
+        {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">Nenhum equipamento adicionado ainda.</p>}
         {suppliers.map(supplier => (
           <div key={supplier.id} className="rounded-md border p-3">
             <div className="flex items-start justify-between">

@@ -68,11 +68,11 @@ export async function getRiskFactors(
   if (suppliers.length === 0) {
     return {
       riskFactors: [],
-      summary: 'Nenhum dado de fornecedor disponível para analisar os fatores de risco.',
+      summary: 'Nenhum dado de equipamento disponível para analisar os fatores de risco.',
     };
   }
   const historicalData = suppliers
-    .map(s => `Fornecedor ${s.name} tempos de falha: ${s.failureTimes.join(', ')}`)
+    .map(s => `Equipamento ${s.name} tempos de falha: ${s.failureTimes.join(', ')}`)
     .join('\n');
 
   const prompt = `Você é um engenheiro de confiabilidade especialista. Analise os seguintes dados históricos de falha para identificar os fatores de risco mais significativos que contribuem para as falhas.
@@ -96,7 +96,7 @@ export async function getChartAnalysis(
   input: AnalyzeChartDataInput
 ): Promise<AnalyzeChartDataOutput | { error: string }> {
   if (input.suppliers.length === 0) {
-    return { error: 'Nenhum dado de fornecedor para analisar.' };
+    return { error: 'Nenhum dado de equipamento para analisar.' };
   }
 
   const suppliersJson = JSON.stringify(input.suppliers.map(s => {
@@ -113,12 +113,12 @@ export async function getChartAnalysis(
     return params;
   }), null, 2);
 
-  const prompt = `Você é um engenheiro de confiabilidade especialista. Sua tarefa é fornecer uma análise comparativa detalhada dos seguintes fornecedores com base em seus parâmetros de distribuição de probabilidade.
+  const prompt = `Você é um engenheiro de confiabilidade especialista. Sua tarefa é fornecer uma análise comparativa detalhada dos seguintes equipamentos com base em seus parâmetros de distribuição de probabilidade.
 
-Dados dos Fornecedores:
+Dados dos Equipamentos:
 ${suppliersJson}
 
-Analise os dados e gere uma explicação técnica detalhada para cada um dos quatro gráficos de confiabilidade a seguir. Para cada gráfico, compare os fornecedores e explique o que suas respectivas curvas significam, levando em consideração o tipo de distribuição de cada um. Use markdown para formatação, incluindo negrito para termos-chave e listas quando apropriado.
+Analise os dados e gere uma explicação técnica detalhada para cada um dos quatro gráficos de confiabilidade a seguir. Para cada gráfico, compare os equipamentos e explique o que suas respectivas curvas significam, levando em consideração o tipo de distribuição de cada um. Use markdown para formatação, incluindo negrito para termos-chave e listas quando apropriado.
 
 1.  **Curva de Confiabilidade R(t):** A probabilidade de um componente funcionar sem falha até o tempo t.
 2.  **Probabilidade de Falha F(t):** A probabilidade de um componente falhar até o tempo t. Esta é a função de distribuição acumulada (FDA).
