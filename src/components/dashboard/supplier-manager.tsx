@@ -275,7 +275,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
       <Card>
         <CardHeader>
             <CardTitle>Entrada de Dados</CardTitle>
-            <CardDescription>Adicione um novo equipamento para análise.</CardDescription>
+            <CardDescription>Adicionar um novo equipamento para análise.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -285,7 +285,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nome do Equipamento</FormLabel>
+                    <FormLabel>Equipamento</FormLabel>
                     <FormControl>
                       <Input placeholder="ex: Equipamento A" {...field} />
                     </FormControl>

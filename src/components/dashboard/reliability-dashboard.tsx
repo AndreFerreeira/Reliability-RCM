@@ -110,7 +110,7 @@ export default function ReliabilityDashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="col-span-full lg:col-span-2">
               <CardHeader>
-                <CardTitle>Dados dos Equipamentos</CardTitle>
+                <CardTitle>Dados do Equipamento</CardTitle>
                 <CardDescription>
                   Gerencie os dados de tempo até a falha para cada equipamento.
                 </CardDescription>
