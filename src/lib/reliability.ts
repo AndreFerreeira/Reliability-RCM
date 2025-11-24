@@ -83,8 +83,13 @@ function performLinearRegression(points: {x: number, y: number}[], regressOnX: b
     if (regressOnX) {
         // Regress X on Y (x = my + c)
         if (Math.abs(denominatorY) < 1e-9) return null;
-        slope = (N * sumXY - sumX * sumY) / denominatorY; // this is slope 'm' in x = my + c
-        intercept = (sumX - slope * sumY) / N; // this is intercept 'c' in x = my + c
+        const slope_x_on_y = (N * sumXY - sumX * sumY) / denominatorY;
+        const intercept_x_on_y = (sumX - slope_x_on_y * sumY) / N;
+
+        // Convert back to y = mx + c for consistency
+        slope = 1 / slope_x_on_y;
+        intercept = -intercept_x_on_y / slope_x_on_y;
+
     } else {
         // Regress Y on X (standard, y = mx + c)
         if (Math.abs(denominatorX) < 1e-9) return null;
@@ -92,7 +97,6 @@ function performLinearRegression(points: {x: number, y: number}[], regressOnX: b
         intercept = (sumY - slope * sumX) / N;
     }
 
-    // To calculate rSquared (coefficient of determination)
     const rSquaredNumerator = (N * sumXY - sumX * sumY);
     const rSquaredDenominator = Math.sqrt(denominatorX * denominatorY);
     if(Math.abs(rSquaredDenominator) < 1e-9) return { slope, intercept, rSquared: 1 };
@@ -111,31 +115,34 @@ type AnalysisResult = {
     params: Parameters
 }
 
-function getMedianRanksForGroupedData(failureTimes: number[], n: number) {
-    const counts: { [time: number]: number } = {};
-    failureTimes.forEach(time => {
-        counts[time] = (counts[time] || 0) + 1;
-    });
-    const uniqueTimes = Object.keys(counts).map(Number).sort((a, b) => a - b);
+function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[]): { time: number; prob: number; }[] {
+    const allData = [
+        ...failureTimes.map(t => ({ time: t, isFailure: true })),
+        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+    ].sort((a, b) => a.time - b.time);
 
-    let cumulativeFailures = 0;
-    const ranks = [];
-
-    for (const time of uniqueTimes) {
-        const numFailuresInGroup = counts[time];
-        const rankStart = (cumulativeFailures + 1 - 0.3) / (n + 0.4);
-        const rankEnd = (cumulativeFailures + numFailuresInGroup - 0.3) / (n + 0.4);
-        
-        for (let j = 0; j < numFailuresInGroup; j++) {
-            // Linearly space the ranks within the group
-            const prob = rankStart + (j / (numFailuresInGroup - 1)) * (rankEnd - rankStart) || rankStart;
-            ranks.push({ time, prob });
+    const n = allData.length;
+    if (n === 0 || failureTimes.length === 0) return [];
+    
+    const rankedPoints: { time: number; prob: number; }[] = [];
+    let previousRank = 0;
+    
+    for (let i = 0; i < n; i++) {
+        if (allData[i].isFailure) {
+            const itemsRemaining = n - i;
+            const increment = (n + 1 - previousRank) / (1 + itemsRemaining);
+            const newRank = previousRank + increment;
+            const prob = (newRank - 0.3) / (n + 0.4); // Benard's approximation for Median Rank
+            
+            if (prob < 1) { // Ensure probability is less than 1
+                rankedPoints.push({ time: allData[i].time, prob });
+            }
+            previousRank = newRank;
         }
-        cumulativeFailures += numFailuresInGroup;
     }
-    return ranks;
+    
+    return rankedPoints;
 }
-
 
 export function estimateParametersByRankRegression(
     dist: Distribution,
@@ -143,45 +150,9 @@ export function estimateParametersByRankRegression(
     suspensionTimes: number[] = [],
     method: 'SRM' | 'RRX'
 ): AnalysisResult | null {
-
-    const allData = [
-        ...failureTimes.map(t => ({ time: t, isFailure: true })),
-        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
-    ].sort((a, b) => a.time - b.time);
-
-    const n = allData.length;
-    if (n === 0 || failureTimes.length === 0) return null;
     
-    const isGrouped = failureTimes.length !== new Set(failureTimes).size;
-
-    let rankedPoints: { time: number; prob: number; }[];
-
-    if (suspensionTimes.length > 0) {
-        // Adjusted Ranks for suspensions (Johnson method)
-        rankedPoints = [];
-        let previousRank = 0;
-        for (let i = 0; i < n; i++) {
-            if (allData[i].isFailure) {
-                const itemsRemaining = n - i;
-                const increment = (n + 1 - previousRank) / (1 + itemsRemaining);
-                const newRank = previousRank + increment;
-                const prob = (newRank - 0.3) / (n + 0.4);
-                rankedPoints.push({ time: allData[i].time, prob: prob });
-                previousRank = newRank;
-            }
-        }
-    } else if (isGrouped) {
-        // Median Ranks for grouped data (no suspensions)
-        rankedPoints = getMedianRanksForGroupedData(failureTimes, n);
-    } else {
-        // Standard Median Ranks for non-grouped, non-suspended data
-        const sortedFailures = [...failureTimes].sort((a,b)=> a - b);
-        rankedPoints = sortedFailures.map((time, i) => {
-            const order = i + 1;
-            const prob = (order - 0.3) / (n + 0.4); // Benard's approximation
-            return { time, prob };
-        });
-    }
+    const rankedPoints = calculateAdjustedRanks(failureTimes, suspensionTimes);
+    if (rankedPoints.length === 0) return null;
 
     let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
     for (const point of rankedPoints) {
@@ -228,18 +199,8 @@ export function estimateParametersByRankRegression(
     const regression = performLinearRegression(transformedPoints, regressOnX);
     if (!regression) return null;
 
-    const { rSquared } = regression;
-    let { slope, intercept } = regression;
+    const { rSquared, slope, intercept } = regression;
     let params: Parameters = {};
-
-    if (regressOnX) {
-        // if we regressed X on Y (x = m*y + c), we need to convert back to y = m*x + c
-        // y = (1/m)*x - (c/m)
-        const newSlope = 1 / slope;
-        intercept = -intercept / slope;
-        slope = newSlope;
-    }
-
 
     switch(dist) {
         case 'Weibull':
@@ -367,8 +328,6 @@ function estimateExponential(times: number[]): Parameters {
 }
 
 export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM' }: EstimateParams): { params: Parameters, plotData?: PlotData } {
-    const allTimes = [...failureTimes, ...suspensionTimes];
-    const n = allTimes.length;
     if (failureTimes.length === 0) return { params: {} };
     
     // For SRM (Rank Regression on Y) and RRX (Rank Regression on X)
@@ -380,10 +339,7 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     // For MLE
     if (dist === 'Weibull' && method === 'MLE') {
         const params = estimateWeibullMLE(failureTimes, suspensionTimes);
-        
-        // Generate plot data for MLE results (using SRM for visualization of points)
         const plotResult = estimateParametersByRankRegression('Weibull', failureTimes, suspensionTimes, 'SRM');
-        
         return { params, plotData: plotResult?.plotData };
     }
 
@@ -400,6 +356,7 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     }
     
     if (dist === 'Exponential' && method === 'MLE') {
+        const allTimes = [...failureTimes, ...suspensionTimes];
         const params = estimateExponential(allTimes); // For exponential, MLE mean is sum of all times / num of failures
         const plotResult = estimateParametersByRankRegression('Exponential', failureTimes, suspensionTimes, 'SRM');
         return { params, plotData: plotResult?.plotData };

@@ -69,7 +69,11 @@ const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boole
     let placeholder = "Ex: 150, 200, 210, 300";
     let description = "Insira um valor por linha ou separe por vírgula/espaço.";
 
-    if (isGrouped) {
+    if (isGrouped && hasSuspensions) {
+        title = "Dados Agrupados com Suspensão";
+        placeholder = "Ex:\n[Tempo] [Qtd Falhas] [Qtd Suspensões]\n1000 10 2\n1500 8 0";
+        description = "Insira em três colunas. Use 0 se não houver falhas ou suspensões em uma linha.";
+    } else if (isGrouped) {
         title = "Dados Agrupados (Tempo e Quantidade)";
         placeholder = "Ex:\n150 2\n210 5\n300 1";
         description = "Insira em duas colunas: [Tempo] [Quantidade].";
@@ -118,9 +122,26 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
     const rawInput = values.failureTimes.trim();
 
     try {
-        const lines = rawInput.split('\n');
+        const lines = rawInput.split('\n').filter(line => line.trim() !== '');
 
-        if (values.hasSuspensions) {
+        if (values.isGrouped && values.hasSuspensions) {
+            lines.forEach(line => {
+                const parts = line.trim().split(/[\s,]+/);
+                if (parts.length === 3) {
+                    const time = parseFloat(parts[0].replace(/\./g, ''));
+                    const numFailures = parseInt(parts[1], 10);
+                    const numSuspensions = parseInt(parts[2], 10);
+                    if (!isNaN(time) && !isNaN(numFailures) && !isNaN(numSuspensions)) {
+                        for (let i = 0; i < numFailures; i++) failureTimes.push(time);
+                        for (let i = 0; i < numSuspensions; i++) suspensionTimes.push(time);
+                    } else {
+                        throw new Error(`Linha de dados inválida: "${line}". Use o formato [Tempo] [Qtd Falhas] [Qtd Suspensões].`);
+                    }
+                } else {
+                    throw new Error(`Linha de dados inválida: "${line}". Use o formato [Tempo] [Qtd Falhas] [Qtd Suspensões].`);
+                }
+            });
+        } else if (values.hasSuspensions) {
             lines.forEach(line => {
                 const parts = line.trim().split(/[\s,]+/);
                 if (parts.length === 2) {
@@ -161,8 +182,6 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                 }
             });
         } else {
-             // Logic for simple data
-             // Remove dots as thousand separators before parsing
              failureTimes = rawInput.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
         }
 
@@ -390,10 +409,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                                             checked={field.value} 
                                             onCheckedChange={(checked) => {
                                                 field.onChange(checked);
-                                                if (checked) {
-                                                    form.setValue('hasIntervals', false);
-                                                    form.setValue('isGrouped', false);
-                                                }
+                                                if (checked) form.setValue('hasIntervals', false);
                                             }} 
                                         />
                                     </FormControl>
@@ -414,10 +430,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                                             checked={field.value} 
                                             onCheckedChange={(checked) => {
                                                 field.onChange(checked);
-                                                if (checked) {
-                                                    form.setValue('hasIntervals', false);
-                                                    form.setValue('hasSuspensions', false);
-                                                }
+                                                if (checked) form.setValue('hasIntervals', false);
                                             }}
                                         />
                                     </FormControl>
@@ -534,5 +547,3 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
     </div>
   );
 }
-
-    
