@@ -70,18 +70,20 @@ function performLinearRegression(points: {x: number, y: number}[], regressOnX: b
     let intercept: number;
 
     if (regressOnX) {
-        // Regress X on Y (swap roles)
+        // Regress X on Y (x = my + c)
         const denominator = (N * sumYY - sumY * sumY);
         if (Math.abs(denominator) < 1e-9) return null;
-        const b_x_on_y = (N * sumXY - sumX * sumY) / denominator;
-        const a_x_on_y = (sumX - b_x_on_y * sumY) / N;
-
+        
+        const b_x_on_y = (N * sumXY - sumX * sumY) / denominator; // this is slope 'm' in x = my + c
+        const a_x_on_y = (sumX - b_x_on_y * sumY) / N; // this is intercept 'c' in x = my + c
+        
         // Convert back to y = mx + c form
-        if (Math.abs(b_x_on_y) < 1e-9) return null;
+        if (Math.abs(b_x_on_y) < 1e-9) return null; // Avoid division by zero
         slope = 1 / b_x_on_y;
         intercept = -a_x_on_y / b_x_on_y;
+
     } else {
-        // Regress Y on X (standard)
+        // Regress Y on X (standard, y = mx + c)
         const denominator = (N * sumXX - sumX * sumX);
         if (Math.abs(denominator) < 1e-9) return null;
         slope = (N * sumXY - sumX * sumY) / denominator;
@@ -131,12 +133,12 @@ export function estimateParametersByRankRegression(
         if (item.isFailure) {
             const reverseRank = n - i;
             // Benard's approximation for Median Rank
-            const medianRank = previousMedianRank + (n + 1 - previousMedianRank) / (reverseRank + 1);
-            const prob = medianRank / (n + 0.4); // Simplified from other sources, often just `medianRank`
+            const adjustedRank = (n + 1 - previousMedianRank) / (reverseRank + 1) + previousMedianRank;
+            const prob = adjustedRank / (n + 0.4); // Simplified approach
             
             if (item.time <= 0 || prob <= 0 || prob >= 1) continue;
             
-            previousMedianRank = medianRank;
+            previousMedianRank = adjustedRank;
             
             let x: number, y: number;
             
@@ -449,5 +451,3 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
-
-    
