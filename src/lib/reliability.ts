@@ -112,7 +112,7 @@ export function estimateParametersByRankRegression(
     suspensionTimes: number[] = [],
     method: 'SRM' | 'RRX'
 ): AnalysisResult | null {
-    if (failureTimes.length < 2) return null;
+    if (failureTimes.length === 0) return null;
 
     const allData = [
         ...failureTimes.map(t => ({ time: t, isFailure: true })),
@@ -121,48 +121,44 @@ export function estimateParametersByRankRegression(
 
     const n = allData.length;
     let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
-    let rankIncrement = 0;
-    let lastRank = 0;
-
+    let failureIndex = 0;
+    
+    // Benard's approximation for Median Ranks with suspensions
     for (let i = 0; i < n; i++) {
         const item = allData[i];
-        
-        // Calculate adjusted rank order using Mean Order Number (Johnson's method)
-        rankIncrement = (n + 1 - lastRank) / (1 + (n - (i + 1)));
-        const rank = lastRank + rankIncrement;
-        lastRank = rank;
-
         if (item.isFailure) {
-            const time = item.time;
-            const prob = rank / (n + 1); // Benard's approximation for median rank
-            
-            if (time <= 0 || prob <= 0 || prob >= 1) continue;
+            failureIndex++;
+            const reverseRank = n - i;
+            // Simplified Benard's approximation for Median Rank
+            const prob = (failureIndex - 0.3) / (n + 0.4);
+
+            if (item.time <= 0 || prob <= 0 || prob >= 1) continue;
             
             let x: number, y: number;
             
             switch(dist) {
                 case 'Weibull':
-                    x = Math.log(time);
+                    x = Math.log(item.time);
                     y = Math.log(Math.log(1 / (1 - prob)));
                     break;
                 case 'Lognormal':
-                    x = Math.log(time);
+                    x = Math.log(item.time);
                     y = invNormalCdf(prob);
                     break;
                 case 'Normal':
-                    x = time;
+                    x = item.time;
                     y = invNormalCdf(prob);
                     break;
                 case 'Exponential':
-                    x = time;
+                    x = item.time;
                     y = Math.log(1 / (1 - prob));
                     break;
                 case 'Loglogistic':
-                    x = Math.log(time);
+                    x = Math.log(item.time);
                     y = Math.log(prob / (1 - prob));
                     break;
                 case 'Gumbel':
-                    x = time;
+                    x = item.time;
                     y = -Math.log(-Math.log(prob));
                     break;
                 default:
@@ -170,7 +166,7 @@ export function estimateParametersByRankRegression(
             }
 
             if(isFinite(x) && isFinite(y)) {
-                transformedPoints.push({ x, y, time, prob });
+                transformedPoints.push({ x, y, time: item.time, prob });
             }
         }
     }
