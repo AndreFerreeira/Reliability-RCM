@@ -237,6 +237,10 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             },
             icon: 'circle',
             selected: validSuppliers.reduce((acc, s) => {
+                // By default, all series are selected.
+                // ECharts automatically handles grouping in the legend
+                // if series names are related (e.g., 'A' and 'A (Ajuste)').
+                // Clicking 'A' in the legend will toggle both.
                 acc[s.name] = true;
                 acc[`${s.name} (Ajuste)`] = true;
                 return acc;
@@ -246,8 +250,8 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             ...xAxisSettings[paperType],
             nameLocation: 'middle',
             nameGap: 30,
-            min: minX - xRange * 0.05,
-            max: maxX + xRange * 0.05,
+            min: 'dataMin',
+            max: 'dataMax',
             splitLine: { show: true, lineStyle: { color: "hsl(var(--border))", opacity: 0.7 } },
             axisLabel: { color: "hsl(var(--foreground))" },
         },
