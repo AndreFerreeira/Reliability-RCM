@@ -46,55 +46,6 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             </Card>
         );
     }
-
-    const allX = validSuppliers.flatMap(s => s.plotData!.line.map(p => p.x));
-    const minX = Math.min(...allX);
-    const maxX = Math.max(...allX);
-    const xRange = maxX - minX;
-
-    const angleGraphics = validSuppliers.map((supplier, index) => {
-        if (!supplier.plotData?.angle || !supplier.plotData.line.length) return null;
-
-        const line = supplier.plotData.line;
-        const startPoint = line[0];
-        const angle = supplier.plotData.angle;
-
-        // Position the angle indicator near the start of the line
-        const indicatorPositionX = startPoint.x + xRange * 0.1;
-        const indicatorPositionY = startPoint.y + Math.tan(angle * Math.PI / 180) * (xRange * 0.1);
-
-        return [
-            {
-                type: 'group',
-                children: [
-                    {
-                        type: 'arc',
-                        shape: {
-                            cx: startPoint.x,
-                            cy: startPoint.y,
-                            r: xRange * 0.1,
-                            startAngle: -angle,
-                            endAngle: 0,
-                        },
-                        style: {
-                            stroke: supplier.color,
-                            lineWidth: 1.5,
-                        },
-                    },
-                    {
-                        type: 'text',
-                        style: {
-                            text: 'θ',
-                            x: startPoint.x + xRange * 0.12,
-                            y: startPoint.y - Math.tan(angle * Math.PI / 180) * (xRange * 0.05),
-                            font: 'italic 14px "Inter", sans-serif',
-                            fill: supplier.color,
-                        }
-                    },
-                ],
-            },
-        ];
-    }).filter(Boolean).flat();
     
     // ECharts series
     const series = validSuppliers.flatMap(supplier => {
@@ -150,12 +101,35 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
         ];
     });
 
+    // Calculate axis ranges to enforce a 1:1 aspect ratio
+    const allPoints = series.filter(s => s.type === 'scatter').flatMap(s => s.data as [number, number][]);
+    const allX = allPoints.map(p => p[0]);
+    const allY = allPoints.map(p => p[1]);
+
+    const minX = Math.min(...allX);
+    const maxX = Math.max(...allX);
+    const minY = Math.min(...allY);
+    const maxY = Math.max(...allY);
+
+    const xRange = maxX - minX;
+    const yRange = maxY - minY;
+
+    const maxRange = Math.max(xRange, yRange);
+    const padding = maxRange * 0.1;
+
+    const finalMinX = (minX + maxX) / 2 - maxRange / 2 - padding;
+    const finalMaxX = (minX + maxX) / 2 + maxRange / 2 + padding;
+    const finalMinY = (minY + maxY) / 2 - maxRange / 2 - padding;
+    const finalMaxY = (minY + maxY) / 2 + maxRange / 2 + padding;
+
     const probabilityTicks = [0.01, 0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9, 99.99];
 
     let yAxisSettings = {};
     if (paperType === 'Weibull') {
         yAxisSettings = {
             type: 'value',
+            min: finalMinY,
+            max: finalMaxY,
             name: "Probabilidade Cumulativa (%)",
             nameLocation: 'middle',
             nameGap: 55,
@@ -183,6 +157,8 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
     } else if (paperType === 'Lognormal' || paperType === 'Normal') {
         yAxisSettings = {
             type: 'value',
+            min: finalMinY,
+            max: finalMaxY,
             name: 'Probabilidade Cumulativa (%)',
             nameLocation: 'middle',
             nameGap: 55,
@@ -207,6 +183,8 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
     } else {
         yAxisSettings = {
             type: 'value',
+            min: finalMinY,
+            max: finalMaxY,
             name: "Probabilidade (%)",
             nameLocation: 'middle',
             nameGap: 55,
@@ -216,12 +194,12 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
     }
 
     const xAxisSettings = {
-        Weibull: { name: 'ln(Tempo)', type: 'value' },
-        Lognormal: { name: 'ln(Tempo)', type: 'value' },
-        Normal: { name: 'Tempo', type: 'value' },
-        Exponential: { name: 'Tempo', type: 'value' },
-        Loglogistic: { name: 'ln(Tempo)', type: 'value' },
-        Gumbel: { name: 'Tempo', type: 'value' }
+        Weibull: { name: 'ln(Tempo)', type: 'value', min: finalMinX, max: finalMaxX },
+        Lognormal: { name: 'ln(Tempo)', type: 'value', min: finalMinX, max: finalMaxX },
+        Normal: { name: 'Tempo', type: 'value', min: finalMinX, max: finalMaxX },
+        Exponential: { name: 'Tempo', type: 'value', min: finalMinX, max: finalMaxX },
+        Loglogistic: { name: 'ln(Tempo)', type: 'value', min: finalMinX, max: finalMaxX },
+        Gumbel: { name: 'Tempo', type: 'value', min: finalMinX, max: finalMaxX }
     };
     
     // ECharts option object
@@ -237,21 +215,15 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             },
             icon: 'circle',
             selected: validSuppliers.reduce((acc, s) => {
-                // By default, all series are selected.
-                // ECharts automatically handles grouping in the legend
-                // if series names are related (e.g., 'A' and 'A (Ajuste)').
-                // Clicking 'A' in the legend will toggle both.
                 acc[s.name] = true;
                 acc[`${s.name} (Ajuste)`] = true;
                 return acc;
-            }, {} as Record<string, boolean>)
+            }, {} as Record<string, boolean>),
         },
         xAxis: {
             ...xAxisSettings[paperType],
             nameLocation: 'middle',
             nameGap: 30,
-            min: 'dataMin',
-            max: 'dataMax',
             splitLine: { show: true, lineStyle: { color: "hsl(var(--border))", opacity: 0.7 } },
             axisLabel: { color: "hsl(var(--foreground))" },
         },
@@ -304,7 +276,6 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             }
         },
         series: series,
-        graphic: angleGraphics
     };
     
     return (
