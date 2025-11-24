@@ -1,7 +1,6 @@
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData } from '@/lib/types';
-import { medianRankTables } from './median-ranks';
 
 // --- Statistical Helpers ---
 
@@ -18,8 +17,17 @@ export function invErf(x: number): number {
 
 // Inverse of the standard normal cumulative distribution function (CDF).
 export function invNormalCdf(p: number): number {
-  if (p <= 0 || p >= 1) return p <= 0 ? -Infinity : Infinity;
-  return Math.sqrt(2) * invErf(2 * p - 1);
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  // A&S formula 26.2.23 - very accurate
+  const t = Math.sqrt(-2 * Math.log(1 - p));
+  const c = [2.515517, 0.802853, 0.010328];
+  const d = [1.432788, 0.189269, 0.001308];
+  let z = t - ((c[2] * t + c[1]) * t + c[0]) / (((d[2] * t + d[1]) * t + d[0]) * t + 1.0);
+  if (p < 0.5) {
+    z = -z;
+  }
+  return z;
 }
 
 
@@ -68,36 +76,29 @@ function performLinearRegression(points: {x: number, y: number}[], regressOnX: b
     
     let slope: number;
     let intercept: number;
+    
+    const denominatorX = (N * sumXX - sumX * sumX);
+    const denominatorY = (N * sumYY - sumY * sumY);
 
     if (regressOnX) {
         // Regress X on Y (x = my + c)
-        const denominator = (N * sumYY - sumY * sumY);
-        if (Math.abs(denominator) < 1e-9) return null;
-        
-        const b_x_on_y = (N * sumXY - sumX * sumY) / denominator; // this is slope 'm' in x = my + c
-        const a_x_on_y = (sumX - b_x_on_y * sumY) / N; // this is intercept 'c' in x = my + c
-        
-        // Convert back to y = mx + c form
-        if (Math.abs(b_x_on_y) < 1e-9) return null; // Avoid division by zero
-        slope = 1 / b_x_on_y;
-        intercept = -a_x_on_y / b_x_on_y;
-
+        if (Math.abs(denominatorY) < 1e-9) return null;
+        slope = (N * sumXY - sumX * sumY) / denominatorY; // this is slope 'm' in x = my + c
+        intercept = (sumX - slope * sumY) / N; // this is intercept 'c' in x = my + c
     } else {
         // Regress Y on X (standard, y = mx + c)
-        const denominator = (N * sumXX - sumX * sumX);
-        if (Math.abs(denominator) < 1e-9) return null;
-        slope = (N * sumXY - sumX * sumY) / denominator;
+        if (Math.abs(denominatorX) < 1e-9) return null;
+        slope = (N * sumXY - sumX * sumY) / denominatorX;
         intercept = (sumY - slope * sumX) / N;
     }
 
     // To calculate rSquared (coefficient of determination)
     const rSquaredNumerator = (N * sumXY - sumX * sumY);
-    const rSquaredDenominator = Math.sqrt((N * sumXX - sumX * sumX) * (N * sumYY - sumY * sumY));
+    const rSquaredDenominator = Math.sqrt(denominatorX * denominatorY);
     if(Math.abs(rSquaredDenominator) < 1e-9) return { slope, intercept, rSquared: 1 };
     
     const r = rSquaredNumerator / rSquaredDenominator;
     const rSquared = r*r;
-
 
     return { slope, intercept, rSquared };
 }
@@ -109,6 +110,32 @@ type AnalysisResult = {
     plotData: PlotData,
     params: Parameters
 }
+
+function getMedianRanksForGroupedData(failureTimes: number[], n: number) {
+    const counts: { [time: number]: number } = {};
+    failureTimes.forEach(time => {
+        counts[time] = (counts[time] || 0) + 1;
+    });
+    const uniqueTimes = Object.keys(counts).map(Number).sort((a, b) => a - b);
+
+    let cumulativeFailures = 0;
+    const ranks = [];
+
+    for (const time of uniqueTimes) {
+        const numFailuresInGroup = counts[time];
+        const rankStart = (cumulativeFailures + 1 - 0.3) / (n + 0.4);
+        const rankEnd = (cumulativeFailures + numFailuresInGroup - 0.3) / (n + 0.4);
+        
+        for (let j = 0; j < numFailuresInGroup; j++) {
+            // Linearly space the ranks within the group
+            const prob = rankStart + (j / (numFailuresInGroup - 1)) * (rankEnd - rankStart) || rankStart;
+            ranks.push({ time, prob });
+        }
+        cumulativeFailures += numFailuresInGroup;
+    }
+    return ranks;
+}
+
 
 export function estimateParametersByRankRegression(
     dist: Distribution,
@@ -124,76 +151,76 @@ export function estimateParametersByRankRegression(
 
     const n = allData.length;
     if (n === 0 || failureTimes.length === 0) return null;
-
-    let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
     
-    // Calculate Median Ranks, adjusted for suspensions
-    let adjustedOrder: number[] = [];
+    const isGrouped = failureTimes.length !== new Set(failureTimes).size;
+
+    let rankedPoints: { time: number; prob: number; }[];
+
     if (suspensionTimes.length > 0) {
+        // Adjusted Ranks for suspensions (Johnson method)
+        rankedPoints = [];
         let previousRank = 0;
-        let increment = (n + 1 - previousRank) / (1 + (n - 0)); // Initial increment for i=0
-        
         for (let i = 0; i < n; i++) {
             if (allData[i].isFailure) {
+                const itemsRemaining = n - i;
+                const increment = (n + 1 - previousRank) / (1 + itemsRemaining);
                 const newRank = previousRank + increment;
-                adjustedOrder.push(newRank);
+                const prob = (newRank - 0.3) / (n + 0.4);
+                rankedPoints.push({ time: allData[i].time, prob: prob });
                 previousRank = newRank;
             }
-            const itemsRemaining = n - (i + 1);
-            increment = (n + 1 - previousRank) / (1 + itemsRemaining);
         }
+    } else if (isGrouped) {
+        // Median Ranks for grouped data (no suspensions)
+        rankedPoints = getMedianRanksForGroupedData(failureTimes, n);
     } else {
-        // Standard ranks if no suspensions
-        adjustedOrder = failureTimes.map((_, i) => i + 1);
+        // Standard Median Ranks for non-grouped, non-suspended data
+        const sortedFailures = [...failureTimes].sort((a,b)=> a - b);
+        rankedPoints = sortedFailures.map((time, i) => {
+            const order = i + 1;
+            const prob = (order - 0.3) / (n + 0.4); // Benard's approximation
+            return { time, prob };
+        });
     }
-    
-    const failureDataSorted = allData.filter(d => d.isFailure);
 
-    for (let i = 0; i < failureDataSorted.length; i++) {
-        const item = failureDataSorted[i];
-        const order = adjustedOrder[i];
-        
-        // Benard's approximation for Median Rank
-        const prob = (order - 0.3) / (n + 0.4);
-
-        if (item.time <= 0 || prob <= 0 || prob >= 1) continue;
+    let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
+    for (const point of rankedPoints) {
+        if (point.time <= 0 || point.prob <= 0 || point.prob >= 1) continue;
 
         let x: number, y: number;
-        
         switch(dist) {
             case 'Weibull':
-                x = Math.log(item.time);
-                y = Math.log(Math.log(1 / (1 - prob)));
+                x = Math.log(point.time);
+                y = Math.log(Math.log(1 / (1 - point.prob)));
                 break;
             case 'Lognormal':
-                x = Math.log(item.time);
-                y = invNormalCdf(prob);
+                x = Math.log(point.time);
+                y = invNormalCdf(point.prob);
                 break;
             case 'Normal':
-                x = item.time;
-                y = invNormalCdf(prob);
+                x = point.time;
+                y = invNormalCdf(point.prob);
                 break;
             case 'Exponential':
-                x = item.time;
-                y = Math.log(1 / (1 - prob));
+                x = point.time;
+                y = Math.log(1 / (1 - point.prob));
                 break;
             case 'Loglogistic':
-                x = Math.log(item.time);
-                y = Math.log(prob / (1 - prob));
+                x = Math.log(point.time);
+                y = Math.log(point.prob / (1 - point.prob));
                 break;
             case 'Gumbel':
-                x = item.time;
-                y = -Math.log(-Math.log(prob));
+                x = point.time;
+                y = -Math.log(-Math.log(point.prob));
                 break;
             default:
                 return null;
         }
 
         if(isFinite(x) && isFinite(y)) {
-            transformedPoints.push({ x, y, time: item.time, prob });
+            transformedPoints.push({ x, y, time: point.time, prob: point.prob });
         }
     }
-
 
     if (transformedPoints.length < 2) return null;
     
@@ -201,8 +228,18 @@ export function estimateParametersByRankRegression(
     const regression = performLinearRegression(transformedPoints, regressOnX);
     if (!regression) return null;
 
-    const { slope, intercept, rSquared } = regression;
+    const { rSquared } = regression;
+    let { slope, intercept } = regression;
     let params: Parameters = {};
+
+    if (regressOnX) {
+        // if we regressed X on Y (x = m*y + c), we need to convert back to y = m*x + c
+        // y = (1/m)*x - (c/m)
+        const newSlope = 1 / slope;
+        intercept = -intercept / slope;
+        slope = newSlope;
+    }
+
 
     switch(dist) {
         case 'Weibull':
