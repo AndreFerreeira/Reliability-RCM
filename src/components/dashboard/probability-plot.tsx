@@ -236,15 +236,9 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                 color: 'hsl(var(--muted-foreground))'
             },
             icon: 'circle',
-            formatter: (name: string) => {
-                const supplier = validSuppliers.find(s => s.name === name);
-                if (supplier && supplier.plotData) {
-                    return `${name} (Ajuste)`;
-                }
-                return name;
-            },
             selected: validSuppliers.reduce((acc, s) => {
-                acc[`${s.name} (Ajuste)`] = false;
+                acc[s.name] = true;
+                acc[`${s.name} (Ajuste)`] = true;
                 return acc;
             }, {} as Record<string, boolean>)
         },
@@ -252,6 +246,8 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             ...xAxisSettings[paperType],
             nameLocation: 'middle',
             nameGap: 30,
+            min: minX - xRange * 0.05,
+            max: maxX + xRange * 0.05,
             splitLine: { show: true, lineStyle: { color: "hsl(var(--border))", opacity: 0.7 } },
             axisLabel: { color: "hsl(var(--foreground))" },
         },
