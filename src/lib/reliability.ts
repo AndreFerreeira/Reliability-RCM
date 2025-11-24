@@ -57,35 +57,37 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
 function performLinearRegression(points: {x: number, y: number}[], regressOnX: boolean = false) {
     if (points.length < 2) return null;
 
-    let pts = points;
-    if (regressOnX) {
-        pts = points.map(p => ({ x: p.y, y: p.x }));
-    }
-    
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0, N = pts.length;
-    pts.forEach(p => {
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0, N = points.length;
+    points.forEach(p => {
         sumX += p.x;
         sumY += p.y;
         sumXY += p.x * p.y;
         sumXX += p.x * p.x;
         sumYY += p.y * p.y;
     });
-
-    const numerator = (N * sumXY - sumX * sumY);
-    const denominator = (N * sumXX - sumX * sumX);
     
-    if (Math.abs(denominator) < 1e-9) return null; // Avoid division by zero
-
-    let slope = numerator / denominator;
-    let intercept = (sumY - slope * sumX) / N;
+    let slope: number;
+    let intercept: number;
 
     if (regressOnX) {
-        if (Math.abs(slope) < 1e-9) return null;
-        const newSlope = 1 / slope;
-        intercept = -intercept / slope;
-        slope = newSlope;
+        // Regress X on Y (swap roles)
+        const denominator = (N * sumYY - sumY * sumY);
+        if (Math.abs(denominator) < 1e-9) return null;
+        const b_x_on_y = (N * sumXY - sumX * sumY) / denominator;
+        const a_x_on_y = (sumX - b_x_on_y * sumY) / N;
+
+        // Convert back to y = mx + c form
+        if (Math.abs(b_x_on_y) < 1e-9) return null;
+        slope = 1 / b_x_on_y;
+        intercept = -a_x_on_y / b_x_on_y;
+    } else {
+        // Regress Y on X (standard)
+        const denominator = (N * sumXX - sumX * sumX);
+        if (Math.abs(denominator) < 1e-9) return null;
+        slope = (N * sumXY - sumX * sumY) / denominator;
+        intercept = (sumY - slope * sumX) / N;
     }
-    
+
     // To calculate rSquared (coefficient of determination)
     const rSquaredNumerator = (N * sumXY - sumX * sumY);
     const rSquaredDenominator = Math.sqrt((N * sumXX - sumX * sumX) * (N * sumYY - sumY * sumY));
@@ -121,18 +123,20 @@ export function estimateParametersByRankRegression(
 
     const n = allData.length;
     let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
-    let failureIndex = 0;
     
     // Benard's approximation for Median Ranks with suspensions
+    let previousMedianRank = 0;
     for (let i = 0; i < n; i++) {
         const item = allData[i];
         if (item.isFailure) {
-            failureIndex++;
             const reverseRank = n - i;
-            // Simplified Benard's approximation for Median Rank
-            const prob = (failureIndex - 0.3) / (n + 0.4);
-
+            // Benard's approximation for Median Rank
+            const medianRank = previousMedianRank + (n + 1 - previousMedianRank) / (reverseRank + 1);
+            const prob = medianRank / (n + 0.4); // Simplified from other sources, often just `medianRank`
+            
             if (item.time <= 0 || prob <= 0 || prob >= 1) continue;
+            
+            previousMedianRank = medianRank;
             
             let x: number, y: number;
             
