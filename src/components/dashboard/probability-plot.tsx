@@ -135,7 +135,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
         return [
             {
                 type: 'scatter',
-                name: `${name} (Dados)`,
+                name: name,
                 data: transformedPoints,
                 symbolSize: 8,
                 itemStyle: { color: color }
@@ -229,12 +229,24 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 50, bottom: 60 },
         legend: {
-            data: validSuppliers.flatMap(s => [`${s.name} (Dados)`, `${s.name} (Ajuste)`]),
+            data: validSuppliers.map(s => s.name),
             bottom: 0,
+            type: 'scroll',
             textStyle: {
                 color: 'hsl(var(--muted-foreground))'
             },
-            icon: 'circle'
+            icon: 'circle',
+            formatter: (name: string) => {
+                const supplier = validSuppliers.find(s => s.name === name);
+                if (supplier && supplier.plotData) {
+                    return `${name} (Ajuste)`;
+                }
+                return name;
+            },
+            selected: validSuppliers.reduce((acc, s) => {
+                acc[`${s.name} (Ajuste)`] = false;
+                return acc;
+            }, {} as Record<string, boolean>)
         },
         xAxis: {
             ...xAxisSettings[paperType],
@@ -277,7 +289,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                     return `Tempo: ${timeVal}<br/>Prob. Estimada: ${probVal.toFixed(2)}%`;
                 }
                 
-                const supplier = validSuppliers.find(s => `${s.name} (Dados)` === pointParam.seriesName);
+                const supplier = validSuppliers.find(s => s.name === pointParam.seriesName);
                 if (!supplier || !supplier.plotData) return '';
                 
                 const originalPoint = supplier.plotData.points[pointParam.dataIndex];
