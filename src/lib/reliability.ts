@@ -80,8 +80,7 @@ function performLinearRegression(points: {x: number, y: number}[], regressOnX: b
     let intercept = (sumY - slope * sumX) / N;
 
     if (regressOnX) {
-        // If we regressed on X, the roles of slope and intercept are swapped
-        // The new equation is y = (1/slope) * x - (intercept/slope)
+        if (Math.abs(slope) < 1e-9) return null;
         const newSlope = 1 / slope;
         intercept = -intercept / slope;
         slope = newSlope;
@@ -109,57 +108,75 @@ type AnalysisResult = {
 
 export function estimateParametersByRankRegression(
     dist: Distribution,
-    times: number[],
-    medianRanks: number[],
+    failureTimes: number[],
+    suspensionTimes: number[] = [],
     method: 'SRM' | 'RRX'
 ): AnalysisResult | null {
-    if (times.length < 2 || times.length !== medianRanks.length) return null;
+    if (failureTimes.length < 2) return null;
 
-    const sortedTimes = [...times].sort((a, b) => a - b);
-    
+    const allData = [
+        ...failureTimes.map(t => ({ time: t, isFailure: true })),
+        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+    ].sort((a, b) => a.time - b.time);
+
+    const n = allData.length;
     let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
+    let rankIncrement = 0;
+    let lastRank = 0;
 
-    for(let i=0; i < sortedTimes.length; i++) {
-        const time = sortedTimes[i];
-        const prob = medianRanks[i];
-        if (time <= 0 || prob <= 0 || prob >= 1) continue;
-
-        let x: number, y: number;
+    for (let i = 0; i < n; i++) {
+        const item = allData[i];
         
-        switch(dist) {
-            case 'Weibull':
-                x = Math.log(time);
-                y = Math.log(Math.log(1 / (1 - prob)));
-                break;
-            case 'Lognormal':
-                x = Math.log(time);
-                y = invNormalCdf(prob);
-                break;
-            case 'Normal':
-                x = time;
-                y = invNormalCdf(prob);
-                break;
-            case 'Exponential':
-                x = time;
-                y = Math.log(1 / (1 - prob));
-                break;
-            case 'Loglogistic':
-                x = Math.log(time);
-                y = Math.log(prob / (1 - prob));
-                break;
-            case 'Gumbel':
-                x = time;
-                y = -Math.log(-Math.log(prob));
-                break;
-            default:
-                return null;
-        }
+        // Calculate adjusted rank order using Mean Order Number (Johnson's method)
+        rankIncrement = (n + 1 - lastRank) / (1 + (n - (i + 1)));
+        const rank = lastRank + rankIncrement;
+        lastRank = rank;
 
-        if(isFinite(x) && isFinite(y)) {
-            transformedPoints.push({ x, y, time, prob });
+        if (item.isFailure) {
+            const time = item.time;
+            const prob = rank / (n + 1); // Benard's approximation for median rank
+            
+            if (time <= 0 || prob <= 0 || prob >= 1) continue;
+            
+            let x: number, y: number;
+            
+            switch(dist) {
+                case 'Weibull':
+                    x = Math.log(time);
+                    y = Math.log(Math.log(1 / (1 - prob)));
+                    break;
+                case 'Lognormal':
+                    x = Math.log(time);
+                    y = invNormalCdf(prob);
+                    break;
+                case 'Normal':
+                    x = time;
+                    y = invNormalCdf(prob);
+                    break;
+                case 'Exponential':
+                    x = time;
+                    y = Math.log(1 / (1 - prob));
+                    break;
+                case 'Loglogistic':
+                    x = Math.log(time);
+                    y = Math.log(prob / (1 - prob));
+                    break;
+                case 'Gumbel':
+                    x = time;
+                    y = -Math.log(-Math.log(prob));
+                    break;
+                default:
+                    return null;
+            }
+
+            if(isFinite(x) && isFinite(y)) {
+                transformedPoints.push({ x, y, time, prob });
+            }
         }
     }
 
+    if (transformedPoints.length < 2) return null;
+    
     const regressOnX = method === 'RRX';
     const regression = performLinearRegression(transformedPoints, regressOnX);
     if (!regression) return null;
@@ -237,7 +254,7 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         }
         
         const numFailures = failures.length;
-        if (numFailures === 0) return { beta: undefined, eta: undefined };
+        if (numFailures === 0 || sum_t_beta === 0) return { beta: undefined, eta: undefined };
 
         // First derivative of log-likelihood w.r.t beta
         const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
@@ -252,7 +269,7 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         const newBeta = beta - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) {
-             const rr_params = estimateParametersByRankRegression('Weibull', failures, failures.map((_, i) => (i + 1 - 0.3) / (failures.length + 0.4)), 'SRM')?.params;
+             const rr_params = estimateParametersByRankRegression('Weibull', failures, suspensions, 'SRM')?.params;
              return { beta: rr_params?.beta, eta: rr_params?.eta };
         }
 
@@ -295,31 +312,39 @@ function estimateExponential(times: number[]): Parameters {
 export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM' }: EstimateParams): { params: Parameters, plotData?: PlotData } {
     const allTimes = [...failureTimes, ...suspensionTimes];
     const n = allTimes.length;
-    if (n === 0) return { params: {} };
+    if (failureTimes.length === 0) return { params: {} };
     
     // For SRM (Rank Regression on Y) and RRX (Rank Regression on X)
     if (method === 'SRM' || method === 'RRX') {
-        const table = medianRankTables.find(t => t.sampleSize === n);
-        if (!table) return { params: {} }; // Cannot perform regression without ranks
-        
-        const confidenceIndex = 4; // 50% Median Rank
-        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
-
-        const srmResult = estimateParametersByRankRegression(dist, failureTimes, medianRanks, method);
+        const srmResult = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, method);
         return { params: srmResult?.params ?? {}, plotData: srmResult?.plotData };
     }
 
+    // For MLE
     if (dist === 'Weibull' && method === 'MLE') {
         const params = estimateWeibullMLE(failureTimes, suspensionTimes);
         
-        // Generate plot data for MLE results (using SRM for visualization)
-        const table = medianRankTables.find(t => t.sampleSize === n);
-        if (!table || !params.beta) return { params };
-
-        const confidenceIndex = 4; // 50% Median Rank
-        const medianRanks = table.data.map(row => row[confidenceIndex + 1]);
-        const plotResult = estimateParametersByRankRegression('Weibull', failureTimes, medianRanks, 'SRM');
+        // Generate plot data for MLE results (using SRM for visualization of points)
+        const plotResult = estimateParametersByRankRegression('Weibull', failureTimes, suspensionTimes, 'SRM');
         
+        return { params, plotData: plotResult?.plotData };
+    }
+
+    if (dist === 'Normal' && method === 'MLE') {
+        const params = estimateNormal(failureTimes); // Note: Simplified, doesn't handle suspensions for Normal MLE
+        const plotResult = estimateParametersByRankRegression('Normal', failureTimes, suspensionTimes, 'SRM');
+        return { params, plotData: plotResult?.plotData };
+    }
+
+    if (dist === 'Lognormal' && method === 'MLE') {
+        const params = estimateLognormal(failureTimes); // Note: Simplified, doesn't handle suspensions for Lognormal MLE
+        const plotResult = estimateParametersByRankRegression('Lognormal', failureTimes, suspensionTimes, 'SRM');
+        return { params, plotData: plotResult?.plotData };
+    }
+    
+    if (dist === 'Exponential' && method === 'MLE') {
+        const params = estimateExponential(allTimes); // For exponential, MLE mean is sum of all times / num of failures
+        const plotResult = estimateParametersByRankRegression('Exponential', failureTimes, suspensionTimes, 'SRM');
         return { params, plotData: plotResult?.plotData };
     }
     
