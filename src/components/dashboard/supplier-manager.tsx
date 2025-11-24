@@ -118,8 +118,9 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
     const rawInput = values.failureTimes.trim();
 
     try {
+        const lines = rawInput.split('\n');
+
         if (values.hasSuspensions) {
-            const lines = rawInput.split('\n');
             lines.forEach(line => {
                 const parts = line.trim().split(/[\s,]+/);
                 if (parts.length === 2) {
@@ -142,14 +143,31 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                     throw new Error(`Linha inválida encontrada: "${line}". Use o formato [Tempo] [Status].`);
                 }
             });
+        } else if (values.isGrouped) {
+             lines.forEach(line => {
+                const parts = line.trim().split(/[\s,]+/);
+                if (parts.length === 2) {
+                    const time = parseFloat(parts[0].replace(/\./g, ''));
+                    const quantity = parseInt(parts[1], 10);
+                    if (!isNaN(time) && !isNaN(quantity)) {
+                        for (let i = 0; i < quantity; i++) {
+                            failureTimes.push(time);
+                        }
+                    } else {
+                         throw new Error(`Linha de dados agrupados inválida: "${line}".`);
+                    }
+                } else {
+                     throw new Error(`Linha de dados agrupados inválida: "${line}". Use o formato [Tempo] [Quantidade].`);
+                }
+            });
         } else {
-             // Logic for simple or grouped data
+             // Logic for simple data
              // Remove dots as thousand separators before parsing
              failureTimes = rawInput.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
         }
 
-        if (failureTimes.length === 0) {
-            throw new Error('Pelo menos um ponto de falha válido é necessário para a análise.');
+        if (failureTimes.length === 0 && suspensionTimes.length === 0) {
+            throw new Error('Pelo menos um ponto de dados válido é necessário para a análise.');
         }
 
     } catch (e: any) {
@@ -516,3 +534,5 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
     </div>
   );
 }
+
+    
