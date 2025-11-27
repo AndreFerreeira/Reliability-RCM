@@ -15,12 +15,17 @@ import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
 import { estimateParametersByRankRegression } from '@/lib/reliability';
 import type { Supplier, Parameters, PlotData } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Checkbox } from '../ui/checkbox';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }),
   simulations: z.coerce.number().int().min(100, { message: 'Mínimo de 100 simulações.' }).max(100000, { message: 'Máximo de 100.000 simulações.' }),
   failureCost: z.coerce.number().min(0, { message: 'O custo não pode ser negativo.' }),
+  confidenceMethod: z.enum(['Fisher', 'Likelihood']),
+  useRsMethod: z.boolean(),
+  sortByTime: z.boolean(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -158,6 +163,9 @@ export default function MonteCarloSimulator() {
       eta: 1500,
       simulations: 10000,
       failureCost: 1,
+      confidenceMethod: 'Fisher',
+      useRsMethod: false,
+      sortByTime: true,
     },
   });
 
@@ -318,6 +326,61 @@ export default function MonteCarloSimulator() {
                   </FormItem>
                 )}
               />
+               <FormField
+                  control={form.control}
+                  name="confidenceMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Método dos Limites de Confiança</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um método" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Fisher">Matriz de Fisher</SelectItem>
+                          <SelectItem value="Likelihood">Razão da Verossimilhança</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="useRsMethod"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Usar Método de Regressão RS</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="sortByTime"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Ordenar antes dos Cálculos</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               <Button type="submit" disabled={isSimulating} className="w-full">
                 {isSimulating ? (
                   <>
