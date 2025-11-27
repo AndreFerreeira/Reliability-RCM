@@ -23,7 +23,6 @@ const formSchema = z.object({
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }),
   sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}),
   simulations: z.coerce.number().int().min(100, { message: 'Mínimo de 100 simulações.' }).max(100000, { message: 'Máximo de 100.000 simulações.' }),
-  failureCost: z.coerce.number().min(0, { message: 'O custo não pode ser negativo.' }),
   confidenceLevel: z.coerce.number().min(1).max(99),
   confidenceMethod: z.enum(['Fisher', 'Likelihood']),
   useRsMethod: z.boolean(),
@@ -34,7 +33,6 @@ type FormData = z.infer<typeof formSchema>;
 
 interface SimulationResult {
   mttf: number;
-  totalCost: number;
   failureTimes: number[];
   histogramData: { time: string; failures: number }[];
   boundsData?: FisherBoundsData;
@@ -176,7 +174,6 @@ export default function MonteCarloSimulator() {
       eta: 1500,
       sampleSize: 20,
       simulations: 10000,
-      failureCost: 1,
       confidenceLevel: 90,
       confidenceMethod: 'Fisher',
       useRsMethod: false,
@@ -206,8 +203,7 @@ export default function MonteCarloSimulator() {
 
       const sumOfFailureTimes = allFailureTimes.reduce((acc, time) => acc + time, 0);
       const mttf = sumOfFailureTimes / allFailureTimes.length;
-      const totalCost = allFailureTimes.length * data.failureCost;
-
+      
       // Gerar dados para o histograma
       let maxTime = 0;
       for (const time of allFailureTimes) {
@@ -231,7 +227,6 @@ export default function MonteCarloSimulator() {
 
       setResult({
         mttf,
-        totalCost,
         failureTimes: allFailureTimes,
         histogramData,
         boundsData,
@@ -247,7 +242,7 @@ export default function MonteCarloSimulator() {
         <CardHeader>
           <CardTitle>Simulador Monte Carlo</CardTitle>
           <CardDescription>
-            Preveja o comportamento de falhas e custos com base nos parâmetros de Weibull.
+            Preveja o comportamento de falhas com base nos parâmetros de Weibull.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -298,19 +293,6 @@ export default function MonteCarloSimulator() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Número de Simulações (p/ MTTF)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="failureCost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Custo por Falha (R$)</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -437,17 +419,11 @@ export default function MonteCarloSimulator() {
                             Baseado em {form.getValues('simulations').toLocaleString()} simulações.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4 text-center">
+                    <CardContent className="grid grid-cols-1 gap-4 text-center">
                         <Alert>
                         <AlertTitle className="text-sm font-semibold">Tempo Médio Para Falha (MTTF)</AlertTitle>
                         <AlertDescription className="text-2xl font-bold text-primary">
                             {result.mttf.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </AlertDescription>
-                        </Alert>
-                        <Alert>
-                        <AlertTitle className="text-sm font-semibold">Custo Total Esperado</AlertTitle>
-                        <AlertDescription className="text-2xl font-bold text-primary">
-                            R$ {result.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </AlertDescription>
                         </Alert>
                     </CardContent>
