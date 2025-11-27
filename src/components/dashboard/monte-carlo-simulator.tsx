@@ -141,7 +141,7 @@ const MonteCarloProbabilityPlot = ({ suppliers }: { suppliers: Supplier[] }) => 
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Gráfico de Probabilidade Weibull (Simulado)</CardTitle>
+          <CardTitle>Simulado de monte Carlo</CardTitle>
           <CardDescription>Visualização da incerteza dos parâmetros Beta e Eta.</CardDescription>
         </CardHeader>
         <CardContent>
