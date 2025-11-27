@@ -13,16 +13,18 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { estimateParametersByRankRegression } from '@/lib/reliability';
-import type { Supplier, Parameters, PlotData } from '@/lib/types';
+import { calculateFisherConfidenceBounds } from '@/lib/reliability';
+import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }),
+  sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}),
   simulations: z.coerce.number().int().min(100, { message: 'Mínimo de 100 simulações.' }).max(100000, { message: 'Máximo de 100.000 simulações.' }),
   failureCost: z.coerce.number().min(0, { message: 'O custo não pode ser negativo.' }),
+  confidenceLevel: z.coerce.number().min(1).max(99),
   confidenceMethod: z.enum(['Fisher', 'Likelihood']),
   useRsMethod: z.boolean(),
   sortByTime: z.boolean(),
@@ -35,8 +37,7 @@ interface SimulationResult {
   totalCost: number;
   failureTimes: number[];
   histogramData: { time: string; failures: number }[];
-  simulatedSuppliers: Supplier[];
-  originalSupplier: Supplier;
+  boundsData?: FisherBoundsData;
 }
 
 const generateWeibullFailureTime = (beta: number, eta: number): number => {
@@ -44,59 +45,67 @@ const generateWeibullFailureTime = (beta: number, eta: number): number => {
   return eta * Math.pow(-Math.log(1 - u), 1 / beta);
 };
 
-const MonteCarloProbabilityPlot = ({ suppliers }: { suppliers: Supplier[] }) => {
-    if (!suppliers || suppliers.length === 0) {
+const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
+    if (!data) {
         return (
             <Card className="h-[450px]">
                 <CardContent className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">O gráfico de probabilidade aparecerá aqui.</p>
+                    <p className="text-muted-foreground">O gráfico de probabilidade com limites de confiança aparecerá aqui.</p>
                 </CardContent>
             </Card>
         );
     }
-    
-    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
-    const yAxisData = probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))));
 
-    const allLines = suppliers.map(s => s.plotData?.line).filter(Boolean) as {x: number, y: number}[][];
-    const allX = allLines.flat().map(p => p.x);
+    const { points, line, lower, upper, rSquared, angle, beta, eta, confidenceLevel } = data;
+
+    const allX = [...points.map(p => p.x), ...line.map(p => p.x)];
+    const allY = [...points.map(p => p.y), ...line.map(p => p.y)];
     const minX = Math.min(...allX);
     const maxX = Math.max(...allX);
+    const minY = Math.min(...allY);
+    const maxY = Math.max(...allY);
+
+    const xRange = maxX - minX;
+    const yRange = maxY - minY;
+
+    const maxRange = Math.max(xRange, yRange);
+    const padding = maxRange * 0.1;
+
+    const finalMinX = (minX + maxX) / 2 - maxRange / 2 - padding;
+    const finalMaxX = (minX + maxX) / 2 + maxRange / 2 + padding;
+    const finalMinY = (minY + maxY) / 2 - maxRange / 2 - padding;
+    const finalMaxY = (minY + maxY) / 2 + maxRange / 2 + padding;
+
+    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
 
     const option = {
         backgroundColor: "transparent",
-        grid: { left: 80, right: 40, top: 50, bottom: 60 },
-        tooltip: { 
-            trigger: 'axis',
-            formatter: (params: any[]) => {
-                const time = Math.exp(params[0].axisValue);
-                let tooltip = `Tempo: ${time.toFixed(0)}h<br/>`;
-                params.forEach(param => {
-                    const prob = (1 - Math.exp(-Math.exp(param.value))) * 100;
-                    tooltip += `<span style="color:${param.color};">●</span> ${param.seriesName}: ${prob.toFixed(2)}%<br/>`;
-                });
-                return tooltip;
-            }
+        grid: { left: 80, right: 40, top: 70, bottom: 60 },
+        title: {
+            text: 'Simulado de monte Carlo',
+            subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | R²: ${rSquared.toFixed(3)} | N: ${points.length}`,
+            left: 'center',
+            textStyle: { color: 'hsl(var(--foreground))' },
+            subtextStyle: { color: 'hsl(var(--muted-foreground))' },
+        },
+        tooltip: { trigger: 'axis' },
+        legend: {
+            data: ['Dados', 'Linha de Ajuste', `Limites ${confidenceLevel}%`],
+            bottom: 0,
+            textStyle: { color: 'hsl(var(--muted-foreground))' }
         },
         xAxis: {
             type: 'log',
-            name: 'Tempo (h)',
+            name: 'Tempo',
             nameLocation: 'middle',
             nameGap: 30,
-            min: Math.exp(minX),
-            max: Math.exp(maxX),
-            axisLabel: { 
-                color: "hsl(var(--muted-foreground))",
-                 formatter: (value: number) => {
-                    if (value < 1000) return value;
-                    return `${value / 1000}k`;
-                }
-            },
+            axisLabel: { color: "hsl(var(--muted-foreground))" },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
-            axisLine: { lineStyle: { color: "hsl(var(--border))" } },
         },
         yAxis: {
             type: 'value',
+            min: finalMinY,
+            max: finalMaxY,
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
@@ -110,41 +119,45 @@ const MonteCarloProbabilityPlot = ({ suppliers }: { suppliers: Supplier[] }) => 
                 color: "hsl(var(--muted-foreground))",
             },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
-            axisLine: { lineStyle: { color: "hsl(var(--border))" } },
             // @ts-ignore
-            data: yAxisData
-        },
-        legend: {
-            data: [{name: 'Curva Original', icon: 'rect'}, {name: 'Simulações', icon: 'rect'}],
-            bottom: 0,
-            textStyle: { color: 'hsl(var(--muted-foreground))' }
+            data: probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))))
         },
         // @ts-ignore
         series: [
-            ...suppliers.filter(s => s.id !== 'original').map(s => ({
-                name: 'Simulações',
+            {
+                name: 'Dados',
+                type: 'scatter',
+                data: points.map(p => [Math.exp(p.x), p.y]),
+                symbolSize: 8,
+                itemStyle: { color: 'hsl(var(--primary))' }
+            },
+            {
+                name: 'Linha de Ajuste',
                 type: 'line',
-                data: s.plotData?.line.map(p => [Math.exp(p.x), p.y]),
+                data: line.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
-                lineStyle: { width: 1, color: 'hsl(var(--foreground))', opacity: 0.15 },
-            })),
-            ...suppliers.filter(s => s.id === 'original').map(s => ({
-                name: 'Curva Original',
+                lineStyle: { width: 2, color: 'hsl(var(--primary))' },
+            },
+            {
+                name: `Limites ${confidenceLevel}%`,
                 type: 'line',
-                data: s.plotData?.line.map(p => [Math.exp(p.x), p.y]),
+                data: lower.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
-                lineStyle: { width: 3, color: 'hsl(var(--accent))' },
-            })),
+                lineStyle: { width: 1.5, color: 'hsl(var(--destructive))', type: 'dashed' },
+            },
+            {
+                name: `Limites ${confidenceLevel}%`,
+                type: 'line',
+                data: upper.map(p => [Math.exp(p.x), p.y]),
+                showSymbol: false,
+                lineStyle: { width: 1.5, color: 'hsl(var(--destructive))', type: 'dashed' },
+            },
         ]
     };
 
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Simulado de monte Carlo</CardTitle>
-          <CardDescription>Visualização da incerteza dos parâmetros Beta e Eta.</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <ReactECharts option={option} style={{ height: '450px', width: '100%' }} notMerge={true} />
         </CardContent>
       </Card>
@@ -161,8 +174,10 @@ export default function MonteCarloSimulator() {
     defaultValues: {
       beta: 1.85,
       eta: 1500,
+      sampleSize: 20,
       simulations: 10000,
       failureCost: 1,
+      confidenceLevel: 90,
       confidenceMethod: 'Fisher',
       useRsMethod: false,
       sortByTime: true,
@@ -174,35 +189,19 @@ export default function MonteCarloSimulator() {
     setResult(null);
 
     setTimeout(() => {
-      const allFailureTimes: number[] = [];
-      const simulatedSuppliers: Supplier[] = [];
-      const MAX_LINES_TO_PLOT = 200;
+      // Step 1: Generate a single, representative sample based on input parameters
+      const simulatedSample = Array.from({ length: data.sampleSize }, () =>
+        generateWeibullFailureTime(data.beta, data.eta)
+      ).sort((a,b) => a-b);
       
+      // Step 2: Calculate confidence bounds for this sample
+      const boundsData = calculateFisherConfidenceBounds(simulatedSample, data.confidenceLevel);
+
+      // Step 3: Run the full Monte Carlo for MTTF and cost analysis
+      const allFailureTimes: number[] = [];
       for(let i = 0; i < data.simulations; i++) {
-        const sampleSize = 20;
-        const simulatedFailures = Array.from({ length: sampleSize }, () =>
-            generateWeibullFailureTime(data.beta, data.eta)
-        ).sort((a, b) => a - b);
-        
-        allFailureTimes.push(...simulatedFailures);
-        
-        if (i < MAX_LINES_TO_PLOT) {
-           const analysisResult = estimateParametersByRankRegression('Weibull', simulatedFailures, [], 'SRM');
-           if(analysisResult?.params && analysisResult?.plotData) {
-               simulatedSuppliers.push({
-                   id: `sim-${i}`,
-                   name: `Simulação ${i+1}`,
-                   failureTimes: simulatedFailures,
-                   suspensionTimes: [],
-                   color: 'hsl(var(--chart-2))',
-                   distribution: 'Weibull',
-                   params: analysisResult.params,
-                   plotData: analysisResult.plotData,
-                   units: 'h',
-                   dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },
-               });
-           }
-        }
+        const failureTime = generateWeibullFailureTime(data.beta, data.eta);
+        allFailureTimes.push(failureTime);
       }
 
       const sumOfFailureTimes = allFailureTimes.reduce((acc, time) => acc + time, 0);
@@ -229,38 +228,18 @@ export default function MonteCarloSimulator() {
         time: `${Math.round(index * binSize)} - ${Math.round((index + 1) * binSize)}`,
         failures: count,
       }));
-      
-      // Criar a curva "original" para servir de referência
-      const originalSample = Array.from({ length: 20 }, () => generateWeibullFailureTime(data.beta, data.eta));
-      const plotResult = estimateParametersByRankRegression('Weibull', originalSample, [], 'SRM');
-
-      const originalSupplier: Supplier = {
-        id: 'original',
-        name: 'Curva Original',
-        failureTimes: [],
-        suspensionTimes: [],
-        color: 'hsl(var(--accent))',
-        distribution: 'Weibull',
-        params: { beta: data.beta, eta: data.eta },
-        plotData: plotResult?.plotData, // Usamos os dados plotados de uma amostra de referência
-        units: 'h',
-        dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },
-      };
 
       setResult({
         mttf,
         totalCost,
         failureTimes: allFailureTimes,
         histogramData,
-        simulatedSuppliers,
-        originalSupplier
+        boundsData,
       });
 
       setIsSimulating(false);
     }, 50);
   };
-
-  const suppliersForPlot = result ? [result.originalSupplier, ...result.simulatedSuppliers] : [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -302,10 +281,23 @@ export default function MonteCarloSimulator() {
               />
               <FormField
                 control={form.control}
+                name="sampleSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tamanho da Amostra (N)</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="simulations"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Número de Simulações</FormLabel>
+                    <FormLabel>Número de Simulações (p/ MTTF)</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -326,6 +318,29 @@ export default function MonteCarloSimulator() {
                   </FormItem>
                 )}
               />
+              <FormField
+                  control={form.control}
+                  name="confidenceLevel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nível de Confiança (%)</FormLabel>
+                      <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um nível" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="80">80%</SelectItem>
+                          <SelectItem value="90">90%</SelectItem>
+                          <SelectItem value="95">95%</SelectItem>
+                          <SelectItem value="99">99%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                <FormField
                   control={form.control}
                   name="confidenceMethod"
@@ -413,7 +428,7 @@ export default function MonteCarloSimulator() {
 
         {result && (
           <div className="grid grid-cols-1 gap-6">
-             <MonteCarloProbabilityPlot suppliers={suppliersForPlot} />
+             <FisherMatrixPlot data={result.boundsData} />
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader>

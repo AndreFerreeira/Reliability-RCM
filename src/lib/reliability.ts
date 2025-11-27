@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData } from '@/lib/types';
 
 // --- Statistical Helpers ---
 
@@ -370,6 +370,57 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     
     return { params: {} };
 }
+
+export function calculateFisherConfidenceBounds(failureTimes: number[], confidenceLevel: number): FisherBoundsData | undefined {
+    const analysis = estimateParametersByRankRegression('Weibull', failureTimes, [], 'SRM');
+    if (!analysis || !analysis.params.beta || !analysis.params.eta || !analysis.plotData) return undefined;
+
+    const { beta, eta } = analysis.params;
+    const n = failureTimes.length;
+    const z = invNormalCdf(1 - (1 - confidenceLevel / 100) / 2);
+
+    // Fisher Matrix variance calculations
+    const var_beta = (beta * beta) / (n * 1.083); // Standard approximation
+    const var_eta = (eta * eta) / (n * beta * beta); // Standard approximation
+    const cov_beta_eta = 0.255 * (beta * eta) / n; // Standard approximation
+
+    const linePoints = analysis.plotData.line;
+    const lowerBounds: { x: number; y: number }[] = [];
+    const upperBounds: { x: number; y: number }[] = [];
+
+    for (const point of linePoints) {
+        const t = Math.exp(point.x);
+        if (t <= 0) continue;
+
+        const log_t = Math.log(t);
+        const log_eta = Math.log(eta);
+
+        // Variance of the reliability function's linearized form (Y = log(log(1/R(t))))
+        const var_Y = (Math.pow(log_t - log_eta, 2) * var_beta) +
+                      (Math.pow(beta / eta, 2) * var_eta) +
+                      (2 * (log_t - log_eta) * (beta / eta) * cov_beta_eta);
+        
+        if (var_Y < 0) continue; // Should not happen
+
+        const std_Y = Math.sqrt(var_Y);
+
+        const y_lower = point.y - z * std_Y;
+        const y_upper = point.y + z * std_Y;
+
+        lowerBounds.push({ x: point.x, y: y_lower });
+        upperBounds.push({ x: point.x, y: y_upper });
+    }
+    
+    return {
+        ...analysis.plotData,
+        lower: lowerBounds,
+        upper: upperBounds,
+        beta,
+        eta,
+        confidenceLevel
+    };
+}
+
 
 // --- Reliability Calculations ---
 

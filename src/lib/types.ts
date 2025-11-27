@@ -56,6 +56,18 @@ export type PlotData = {
     angle?: number;
 };
 
+export type FisherBoundsData = {
+    points: { x: number, y: number, time: number, prob: number }[];
+    line: { x: number, y: number }[];
+    lower: { x: number, y: number }[];
+    upper: { x: number, y: number }[];
+    rSquared: number;
+    angle: number;
+    beta: number;
+    eta: number;
+    confidenceLevel: number;
+}
+
 export interface EstimateParams {
   dist: Distribution;
   failureTimes: number[];
