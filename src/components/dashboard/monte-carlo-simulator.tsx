@@ -13,7 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { estimateParametersByRankRegression, calculateReliabilityData } from '@/lib/reliability';
+import { estimateParametersByRankRegression } from '@/lib/reliability';
 import type { Supplier, Parameters, PlotData } from '@/lib/types';
 
 const formSchema = z.object({
@@ -50,51 +50,64 @@ const MonteCarloProbabilityPlot = ({ suppliers }: { suppliers: Supplier[] }) => 
         );
     }
     
-    const series = suppliers.map(supplier => {
-        if (!supplier.plotData?.points || !supplier.plotData?.line) return null;
-        return [
-            {
-                name: supplier.name,
-                type: 'line',
-                data: supplier.plotData.line.map(p => [p.x, p.y]),
-                showSymbol: false,
-                lineStyle: {
-                    width: supplier.id === 'original' ? 3 : 1,
-                    color: supplier.id === 'original' ? 'hsl(var(--foreground))' : 'hsl(var(--primary))',
-                    opacity: supplier.id === 'original' ? 1 : 0.5,
-                }
-            }
-        ];
-    }).filter(Boolean).flat();
-    
-    const probabilityTicks = [0.01, 0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
+    const yAxisData = probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))));
+
+    const allLines = suppliers.map(s => s.plotData?.line).filter(Boolean) as {x: number, y: number}[][];
+    const allX = allLines.flat().map(p => p.x);
+    const minX = Math.min(...allX);
+    const maxX = Math.max(...allX);
 
     const option = {
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 50, bottom: 60 },
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params: any[]) => {
+                const time = Math.exp(params[0].axisValue);
+                let tooltip = `Tempo: ${time.toFixed(0)}h<br/>`;
+                params.forEach(param => {
+                    const prob = (1 - Math.exp(-Math.exp(param.value))) * 100;
+                    tooltip += `<span style="color:${param.color};">●</span> ${param.seriesName}: ${prob.toFixed(2)}%<br/>`;
+                });
+                return tooltip;
+            }
+        },
         xAxis: {
             type: 'log',
             name: 'Tempo (h)',
             nameLocation: 'middle',
             nameGap: 30,
-            min: 100,
-            axisLabel: { color: "hsl(var(--foreground))" },
+            min: Math.exp(minX),
+            max: Math.exp(maxX),
+            axisLabel: { 
+                color: "hsl(var(--muted-foreground))",
+                 formatter: (value: number) => {
+                    if (value < 1000) return value;
+                    return `${value / 1000}k`;
+                }
+            },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
+            axisLine: { lineStyle: { color: "hsl(var(--border))" } },
         },
         yAxis: {
-            type: 'log',
+            type: 'value',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
             axisLabel: {
                 formatter: (value: number) => {
-                    if (value < 1) return value.toFixed(2);
-                    return value.toFixed(0);
+                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                    if (prob < 1) return prob.toFixed(2);
+                    if (prob > 99) return prob.toFixed(1);
+                    return Math.round(prob);
                 },
-                color: "hsl(var(--foreground))",
+                color: "hsl(var(--muted-foreground))",
             },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
+            axisLine: { lineStyle: { color: "hsl(var(--border))" } },
+            // @ts-ignore
+            data: yAxisData
         },
         legend: {
             data: [{name: 'Curva Original', icon: 'rect'}, {name: 'Simulações', icon: 'rect'}],
@@ -106,16 +119,16 @@ const MonteCarloProbabilityPlot = ({ suppliers }: { suppliers: Supplier[] }) => 
             ...suppliers.filter(s => s.id !== 'original').map(s => ({
                 name: 'Simulações',
                 type: 'line',
-                data: s.plotData?.line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y)))*100]),
+                data: s.plotData?.line.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
-                lineStyle: { width: 1, color: 'hsl(var(--primary))', opacity: 0.2 },
+                lineStyle: { width: 1, color: 'hsl(var(--foreground))', opacity: 0.15 },
             })),
             ...suppliers.filter(s => s.id === 'original').map(s => ({
                 name: 'Curva Original',
                 type: 'line',
-                data: s.plotData?.line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y)))*100]),
+                data: s.plotData?.line.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
-                lineStyle: { width: 3, color: 'hsl(var(--foreground))' },
+                lineStyle: { width: 3, color: 'hsl(var(--accent))' },
             })),
         ]
     };
@@ -156,20 +169,14 @@ export default function MonteCarloSimulator() {
       const allFailureTimes: number[] = [];
       const simulatedSuppliers: Supplier[] = [];
       const MAX_LINES_TO_PLOT = 200;
-      let maxTime = 0;
-
+      
       for(let i = 0; i < data.simulations; i++) {
         const sampleSize = 20;
         const simulatedFailures = Array.from({ length: sampleSize }, () =>
             generateWeibullFailureTime(data.beta, data.eta)
         ).sort((a, b) => a - b);
         
-        for (const time of simulatedFailures) {
-            allFailureTimes.push(time);
-            if (time > maxTime) {
-                maxTime = time;
-            }
-        }
+        allFailureTimes.push(...simulatedFailures);
         
         if (i < MAX_LINES_TO_PLOT) {
            const analysisResult = estimateParametersByRankRegression('Weibull', simulatedFailures, [], 'SRM');
@@ -194,6 +201,13 @@ export default function MonteCarloSimulator() {
       const mttf = sumOfFailureTimes / allFailureTimes.length;
       const totalCost = allFailureTimes.length * data.failureCost;
 
+      // Gerar dados para o histograma
+      let maxTime = 0;
+      for (const time of allFailureTimes) {
+          if (time > maxTime) {
+              maxTime = time;
+          }
+      }
       const binCount = 20;
       const binSize = maxTime / binCount;
       const bins = Array(binCount).fill(0);
@@ -208,19 +222,19 @@ export default function MonteCarloSimulator() {
         failures: count,
       }));
       
-      const originalParams: Parameters = { beta: data.beta, eta: data.eta };
-      const timeForPlot = Array.from({ length: 100 }, (_, i) => (i + 1) * (data.eta * 2 / 100));
-      const plotResult = estimateParametersByRankRegression('Weibull', timeForPlot.map(t => generateWeibullFailureTime(data.beta, data.eta)), [], 'SRM');
+      // Criar a curva "original" para servir de referência
+      const originalSample = Array.from({ length: 20 }, () => generateWeibullFailureTime(data.beta, data.eta));
+      const plotResult = estimateParametersByRankRegression('Weibull', originalSample, [], 'SRM');
 
       const originalSupplier: Supplier = {
         id: 'original',
         name: 'Curva Original',
         failureTimes: [],
         suspensionTimes: [],
-        color: 'hsl(var(--foreground))',
+        color: 'hsl(var(--accent))',
         distribution: 'Weibull',
-        params: originalParams,
-        plotData: plotResult?.plotData,
+        params: { beta: data.beta, eta: data.eta },
+        plotData: plotResult?.plotData, // Usamos os dados plotados de uma amostra de referência
         units: 'h',
         dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },
       };
