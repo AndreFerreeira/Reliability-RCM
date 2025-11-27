@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
-import { LineChart, Bot, BrainCircuit, TrendingUp, TrendingDown, Target, Minus } from 'lucide-react';
+import { LineChart, Bot, BrainCircuit, TrendingUp, TrendingDown, Target, Minus, TestTube } from 'lucide-react';
 
-export { LineChart, Bot, BrainCircuit, TrendingUp, TrendingDown, Target, Minus };
+export { LineChart, Bot, BrainCircuit, TrendingUp, TrendingDown, Target, Minus, TestTube };
 
 export function Logo(props: SVGProps<SVGSVGElement>) {
   return (

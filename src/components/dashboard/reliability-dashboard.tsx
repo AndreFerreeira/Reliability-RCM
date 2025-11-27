@@ -8,12 +8,13 @@ import type { Supplier, EstimationMethod } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { Bot, LineChart as LineChartIcon, BrainCircuit } from '@/components/icons';
+import { Bot, LineChart as LineChartIcon, BrainCircuit, TestTube } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import ProbabilityPaper from './probability-paper';
 import ProbabilityPlot from './probability-plot';
+import MonteCarloSimulator from './monte-carlo-simulator';
 
 const initialSuppliersData = [
   { 
@@ -28,21 +29,19 @@ const initialSuppliersData = [
   },
 ];
 
-const initialSuppliers: Supplier[] = initialSuppliersData.map(s => ({
-  ...s,
-  params: estimateParameters({
+const initialSuppliers: Supplier[] = initialSuppliersData.map(s => {
+  const estimationResult = estimateParameters({
     dist: s.distribution, 
     failureTimes: s.failureTimes, 
     suspensionTimes: s.suspensionTimes, 
     method: 'SRM'
-  }).params,
-  plotData: estimateParameters({
-    dist: s.distribution, 
-    failureTimes: s.failureTimes, 
-    suspensionTimes: s.suspensionTimes, 
-    method: 'SRM'
-  }).plotData
-}));
+  });
+  return {
+    ...s,
+    params: estimationResult.params,
+    plotData: estimationResult.plotData
+  };
+});
 
 
 export default function ReliabilityDashboard() {
@@ -58,14 +57,17 @@ export default function ReliabilityDashboard() {
             const needsReEstimation = !originalSupplier || 
               JSON.stringify(originalSupplier.failureTimes) !== JSON.stringify(s.failureTimes) ||
               JSON.stringify(originalSupplier.suspensionTimes) !== JSON.stringify(s.suspensionTimes) ||
-              originalSupplier.distribution !== s.distribution;
+              originalSupplier.distribution !== s.distribution ||
+              s.dataType.isGrouped !== originalSupplier.dataType.isGrouped ||
+              s.dataType.hasSuspensions !== originalSupplier.dataType.hasSuspensions;
 
             if (needsReEstimation) {
                 const newParamsAndPlotData = estimateParameters({ 
                     dist: s.distribution, 
                     failureTimes: s.failureTimes, 
                     suspensionTimes: s.suspensionTimes, 
-                    method: estimationMethod 
+                    method: estimationMethod,
+                    isGrouped: s.dataType.isGrouped
                 });
                 return { 
                   ...s, 
@@ -101,10 +103,11 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-4">
           <TabsTrigger value="analysis"><LineChartIcon />Análise de Confiabilidade</TabsTrigger>
           <TabsTrigger value="ai_analysis"><Bot />Análise com IA</TabsTrigger>
           <TabsTrigger value="probability_paper"><BrainCircuit />Papéis de Probabilidade</TabsTrigger>
+          <TabsTrigger value="monte_carlo"><TestTube />Simulador Monte Carlo</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -150,6 +153,9 @@ export default function ReliabilityDashboard() {
         </TabsContent>
         <TabsContent value="probability_paper" className="space-y-4">
           <ProbabilityPaper />
+        </TabsContent>
+        <TabsContent value="monte_carlo" className="space-y-4">
+          <MonteCarloSimulator />
         </TabsContent>
       </Tabs>
     </div>
