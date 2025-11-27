@@ -19,7 +19,7 @@ import type { Supplier, Parameters, PlotData } from '@/lib/types';
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }),
-  simulations: z.coerce.number().int().min(100, { message: 'Mínimo de 100 simulações.' }).max(10000, { message: 'Máximo de 100.000 simulações.' }),
+  simulations: z.coerce.number().int().min(100, { message: 'Mínimo de 100 simulações.' }).max(100000, { message: 'Máximo de 100.000 simulações.' }),
   failureCost: z.coerce.number().min(0, { message: 'O custo não pode ser negativo.' }),
 });
 
@@ -156,18 +156,21 @@ export default function MonteCarloSimulator() {
       const allFailureTimes: number[] = [];
       const simulatedSuppliers: Supplier[] = [];
       const MAX_LINES_TO_PLOT = 200;
+      let maxTime = 0;
 
       for(let i = 0; i < data.simulations; i++) {
-        // Para cada simulação, criamos um novo conjunto de dados de falha
-        // O tamanho da amostra pode ser fixo ou aleatório. Vamos usar 20 como exemplo.
         const sampleSize = 20;
         const simulatedFailures = Array.from({ length: sampleSize }, () =>
             generateWeibullFailureTime(data.beta, data.eta)
         ).sort((a, b) => a - b);
         
-        allFailureTimes.push(...simulatedFailures);
+        for (const time of simulatedFailures) {
+            allFailureTimes.push(time);
+            if (time > maxTime) {
+                maxTime = time;
+            }
+        }
         
-        // Plotamos apenas um subconjunto para performance
         if (i < MAX_LINES_TO_PLOT) {
            const analysisResult = estimateParametersByRankRegression('Weibull', simulatedFailures, [], 'SRM');
            if(analysisResult?.params && analysisResult?.plotData) {
@@ -191,8 +194,6 @@ export default function MonteCarloSimulator() {
       const mttf = sumOfFailureTimes / allFailureTimes.length;
       const totalCost = allFailureTimes.length * data.failureCost;
 
-      // Gerar dados para o histograma
-      const maxTime = Math.max(...allFailureTimes);
       const binCount = 20;
       const binSize = maxTime / binCount;
       const bins = Array(binCount).fill(0);
@@ -207,7 +208,6 @@ export default function MonteCarloSimulator() {
         failures: count,
       }));
       
-      // Criar um "supplier" para a curva original
       const originalParams: Parameters = { beta: data.beta, eta: data.eta };
       const timeForPlot = Array.from({ length: 100 }, (_, i) => (i + 1) * (data.eta * 2 / 100));
       const plotResult = estimateParametersByRankRegression('Weibull', timeForPlot.map(t => generateWeibullFailureTime(data.beta, data.eta)), [], 'SRM');
@@ -220,7 +220,6 @@ export default function MonteCarloSimulator() {
         color: 'hsl(var(--foreground))',
         distribution: 'Weibull',
         params: originalParams,
-        // Gerar plotData para a linha original
         plotData: plotResult?.plotData,
         units: 'h',
         dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false },

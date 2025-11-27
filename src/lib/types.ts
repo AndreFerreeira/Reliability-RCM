@@ -61,6 +61,7 @@ export interface EstimateParams {
   failureTimes: number[];
   suspensionTimes?: number[];
   method?: EstimationMethod;
+  isGrouped?: boolean;
 }
 
 export interface Supplier {

@@ -327,8 +327,14 @@ function estimateExponential(times: number[]): Parameters {
     return { lambda: mean > 0 ? 1 / mean : 0 };
 }
 
-export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM' }: EstimateParams): { params: Parameters, plotData?: PlotData } {
+export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM', isGrouped = false }: EstimateParams): { params: Parameters, plotData?: PlotData } {
     if (failureTimes.length === 0) return { params: {} };
+    
+    if (isGrouped && (method === 'SRM' || method === 'RRX')) {
+        // Special handling for grouped data rank regression
+        const srmResult = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, method);
+        return { params: srmResult?.params ?? {}, plotData: srmResult?.plotData };
+    }
     
     // For SRM (Rank Regression on Y) and RRX (Rank Regression on X)
     if (method === 'SRM' || method === 'RRX') {
