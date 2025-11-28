@@ -15,23 +15,33 @@ import ReactECharts from 'echarts-for-react';
 import { calculateFisherConfidenceBounds, estimateParametersByRankRegression } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Checkbox } from '../ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
 
 const formSchema = z.object({
-  beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
-  eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }),
-  sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}),
-  simulationCount: z.coerce.number().int().min(10, { message: "Mínimo de 10 simulações." }).max(1000, { message: "Máximo de 1000 simulações." }),
+  beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
+  eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }).optional(),
+  sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}).optional(),
+  simulationCount: z.coerce.number().int().min(10, { message: "Mínimo de 10 simulações." }).max(1000, { message: "Máximo de 1000 simulações." }).optional(),
   confidenceLevel: z.coerce.number().min(1).max(99),
-  confidenceMethod: z.enum(['Fisher', 'Likelihood']),
-  useRsMethod: z.boolean(),
-  sortByTime: z.boolean(),
-  manualData: z.string(),
+  manualData: z.string().optional(),
+}).refine(data => {
+    // Se a dispersão for selecionada, beta, eta, sampleSize e simulationCount são necessários
+    if (!data.manualData) {
+        return data.beta != null && data.eta != null && data.sampleSize != null && data.simulationCount != null;
+    }
+    // Se os dados manuais forem fornecidos, os outros não são
+    if (data.manualData) {
+        return data.manualData.trim().length > 0
+    }
+    return true;
+}, {
+    message: "Preencha os campos necessários para o tipo de simulação.",
+    path: ["beta"], // Pode associar o erro a um campo específico
 });
+
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -47,15 +57,7 @@ const generateWeibullFailureTime = (beta: number, eta: number): number => {
 };
 
 const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
-    if (!data) {
-        return (
-            <Card className="h-[450px]">
-                <CardContent className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">O gráfico de probabilidade com limites de confiança aparecerá aqui.</p>
-                </CardContent>
-            </Card>
-        );
-    }
+    if (!data) return null;
 
     const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel } = data;
 
@@ -163,20 +165,10 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
 
 
 const DispersionPlot = ({ original, simulations }: { original?: PlotData; simulations?: PlotData[] }) => {
-    if (!original || !simulations) {
-        return (
-            <Card className="h-[450px]">
-                <CardContent className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">O gráfico de dispersão de parâmetros aparecerá aqui.</p>
-                </CardContent>
-            </Card>
-        );
-    }
+    if (!original || !simulations) return null;
 
-    const simulationSeries = simulations.map((sim, i) => ({
-        name: `Simulações`,
+    const simulationSeries = simulations.map(() => ({
         type: 'line',
-        data: sim.line.map(p => [Math.exp(p.x), p.y]),
         showSymbol: false,
         lineStyle: {
             width: 1,
@@ -185,6 +177,10 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         },
         z: 1,
     }));
+    
+    simulationSeries.forEach((s, i) => {
+      s.data = simulations[i].line.map(p => [Math.exp(p.x), p.y]);
+    });
     
     const originalSeries = {
         name: 'Curva Original',
@@ -200,6 +196,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     };
 
     const probabilityTicks = [0.1, 1, 10, 50, 90, 99, 99.9];
+    const transformedTicks = probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))));
     
     const option = {
         backgroundColor: 'transparent',
@@ -246,16 +243,19 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             axisLabel: {
                 formatter: (value: number) => {
                     const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                    const roundedProb = Math.round(prob);
-                    // Show labels only for the ticks we want to display
-                    if (probabilityTicks.some(tick => Math.abs(tick - prob) < 0.1 || Math.abs(tick - roundedProb) < 0.1)) {
-                         if (prob < 1) return prob.toFixed(1);
-                         return roundedProb;
+                    if (prob > 99.9) return "99.9";
+                    if (prob < 0.1) return "0.1";
+                     const closestTick = probabilityTicks.reduce((prev, curr) => 
+                        (Math.abs(curr - prob) < Math.abs(prev - prob) ? curr : prev)
+                    );
+                    if (Math.abs(closestTick - prob) < 0.5) {
+                        return closestTick.toString();
                     }
                     return '';
                 },
                 color: "hsl(var(--foreground))"
             },
+            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
         series: [originalSeries, ...simulationSeries]
     };
@@ -270,130 +270,15 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
 };
 
 
-export default function MonteCarloSimulator() {
-  const [result, setResult] = useState<SimulationResult | null>(null);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion'>('confidence');
-  const { toast } = useToast();
-
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      beta: 1.85,
-      eta: 1500,
-      sampleSize: 20,
-      simulationCount: 200,
-      confidenceLevel: 90,
-      confidenceMethod: 'Fisher',
-      useRsMethod: false,
-      sortByTime: true,
-      manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
-    },
-  });
-
-  const onSubmit = (data: FormData) => {
-    setIsSimulating(true);
-    setResult(null);
-
-    setTimeout(() => {
-        try {
-            if (simulationType === 'confidence') {
-                const failureTimes = data.manualData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
-                
-                if (failureTimes.length < 2) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Dados Insuficientes',
-                        description: 'Por favor, insira pelo menos dois tempos de falha válidos para calcular os limites de confiança.',
-                    });
-                    setIsSimulating(false);
-                    return;
-                }
-
-                const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel);
-                
-                if (!boundsData) {
-                    throw new Error("Não foi possível calcular os limites de confiança. Verifique os dados de entrada.");
-                }
-
-                setResult({ boundsData });
-
-            } else { // dispersion
-                const trueBeta = data.beta;
-                const trueEta = data.eta;
-                
-                const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (trueEta * 2 / 100));
-                const logTimesForPlot = timesForPlot.map(t => Math.log(t));
-                const minLogTime = Math.min(...logTimesForPlot);
-                const maxLogTime = Math.max(...logTimesForPlot);
-                
-                const trueIntercept = -trueBeta * Math.log(trueEta);
-                
-                const trueLine = [
-                    { x: minLogTime, y: trueBeta * minLogTime + trueIntercept },
-                    { x: maxLogTime, y: trueBeta * maxLogTime + trueIntercept },
-                ];
-
-                const originalPlot: PlotData = {
-                    points: [], 
-                    line: trueLine,
-                    rSquared: 1,
-                    angle: Math.atan(trueBeta) * 180 / Math.PI,
-                };
-
-                const dispersionData = Array.from({ length: data.simulationCount }, () => {
-                    const sample = Array.from({ length: data.sampleSize }, () =>
-                        generateWeibullFailureTime(data.beta, data.eta)
-                    );
-                    return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
-                }).filter((d): d is PlotData => !!d);
-                
-                setResult({ originalPlot, dispersionData });
-            }
-        } catch (error: any) {
-             toast({
-                variant: 'destructive',
-                title: 'Erro na Simulação',
-                description: error.message || 'Ocorreu um erro inesperado.',
-            });
-        } finally {
-            setIsSimulating(false);
-        }
-    }, 50);
-  }
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card className="lg:col-span-1">
+const ConfidenceControls = ({ form, isSimulating }: { form: any, isSimulating: boolean }) => (
+    <Card>
         <CardHeader>
-          <CardTitle>Simulador Monte Carlo</CardTitle>
-          <CardDescription>
-            Preveja o comportamento de falhas com base nos parâmetros de Weibull.
-          </CardDescription>
+            <CardTitle>Limites de Confiança</CardTitle>
+            <CardDescription>Calcule os limites com base em dados de falha inseridos manualmente.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
-              <RadioGroup value={simulationType} onValueChange={(v: any) => setSimulationType(v)} className="grid grid-cols-2 gap-4">
-                  <div>
-                      <RadioGroupItem value="confidence" id="confidence" className="peer sr-only" />
-                      <Label htmlFor="confidence" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          Limites de Confiança
-                      </Label>
-                  </div>
-                  <div>
-                      <RadioGroupItem value="dispersion" id="dispersion" className="peer sr-only" />
-                      <Label htmlFor="dispersion" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          Dispersão de Parâmetros
-                      </Label>
-                  </div>
-              </RadioGroup>
-              
-              <div className="space-y-4 rounded-md border p-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Parâmetros da Simulação</h3>
-                {simulationType === 'confidence' ? (
-                  <FormField
+            <form onSubmit={form.handleSubmit} className="space-y-6">
+                 <FormField
                     control={form.control}
                     name="manualData"
                     render={({ field }) => (
@@ -413,95 +298,13 @@ export default function MonteCarloSimulator() {
                       </FormItem>
                     )}
                   />
-                ) : (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="beta"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="eta"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Eta (η - Vida Característica)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="sampleSize"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tamanho da Amostra (N)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="simulationCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número de Simulações</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-4 rounded-md border p-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Configurações de Análise</h3>
-                 <FormField
-                  control={form.control}
-                  name="useRsMethod"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel>Usar Método de Regressão RS</FormLabel>
-                      </div>
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-               <div className="space-y-4 rounded-md border p-4">
-                 <h3 className="text-sm font-medium text-muted-foreground">Configurações de Confiança</h3>
-                 <FormField
+                  <FormField
                     control={form.control}
                     name="confidenceLevel"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Nível de Confiança (%)</FormLabel>
-                        <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()} disabled={simulationType === 'dispersion'}>
+                        <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione um nível" />
@@ -518,89 +321,194 @@ export default function MonteCarloSimulator() {
                       </FormItem>
                     )}
                   />
-                 <FormField
-                    control={form.control}
-                    name="confidenceMethod"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Método dos Limites de Confiança</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={simulationType === 'dispersion'}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um método" />
-                            </Trigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Fisher">Matriz de Fisher</SelectItem>
-                            <SelectItem value="Likelihood">Razão da Verossimilhança</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                 <FormField
-                    control={form.control}
-                    name="sortByTime"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                          <FormLabel>Ordenar antes dos Cálculos</FormLabel>
-                        </div>
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-               </div>
-
-              <Button type="submit" disabled={isSimulating} className="w-full">
-                {isSimulating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Simulando...
-                  </>
-                ) : (
-                  'Iniciar Simulação'
-                )}
-              </Button>
+                 <Button type="submit" disabled={isSimulating} className="w-full">
+                    {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Limites'}
+                </Button>
             </form>
-          </Form>
         </CardContent>
-      </Card>
+    </Card>
+)
 
-      <div className="lg:col-span-2 space-y-6">
-        {isSimulating && (
-            <Card className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="mt-4 text-lg text-muted-foreground">Executando simulação Monte Carlo...</p>
-            </Card>
-        )}
+const DispersionControls = ({ form, isSimulating }: { form: any, isSimulating: boolean }) => (
+     <Card>
+        <CardHeader>
+            <CardTitle>Dispersão de Parâmetros</CardTitle>
+            <CardDescription>Simule a variabilidade dos parâmetros Beta e Eta.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <form onSubmit={form.handleSubmit} className="space-y-6">
+                <FormField control={form.control} name="beta" render={({ field }) => ( <FormItem> <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel> <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                <FormField control={form.control} name="eta" render={({ field }) => ( <FormItem> <FormLabel>Eta (η - Vida Característica)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                <FormField control={form.control} name="sampleSize" render={({ field }) => ( <FormItem> <FormLabel>Tamanho da Amostra (N)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                <FormField control={form.control} name="simulationCount" render={({ field }) => ( <FormItem> <FormLabel>Número de Simulações</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
 
-        {!isSimulating && !result && (
-             <Card className="flex flex-col items-center justify-center min-h-[400px]">
-                <TestTube className="h-16 w-16 text-muted-foreground/50" />
-                <p className="mt-4 text-lg text-center text-muted-foreground">Aguardando parâmetros para iniciar a simulação.</p>
-            </Card>
-        )}
+                <Button type="submit" disabled={isSimulating} className="w-full">
+                    {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Simulando...</> : 'Iniciar Simulação'}
+                </Button>
+            </form>
+        </CardContent>
+    </Card>
+)
 
-        {result && simulationType === 'confidence' && (
-          <div className="grid grid-cols-1 gap-6">
-             <FisherMatrixPlot data={result.boundsData} />
-          </div>
-        )}
 
-        {result && simulationType === 'dispersion' && (
-            <div className="grid grid-cols-1 gap-6">
-                <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} />
+export default function MonteCarloSimulator() {
+  const [result, setResult] = useState<SimulationResult | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion'>('confidence');
+  const { toast } = useToast();
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      beta: 1.85,
+      eta: 1500,
+      sampleSize: 20,
+      simulationCount: 200,
+      confidenceLevel: 90,
+      manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
+    },
+  });
+  
+  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion') => {
+      setSimulationType(type);
+      setResult(null); // Limpa os resultados ao trocar de modo
+      form.reset({ // Reseta o formulário para os valores padrão do modo selecionado
+        beta: 1.85,
+        eta: 1500,
+        sampleSize: 20,
+        simulationCount: 200,
+        confidenceLevel: 90,
+        manualData: type === 'confidence' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
+    });
+  }
+
+  const onSubmit = (data: FormData) => {
+    setIsSimulating(true);
+    setResult(null);
+
+    // Usar um pequeno timeout para permitir a atualização da UI antes do processamento pesado
+    setTimeout(() => {
+        try {
+            if (simulationType === 'confidence') {
+                const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
+                
+                if (failureTimes.length < 2) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Dados Insuficientes',
+                        description: 'Por favor, insira pelo menos dois tempos de falha válidos.',
+                    });
+                    setIsSimulating(false);
+                    return;
+                }
+
+                const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel);
+                
+                if (!boundsData) {
+                    throw new Error("Não foi possível calcular os limites de confiança.");
+                }
+
+                setResult({ boundsData });
+
+            } else { // dispersion
+                const { beta, eta, sampleSize, simulationCount } = data;
+                if (!beta || !eta || !sampleSize || !simulationCount) {
+                    toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para a simulação de dispersão.' });
+                    setIsSimulating(false);
+                    return;
+                }
+                
+                // 1. Calcular a linha "verdadeira"
+                const trueIntercept = -beta * Math.log(eta);
+                const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (eta * 3 / 100));
+                const logTimesForPlot = timesForPlot.map(t => Math.log(t));
+                const minLogTime = Math.min(...logTimesForPlot);
+                const maxLogTime = Math.max(...logTimesForPlot);
+                const trueLine = [
+                    { x: minLogTime, y: beta * minLogTime + trueIntercept },
+                    { x: maxLogTime, y: beta * maxLogTime + trueIntercept },
+                ];
+                const originalPlot: PlotData = { points: [], line: trueLine, rSquared: 1 };
+
+                // 2. Executar simulações
+                const dispersionData = Array.from({ length: simulationCount }, () => {
+                    const sample = Array.from({ length: sampleSize }, () =>
+                        generateWeibullFailureTime(beta, eta)
+                    );
+                    return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
+                }).filter((d): d is PlotData => !!d);
+                
+                setResult({ originalPlot, dispersionData });
+            }
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro na Simulação',
+                description: error.message || 'Ocorreu um erro inesperado.',
+            });
+        } finally {
+            setIsSimulating(false);
+        }
+    }, 50);
+  }
+
+  return (
+    <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Simulador Monte Carlo</CardTitle>
+                <CardDescription>Selecione o tipo de simulação que deseja realizar.</CardDescription>
+            </CardHeader>
+             <CardContent>
+                <RadioGroup value={simulationType} onValueChange={handleSimulationTypeChange} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Label htmlFor="confidence" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'confidence' ? 'border-primary' : 'border-muted'}`}>
+                          <RadioGroupItem value="confidence" id="confidence" className="sr-only" />
+                          <TestTube className="mb-3 h-6 w-6" />
+                          Limites de Confiança
+                      </Label>
+                      <Label htmlFor="dispersion" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'dispersion' ? 'border-primary' : 'border-muted'}`}>
+                          <RadioGroupItem value="dispersion" id="dispersion" className="sr-only" />
+                           <TestTube className="mb-3 h-6 w-6" />
+                          Dispersão de Parâmetros
+                      </Label>
+              </RadioGroup>
+            </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+                 <Form {...form}>
+                    {simulationType === 'confidence' 
+                        ? <ConfidenceControls form={{ ...form, handleSubmit: form.handleSubmit(onSubmit) }} isSimulating={isSimulating} />
+                        : <DispersionControls form={{ ...form, handleSubmit: form.handleSubmit(onSubmit) }} isSimulating={isSimulating} />
+                    }
+                </Form>
             </div>
-        )}
-      </div>
+
+            <div className="lg:col-span-2">
+                {isSimulating && (
+                    <Card className="flex flex-col items-center justify-center min-h-[500px]">
+                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                        <p className="mt-4 text-lg text-muted-foreground">Executando simulação...</p>
+                    </Card>
+                )}
+
+                {!isSimulating && !result && (
+                     <Card className="flex flex-col items-center justify-center min-h-[500px]">
+                        <TestTube className="h-16 w-16 text-muted-foreground/50" />
+                        <p className="mt-4 text-lg text-center text-muted-foreground">Aguardando parâmetros para iniciar a simulação.</p>
+                    </Card>
+                )}
+
+                {result?.boundsData && simulationType === 'confidence' && (
+                    <FisherMatrixPlot data={result.boundsData} />
+                )}
+
+                {result?.dispersionData && simulationType === 'dispersion' && (
+                    <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} />
+                )}
+            </div>
+        </div>
     </div>
   );
 }
