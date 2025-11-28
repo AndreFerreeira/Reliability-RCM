@@ -379,36 +379,41 @@ export function calculateFisherConfidenceBounds(failureTimes: number[], confiden
     const n = failureTimes.length;
     const z = invNormalCdf(1 - (1 - confidenceLevel / 100) / 2);
 
-    // Fisher Matrix variance calculations
-    const var_beta = (beta * beta) / (n * 1.083); // Standard approximation
-    const var_eta = (eta * eta) / (n * beta * beta); // Standard approximation
-    const cov_beta_eta = 0.255 * (beta * eta) / n; // Standard approximation
+    // Fisher Matrix variance-covariance approximations for SRM
+    const var_beta_hat = (0.608 * beta * beta) / n;
+    const var_eta_hat = (0.370 * eta * eta) / (n * beta * beta);
+    const cov_beta_eta_hat = (0.255 * beta * eta) / n;
 
     const linePoints = analysis.plotData.line;
     const lowerBounds: { x: number; y: number }[] = [];
     const upperBounds: { x: number; y: number }[] = [];
 
-    for (const point of linePoints) {
-        const t = Math.exp(point.x);
-        if (t <= 0) continue;
+    // We need more points for a smooth curve
+    const allX = analysis.plotData.points.map(p => p.x);
+    const minLogTime = Math.min(...allX);
+    const maxLogTime = Math.max(...allX);
+    
+    const plotPointsCount = 100;
+    const logTimeRange = maxLogTime - minLogTime;
 
-        const log_t = Math.log(t);
-        const log_eta = Math.log(eta);
+    for (let i = 0; i <= plotPointsCount; i++) {
+        const currentLogTime = minLogTime + (i / plotPointsCount) * logTimeRange;
+        const y_hat = beta * currentLogTime - beta * Math.log(eta);
 
         // Variance of the reliability function's linearized form (Y = log(log(1/R(t))))
-        const var_Y = (Math.pow(log_t - log_eta, 2) * var_beta) +
-                      (Math.pow(beta / eta, 2) * var_eta) +
-                      (2 * (log_t - log_eta) * (beta / eta) * cov_beta_eta);
+        const var_Y = (Math.pow(currentLogTime - Math.log(eta), 2) * var_beta_hat) +
+                      (Math.pow(beta / eta, 2) * var_eta_hat) -
+                      (2 * (currentLogTime - Math.log(eta)) * (beta / eta) * cov_beta_eta_hat);
         
-        if (var_Y < 0) continue; // Should not happen
+        if (var_Y < 0) continue;
 
         const std_Y = Math.sqrt(var_Y);
 
-        const y_lower = point.y - z * std_Y;
-        const y_upper = point.y + z * std_Y;
+        const y_lower = y_hat - z * std_Y;
+        const y_upper = y_hat + z * std_Y;
 
-        lowerBounds.push({ x: point.x, y: y_lower });
-        upperBounds.push({ x: point.x, y: y_upper });
+        lowerBounds.push({ x: currentLogTime, y: y_lower });
+        upperBounds.push({ x: currentLogTime, y: y_upper });
     }
     
     return {

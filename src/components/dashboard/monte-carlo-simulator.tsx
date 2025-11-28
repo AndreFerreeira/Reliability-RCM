@@ -6,13 +6,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, invNormalCdf } from '@/lib/reliability';
+import { calculateFisherConfidenceBounds, estimateParametersByRankRegression } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
@@ -20,7 +20,6 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
-import { FormDescription } from '../ui/form';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
@@ -58,7 +57,7 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
         );
     }
 
-    const { points, line, lower, upper, rSquared, angle, beta, eta, confidenceLevel } = data;
+    const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel } = data;
 
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
@@ -68,7 +67,7 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
         title: {
-            text: 'Simulado de Monte Carlo - Limites de Confiança',
+            text: 'Limites de Confiança (Matriz de Fisher)',
             subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | R²: ${rSquared.toFixed(3)} | N: ${points.length}`,
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))' },
@@ -95,7 +94,7 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
         },
         xAxis: {
             type: 'log',
-            name: 'Tempo',
+            name: 'Tempo (t)',
             nameLocation: 'middle',
             nameGap: 30,
             axisLabel: { color: "hsl(var(--muted-foreground))" },
@@ -141,14 +140,14 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
                 type: 'line',
                 data: lower.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
-                lineStyle: { width: 1.5, color: 'hsl(var(--destructive))', type: 'dashed' },
+                lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
             },
             {
                 name: `Limites ${confidenceLevel}%`,
                 type: 'line',
                 data: upper.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
-                lineStyle: { width: 1.5, color: 'hsl(var(--destructive))', type: 'dashed' },
+                lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
             },
         ]
     };
@@ -174,7 +173,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         );
     }
 
-    const simulationSeries = simulations.map((sim, index) => ({
+    const simulationSeries = simulations.map((sim) => ({
         name: `Simulações`,
         type: 'line',
         data: sim.line.map(p => [Math.exp(p.x), p.y]),
@@ -297,61 +296,71 @@ export default function MonteCarloSimulator() {
     setResult(null);
 
     setTimeout(() => {
-        if (simulationType === 'confidence') {
-            const failureTimes = data.manualData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
-            
-            if (failureTimes.length < 2) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Dados Insuficientes',
-                    description: 'Por favor, insira pelo menos dois tempos de falha válidos para calcular os limites de confiança.',
-                });
-                setIsSimulating(false);
-                return;
+        try {
+            if (simulationType === 'confidence') {
+                const failureTimes = data.manualData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
+                
+                if (failureTimes.length < 2) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Dados Insuficientes',
+                        description: 'Por favor, insira pelo menos dois tempos de falha válidos para calcular os limites de confiança.',
+                    });
+                    setIsSimulating(false);
+                    return;
+                }
+
+                const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel);
+                
+                if (!boundsData) {
+                    throw new Error("Não foi possível calcular os limites de confiança. Verifique os dados de entrada.");
+                }
+
+                setResult({ boundsData });
+
+            } else { // dispersion
+                const trueBeta = data.beta;
+                const trueEta = data.eta;
+                
+                const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (trueEta * 2 / 100));
+                const logTimesForPlot = timesForPlot.map(t => Math.log(t));
+                const minLogTime = Math.min(...logTimesForPlot);
+                const maxLogTime = Math.max(...logTimesForPlot);
+                
+                const trueIntercept = -trueBeta * Math.log(trueEta);
+                
+                const trueLine = [
+                    { x: minLogTime, y: trueBeta * minLogTime + trueIntercept },
+                    { x: maxLogTime, y: trueBeta * maxLogTime + trueIntercept },
+                ];
+
+                const originalPlot: PlotData = {
+                    points: [], 
+                    line: trueLine,
+                    rSquared: 1,
+                    angle: Math.atan(trueBeta) * 180 / Math.PI,
+                };
+
+                const dispersionData = Array.from({ length: data.simulationCount }, () => {
+                    const sample = Array.from({ length: data.sampleSize }, () =>
+                        generateWeibullFailureTime(data.beta, data.eta)
+                    );
+                    return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
+                }).filter((d): d is PlotData => !!d);
+                
+                setResult({ originalPlot, dispersionData });
             }
-
-            const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel);
-            
-            setResult({ boundsData });
-
-        } else { // dispersion
-            // 1. Generate the "true" theoretical line from the user's input parameters
-            const trueBeta = data.beta;
-            const trueEta = data.eta;
-            
-            const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (trueEta * 2 / 100));
-            const logTimesForPlot = timesForPlot.map(t => Math.log(t));
-            const minLogTime = Math.min(...logTimesForPlot);
-            const maxLogTime = Math.max(...logTimesForPlot);
-            
-            const trueIntercept = -trueBeta * Math.log(trueEta);
-            
-            const trueLine = [
-                { x: minLogTime, y: trueBeta * minLogTime + trueIntercept },
-                { x: maxLogTime, y: trueBeta * maxLogTime + trueIntercept },
-            ];
-
-            const originalPlot: PlotData = {
-                points: [], // No points needed for the theoretical line
-                line: trueLine,
-                rSquared: 1, // Theoretical is a perfect line
-            };
-
-            // 2. For each simulation, create a new dataset, re-estimate parameters, and get the new plot line
-            const dispersionData = Array.from({ length: data.simulationCount }, () => {
-                const sample = Array.from({ length: data.sampleSize }, () =>
-                    generateWeibullFailureTime(data.beta, data.eta)
-                );
-                // Re-estimate parameters for this simulated sample and get its plot data
-                return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
-            }).filter((d): d is PlotData => !!d);
-            
-            setResult({ originalPlot, dispersionData });
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro na Simulação',
+                description: error.message || 'Ocorreu um erro inesperado.',
+            });
+        } finally {
+            setIsSimulating(false);
         }
-
-      setIsSimulating(false);
     }, 50);
-  };
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -519,7 +528,7 @@ export default function MonteCarloSimulator() {
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione um método" />
-                            </SelectTrigger>
+                            </Trigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="Fisher">Matriz de Fisher</SelectItem>
