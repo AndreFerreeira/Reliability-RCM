@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -120,7 +121,7 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
                 },
                 color: "hsl(var(--foreground))",
             },
-            splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
+            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
         series: [
             {
@@ -140,14 +141,14 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
             {
                 name: `Limites ${confidenceLevel}%`,
                 type: 'line',
-                data: lower.map(p => [Math.exp(p.x), p.y]),
+                data: lower.map(p => [p.time, p.y]),
                 showSymbol: false,
                 lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
             },
             {
                 name: `Limites ${confidenceLevel}%`,
                 type: 'line',
-                data: upper.map(p => [Math.exp(p.x), p.y]),
+                data: upper.map(p => [p.time, p.y]),
                 showSymbol: false,
                 lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
             },
@@ -270,82 +271,86 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
 };
 
 
-const ConfidenceControls = ({ form, isSimulating }: { form: any, isSimulating: boolean }) => (
+const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
     <Card>
         <CardHeader>
             <CardTitle>Limites de Confiança</CardTitle>
             <CardDescription>Calcule os limites com base em dados de falha inseridos manualmente.</CardDescription>
         </CardHeader>
         <CardContent>
-            <form onSubmit={form.handleSubmit} className="space-y-6">
-                 <FormField
-                    control={form.control}
-                    name="manualData"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tempos de Falha (Manual)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                              placeholder="Ex: 150, 200, 210, 300..."
-                              rows={5}
-                              {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Insira valores separados por vírgula, espaço ou nova linha.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="confidenceLevel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nível de Confiança (%)</FormLabel>
-                        <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um nível" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="80">80%</SelectItem>
-                            <SelectItem value="90">90%</SelectItem>
-                            <SelectItem value="95">95%</SelectItem>
-                            <SelectItem value="99">99%</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                 <Button type="submit" disabled={isSimulating} className="w-full">
-                    {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Limites'}
-                </Button>
-            </form>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="manualData"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tempos de Falha (Manual)</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder="Ex: 150, 200, 210, 300..."
+                                        rows={5}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    Insira valores separados por vírgula, espaço ou nova linha.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="confidenceLevel"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Nível de Confiança (%)</FormLabel>
+                                <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione um nível" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="80">80%</SelectItem>
+                                        <SelectItem value="90">90%</SelectItem>
+                                        <SelectItem value="95">95%</SelectItem>
+                                        <SelectItem value="99">99%</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" disabled={isSimulating} className="w-full">
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Limites'}
+                    </Button>
+                </form>
+            </Form>
         </CardContent>
     </Card>
 )
 
-const DispersionControls = ({ form, isSimulating }: { form: any, isSimulating: boolean }) => (
+const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
      <Card>
         <CardHeader>
             <CardTitle>Dispersão de Parâmetros</CardTitle>
             <CardDescription>Simule a variabilidade dos parâmetros Beta e Eta.</CardDescription>
         </CardHeader>
         <CardContent>
-            <form onSubmit={form.handleSubmit} className="space-y-6">
-                <FormField control={form.control} name="beta" render={({ field }) => ( <FormItem> <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel> <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
-                <FormField control={form.control} name="eta" render={({ field }) => ( <FormItem> <FormLabel>Eta (η - Vida Característica)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
-                <FormField control={form.control} name="sampleSize" render={({ field }) => ( <FormItem> <FormLabel>Tamanho da Amostra (N)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
-                <FormField control={form.control} name="simulationCount" render={({ field }) => ( <FormItem> <FormLabel>Número de Simulações</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField control={form.control} name="beta" render={({ field }) => ( <FormItem> <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel> <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                    <FormField control={form.control} name="eta" render={({ field }) => ( <FormItem> <FormLabel>Eta (η - Vida Característica)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                    <FormField control={form.control} name="sampleSize" render={({ field }) => ( <FormItem> <FormLabel>Tamanho da Amostra (N)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                    <FormField control={form.control} name="simulationCount" render={({ field }) => ( <FormItem> <FormLabel>Número de Simulações</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
 
-                <Button type="submit" disabled={isSimulating} className="w-full">
-                    {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Simulando...</> : 'Iniciar Simulação'}
-                </Button>
-            </form>
+                    <Button type="submit" disabled={isSimulating} className="w-full">
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Simulando...</> : 'Iniciar Simulação'}
+                    </Button>
+                </form>
+            </Form>
         </CardContent>
     </Card>
 )
@@ -477,12 +482,10 @@ export default function MonteCarloSimulator() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-                 <Form {...form}>
-                    {simulationType === 'confidence' 
-                        ? <ConfidenceControls form={{ ...form, handleSubmit: form.handleSubmit(onSubmit) }} isSimulating={isSimulating} />
-                        : <DispersionControls form={{ ...form, handleSubmit: form.handleSubmit(onSubmit) }} isSimulating={isSimulating} />
-                    }
-                </Form>
+                {simulationType === 'confidence' 
+                    ? <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    : <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                }
             </div>
 
             <div className="lg:col-span-2">
@@ -512,3 +515,5 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
+
+    

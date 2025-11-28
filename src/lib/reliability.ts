@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData } from '@/lib/types';
@@ -384,23 +385,20 @@ export function calculateFisherConfidenceBounds(failureTimes: number[], confiden
     const var_eta_hat = (0.370 * eta * eta) / (n * beta * beta);
     const cov_beta_eta_hat = (0.255 * beta * eta) / n;
 
-    const linePoints = analysis.plotData.line;
-    const lowerBounds: { x: number; y: number }[] = [];
-    const upperBounds: { x: number; y: number }[] = [];
+    const lowerBounds: { x: number; y: number; time: number }[] = [];
+    const upperBounds: { x: number; y: number; time: number }[] = [];
 
-    // We need more points for a smooth curve
-    const allX = analysis.plotData.points.map(p => p.x);
-    const minLogTime = Math.min(...allX);
-    const maxLogTime = Math.max(...allX);
-    
     const plotPointsCount = 100;
+    const logTimes = analysis.plotData.points.map(p => p.x);
+    const minLogTime = Math.min(...logTimes);
+    const maxLogTime = Math.max(...logTimes);
     const logTimeRange = maxLogTime - minLogTime;
 
     for (let i = 0; i <= plotPointsCount; i++) {
         const currentLogTime = minLogTime + (i / plotPointsCount) * logTimeRange;
+        const currentTime = Math.exp(currentLogTime);
         const y_hat = beta * currentLogTime - beta * Math.log(eta);
 
-        // Variance of the reliability function's linearized form (Y = log(log(1/R(t))))
         const var_Y = (Math.pow(currentLogTime - Math.log(eta), 2) * var_beta_hat) +
                       (Math.pow(beta / eta, 2) * var_eta_hat) -
                       (2 * (currentLogTime - Math.log(eta)) * (beta / eta) * cov_beta_eta_hat);
@@ -412,8 +410,8 @@ export function calculateFisherConfidenceBounds(failureTimes: number[], confiden
         const y_lower = y_hat - z * std_Y;
         const y_upper = y_hat + z * std_Y;
 
-        lowerBounds.push({ x: currentLogTime, y: y_lower });
-        upperBounds.push({ x: currentLogTime, y: y_upper });
+        lowerBounds.push({ x: currentLogTime, y: y_lower, time: currentTime });
+        upperBounds.push({ x: currentLogTime, y: y_upper, time: currentTime });
     }
     
     return {
@@ -525,3 +523,5 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
+
+    
