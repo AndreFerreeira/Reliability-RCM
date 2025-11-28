@@ -169,7 +169,8 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             width: 1,
             color: 'hsl(var(--chart-2))',
             opacity: 0.1
-        }
+        },
+        z: 1,
     }));
     
     const originalSeries = {
@@ -181,14 +182,17 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             width: 2.5,
             color: 'hsl(var(--chart-1))',
             opacity: 1
-        }
+        },
+        z: 10,
     };
+
+    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
 
     const option = {
         backgroundColor: 'transparent',
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
         title: {
-            text: 'Gráfico de Probabilidade Weibull (Dispersão)',
+            text: 'Gráfico de Dispersão de Parâmetros',
             subtext: 'Visualização da incerteza dos parâmetros Beta e Eta',
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))' },
@@ -209,16 +213,16 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
         yAxis: {
-            type: 'log',
+             type: 'log',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
-            axisLabel: { 
-                 formatter: (value: number) => {
+            axisLabel: {
+                formatter: (value: number) => {
                     if (value < 1) return value.toFixed(2);
                     return Math.round(value);
-                 },
-                color: 'hsl(var(--muted-foreground))' 
+                },
+                color: "hsl(var(--muted-foreground))",
             },
         },
         series: [originalSeries, ...simulationSeries]
@@ -278,17 +282,26 @@ export default function MonteCarloSimulator() {
             setResult({ boundsData });
 
         } else { // dispersion
-            const originalPlot = estimateParametersByRankRegression(
-                'Weibull', 
-                Array.from({ length: data.sampleSize }, () => generateWeibullFailureTime(data.beta, data.eta)),
-                [], 
-                'SRM'
-            )?.plotData;
-            
+            // 1. Generate a "base" plot from the user's input parameters to serve as the reference line
+            const baseFailureTimes = Array.from({ length: data.sampleSize }, () => generateWeibullFailureTime(data.beta, data.eta));
+            const originalPlot = estimateParametersByRankRegression('Weibull', baseFailureTimes, [], 'SRM')?.plotData;
+
+            if (!originalPlot) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Erro na Simulação',
+                    description: 'Não foi possível gerar a curva de referência inicial.',
+                });
+                setIsSimulating(false);
+                return;
+            }
+
+            // 2. For each simulation, create a new dataset, re-estimate parameters, and get the new plot line
             const dispersionData = Array.from({ length: data.simulationCount }, () => {
                 const sample = Array.from({ length: data.sampleSize }, () =>
                     generateWeibullFailureTime(data.beta, data.eta)
                 );
+                // Re-estimate parameters for this simulated sample and get its plot data
                 return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
             }).filter((d): d is PlotData => !!d);
             
