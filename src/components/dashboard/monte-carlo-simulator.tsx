@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateFisherConfidenceBounds, estimateParametersByRankRegression } from '@/lib/reliability';
+import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, invNormalCdf } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
@@ -167,7 +167,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         showSymbol: false,
         lineStyle: {
             width: 1,
-            color: 'hsl(var(--chart-2))',
+            color: 'hsl(var(--chart-3))', // a lighter color for the cloud
             opacity: 0.1
         },
         z: 1,
@@ -179,8 +179,8 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         data: original.line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
         showSymbol: false,
         lineStyle: {
-            width: 2.5,
-            color: 'hsl(var(--chart-1))',
+            width: 2,
+            color: 'hsl(var(--accent))', // a bright, standout color
             opacity: 1
         },
         z: 10,
@@ -213,17 +213,29 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
         yAxis: {
-             type: 'log',
+            type: 'value',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
+            scale: true,
             axisLabel: {
                 formatter: (value: number) => {
-                    if (value < 1) return value.toFixed(2);
-                    return Math.round(value);
+                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                    if (prob < 1) return prob.toFixed(2);
+                    if (prob > 99) return prob.toFixed(2);
+                    return Math.round(prob);
                 },
-                color: "hsl(var(--muted-foreground))",
+                color: "hsl(var(--foreground))"
             },
+            axisPointer: {
+                label: {
+                     formatter: ({ value }: { value: number }) => {
+                        const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                        return prob.toFixed(2) + '%';
+                     }
+                }
+            },
+            data: probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))))
         },
         series: [originalSeries, ...simulationSeries]
     };
@@ -282,19 +294,26 @@ export default function MonteCarloSimulator() {
             setResult({ boundsData });
 
         } else { // dispersion
-            // 1. Generate a "base" plot from the user's input parameters to serve as the reference line
-            const baseFailureTimes = Array.from({ length: data.sampleSize }, () => generateWeibullFailureTime(data.beta, data.eta));
-            const originalPlot = estimateParametersByRankRegression('Weibull', baseFailureTimes, [], 'SRM')?.plotData;
+            // 1. Generate the "true" theoretical line from the user's input parameters
+            const trueBeta = data.beta;
+            const trueEta = data.eta;
+            
+            const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (trueEta * 2 / 100));
+            const logTimesForPlot = timesForPlot.map(t => Math.log(t));
+            const minLogTime = Math.min(...logTimesForPlot);
+            const maxLogTime = Math.max(...logTimesForPlot);
+            
+            const trueIntercept = -trueBeta * Math.log(trueEta);
+            const trueLine = [
+                { x: minLogTime, y: trueBeta * minLogTime + trueIntercept },
+                { x: maxLogTime, y: trueBeta * maxLogTime + trueIntercept },
+            ];
 
-            if (!originalPlot) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Erro na Simulação',
-                    description: 'Não foi possível gerar a curva de referência inicial.',
-                });
-                setIsSimulating(false);
-                return;
-            }
+            const originalPlot: PlotData = {
+                points: [], // No points needed for the theoretical line
+                line: trueLine,
+                rSquared: 1, // Theoretical is a perfect line
+            };
 
             // 2. For each simulation, create a new dataset, re-estimate parameters, and get the new plot line
             const dispersionData = Array.from({ length: data.simulationCount }, () => {
