@@ -19,6 +19,8 @@ import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '../ui/textarea';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
@@ -29,6 +31,7 @@ const formSchema = z.object({
   confidenceMethod: z.enum(['Fisher', 'Likelihood']),
   useRsMethod: z.boolean(),
   sortByTime: z.boolean(),
+  manualData: z.string(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -235,6 +238,7 @@ export default function MonteCarloSimulator() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion'>('confidence');
+  const { toast } = useToast();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -247,6 +251,7 @@ export default function MonteCarloSimulator() {
       confidenceMethod: 'Fisher',
       useRsMethod: false,
       sortByTime: true,
+      manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
     },
   });
 
@@ -256,11 +261,19 @@ export default function MonteCarloSimulator() {
 
     setTimeout(() => {
         if (simulationType === 'confidence') {
-            const simulatedSample = Array.from({ length: data.sampleSize }, () =>
-                generateWeibullFailureTime(data.beta, data.eta)
-            ).sort((a,b) => a-b);
+            const failureTimes = data.manualData.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
             
-            const boundsData = calculateFisherConfidenceBounds(simulatedSample, data.confidenceLevel);
+            if (failureTimes.length < 2) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Dados Insuficientes',
+                    description: 'Por favor, insira pelo menos dois tempos de falha válidos para calcular os limites de confiança.',
+                });
+                setIsSimulating(false);
+                return;
+            }
+
+            const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel);
             
             setResult({ boundsData });
 
@@ -316,59 +329,82 @@ export default function MonteCarloSimulator() {
               
               <div className="space-y-4 rounded-md border p-4">
                 <h3 className="text-sm font-medium text-muted-foreground">Parâmetros da Simulação</h3>
-                <FormField
-                  control={form.control}
-                  name="beta"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="eta"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Eta (η - Vida Característica)</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sampleSize"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tamanho da Amostra (N)</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 {simulationType === 'dispersion' && (
+                {simulationType === 'confidence' ? (
                   <FormField
                     control={form.control}
-                    name="simulationCount"
+                    name="manualData"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Número de Simulações</FormLabel>
+                        <FormLabel>Tempos de Falha (Manual)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Textarea
+                              placeholder="Ex: 150, 200, 210, 300..."
+                              rows={5}
+                              {...field}
+                          />
                         </FormControl>
+                        <FormDescription>
+                          Insira valores separados por vírgula, espaço ou nova linha.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
-                />
+                  />
+                ) : (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="beta"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="eta"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Eta (η - Vida Característica)</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="sampleSize"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tamanho da Amostra (N)</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="simulationCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Número de Simulações</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
               </div>
 
