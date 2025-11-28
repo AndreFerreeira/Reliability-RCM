@@ -161,7 +161,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     }
 
     const simulationSeries = simulations.map((sim, index) => ({
-        name: `Simulação ${index + 1}`,
+        name: `Simulações`,
         type: 'line',
         data: sim.line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
         showSymbol: false,
@@ -186,7 +186,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         z: 10,
     };
 
-    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
+    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 63.2, 70, 90, 99, 99.9];
 
     const option = {
         backgroundColor: 'transparent',
@@ -198,7 +198,19 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             textStyle: { color: 'hsl(var(--foreground))' },
             subtextStyle: { color: 'hsl(var(--muted-foreground))' },
         },
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+             axisPointer: {
+                label: {
+                     formatter: ({ axisDimension, value }: { axisDimension: string, value: number }) => {
+                        if (axisDimension === 'y') {
+                            return `${value.toFixed(2)}%`;
+                        }
+                        return `Tempo: ${Math.round(value)}`;
+                     }
+                }
+            },
+        },
         legend: {
             data: ['Curva Original', 'Simulações'],
             bottom: 0,
@@ -213,29 +225,16 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
         yAxis: {
-            type: 'value',
+            type: 'log',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
-            scale: true,
+            min: 0.1,
+            max: 99.9,
             axisLabel: {
-                formatter: (value: number) => {
-                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                    if (prob < 1) return prob.toFixed(2);
-                    if (prob > 99) return prob.toFixed(2);
-                    return Math.round(prob);
-                },
+                formatter: (value: number) => value.toString(),
                 color: "hsl(var(--foreground))"
             },
-            axisPointer: {
-                label: {
-                     formatter: ({ value }: { value: number }) => {
-                        const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                        return prob.toFixed(2) + '%';
-                     }
-                }
-            },
-            data: probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))))
         },
         series: [originalSeries, ...simulationSeries]
     };
@@ -304,6 +303,7 @@ export default function MonteCarloSimulator() {
             const maxLogTime = Math.max(...logTimesForPlot);
             
             const trueIntercept = -trueBeta * Math.log(trueEta);
+            
             const trueLine = [
                 { x: minLogTime, y: trueBeta * minLogTime + trueIntercept },
                 { x: maxLogTime, y: trueBeta * maxLogTime + trueIntercept },
