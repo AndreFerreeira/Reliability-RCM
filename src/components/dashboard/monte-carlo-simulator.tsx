@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
@@ -17,12 +16,12 @@ import { calculateFisherConfidenceBounds } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
+import { Separator } from '../ui/separator';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }),
   sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}),
-  simulations: z.coerce.number().int().min(100, { message: 'Mínimo de 100 simulações.' }).max(100000, { message: 'Máximo de 100.000 simulações.' }),
   confidenceLevel: z.coerce.number().min(1).max(99),
   confidenceMethod: z.enum(['Fisher', 'Likelihood']),
   useRsMethod: z.boolean(),
@@ -170,7 +169,6 @@ export default function MonteCarloSimulator() {
       beta: 1.85,
       eta: 1500,
       sampleSize: 20,
-      simulations: 10000,
       confidenceLevel: 90,
       confidenceMethod: 'Fisher',
       useRsMethod: false,
@@ -183,12 +181,10 @@ export default function MonteCarloSimulator() {
     setResult(null);
 
     setTimeout(() => {
-      // Step 1: Generate a single, representative sample based on input parameters
       const simulatedSample = Array.from({ length: data.sampleSize }, () =>
         generateWeibullFailureTime(data.beta, data.eta)
       ).sort((a,b) => a-b);
       
-      // Step 2: Calculate confidence bounds for this sample
       const boundsData = calculateFisherConfidenceBounds(simulatedSample, data.confidenceLevel);
       
       setResult({
@@ -210,103 +206,55 @@ export default function MonteCarloSimulator() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="beta"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="eta"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Eta (η - Vida Característica)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="sampleSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tamanho da Amostra (N)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="simulations"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Simulações (p/ MTTF)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              
+              {/* Simulation Parameters Block */}
+              <div className="space-y-4 rounded-md border p-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Parâmetros da Simulação</h3>
+                <FormField
                   control={form.control}
-                  name="confidenceLevel"
+                  name="beta"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nível de Confiança (%)</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um nível" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="80">80%</SelectItem>
-                          <SelectItem value="90">90%</SelectItem>
-                          <SelectItem value="95">95%</SelectItem>
-                          <SelectItem value="99">99%</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-               <FormField
+                <FormField
                   control={form.control}
-                  name="confidenceMethod"
+                  name="eta"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Método dos Limites de Confiança</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um método" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Fisher">Matriz de Fisher</SelectItem>
-                          <SelectItem value="Likelihood">Razão da Verossimilhança</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Eta (η - Vida Característica)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="sampleSize"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tamanho da Amostra (N)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Analysis Settings Block */}
+              <div className="space-y-4 rounded-md border p-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Configurações de Análise</h3>
                  <FormField
                   control={form.control}
                   name="useRsMethod"
@@ -324,23 +272,74 @@ export default function MonteCarloSimulator() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+               {/* Confidence Settings Block */}
+               <div className="space-y-4 rounded-md border p-4">
+                 <h3 className="text-sm font-medium text-muted-foreground">Configurações de Confiança</h3>
                  <FormField
-                  control={form.control}
-                  name="sortByTime"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel>Ordenar antes dos Cálculos</FormLabel>
-                      </div>
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                    control={form.control}
+                    name="confidenceLevel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nível de Confiança (%)</FormLabel>
+                        <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um nível" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="80">80%</SelectItem>
+                            <SelectItem value="90">90%</SelectItem>
+                            <SelectItem value="95">95%</SelectItem>
+                            <SelectItem value="99">99%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                 <FormField
+                    control={form.control}
+                    name="confidenceMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Método dos Limites de Confiança</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um método" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Fisher">Matriz de Fisher</SelectItem>
+                            <SelectItem value="Likelihood">Razão da Verossimilhança</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                 <FormField
+                    control={form.control}
+                    name="sortByTime"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <FormLabel>Ordenar antes dos Cálculos</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+               </div>
+
               <Button type="submit" disabled={isSimulating} className="w-full">
                 {isSimulating ? (
                   <>
