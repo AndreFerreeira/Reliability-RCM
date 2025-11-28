@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -16,11 +16,11 @@ import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, in
 import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Separator } from '../ui/separator';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
+import { FormDescription } from '../ui/form';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }),
@@ -61,6 +61,8 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
     const { points, line, lower, upper, rSquared, angle, beta, eta, confidenceLevel } = data;
 
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
+    
+    const transformedY = (prob: number) => Math.log(Math.log(1 / (1 - prob)));
 
     const option = {
         backgroundColor: "transparent",
@@ -72,7 +74,20 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
             textStyle: { color: 'hsl(var(--foreground))' },
             subtextStyle: { color: 'hsl(var(--muted-foreground))' },
         },
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+             axisPointer: {
+                label: {
+                     formatter: ({ axisDimension, value }: { axisDimension: string, value: number }) => {
+                        if (axisDimension === 'y') {
+                            const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                            return `${prob.toFixed(2)}%`;
+                        }
+                        return `Tempo: ${Math.round(Math.exp(value))}`;
+                     }
+                }
+            },
+        },
         legend: {
             data: ['Dados', 'Linha de Ajuste', `Limites ${confidenceLevel}%`],
             bottom: 0,
@@ -87,52 +102,51 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
         },
         yAxis: {
-            type: 'log',
+            type: 'value',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
             axisLabel: {
                 formatter: (value: number) => {
-                    if (value < 1) return value.toFixed(2);
-                    return Math.round(value);
+                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                    const roundedProb = Math.round(prob);
+                    // Show labels only for the ticks we want to display
+                    if (probabilityTicks.some(tick => Math.abs(tick - prob) < 0.1 || Math.abs(tick - roundedProb) < 0.1)) {
+                         if (prob < 1) return prob.toFixed(1);
+                         return roundedProb;
+                    }
+                    return '';
                 },
-                color: "hsl(var(--muted-foreground))",
+                color: "hsl(var(--foreground))",
             },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "hsl(var(--border))", opacity: 0.5 } },
-            // @ts-ignore
-            axisPointer: {
-                label: {
-                  formatter: ({ value }: { value: number }) => `${value.toFixed(2)}%`
-                }
-            },
         },
-        // @ts-ignore
         series: [
             {
                 name: 'Dados',
                 type: 'scatter',
-                data: points.map(p => [p.time, p.prob * 100]),
+                data: points.map(p => [p.time, transformedY(p.prob)]),
                 symbolSize: 8,
                 itemStyle: { color: 'hsl(var(--primary))' }
             },
             {
                 name: 'Linha de Ajuste',
                 type: 'line',
-                data: line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
+                data: line.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
                 lineStyle: { width: 2, color: 'hsl(var(--primary))' },
             },
             {
                 name: `Limites ${confidenceLevel}%`,
                 type: 'line',
-                data: lower.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
+                data: lower.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
                 lineStyle: { width: 1.5, color: 'hsl(var(--destructive))', type: 'dashed' },
             },
             {
                 name: `Limites ${confidenceLevel}%`,
                 type: 'line',
-                data: upper.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
+                data: upper.map(p => [Math.exp(p.x), p.y]),
                 showSymbol: false,
                 lineStyle: { width: 1.5, color: 'hsl(var(--destructive))', type: 'dashed' },
             },
@@ -163,11 +177,11 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     const simulationSeries = simulations.map((sim, index) => ({
         name: `Simulações`,
         type: 'line',
-        data: sim.line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
+        data: sim.line.map(p => [Math.exp(p.x), p.y]),
         showSymbol: false,
         lineStyle: {
             width: 1,
-            color: 'hsl(var(--chart-3))', // a lighter color for the cloud
+            color: 'hsl(var(--chart-3))',
             opacity: 0.1
         },
         z: 1,
@@ -176,18 +190,18 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     const originalSeries = {
         name: 'Curva Original',
         type: 'line',
-        data: original.line.map(p => [Math.exp(p.x), (1 - Math.exp(-Math.exp(p.y))) * 100]),
+        data: original.line.map(p => [Math.exp(p.x), p.y]),
         showSymbol: false,
         lineStyle: {
-            width: 2,
-            color: 'hsl(var(--accent))', // a bright, standout color
+            width: 2.5,
+            color: 'hsl(var(--accent))',
             opacity: 1
         },
         z: 10,
     };
 
-    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 63.2, 70, 90, 99, 99.9];
-
+    const probabilityTicks = [0.1, 1, 10, 50, 90, 99, 99.9];
+    
     const option = {
         backgroundColor: 'transparent',
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
@@ -204,7 +218,8 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
                 label: {
                      formatter: ({ axisDimension, value }: { axisDimension: string, value: number }) => {
                         if (axisDimension === 'y') {
-                            return `${value.toFixed(2)}%`;
+                            const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                            return `${prob.toFixed(2)}%`;
                         }
                         return `Tempo: ${Math.round(value)}`;
                      }
@@ -225,14 +240,21 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
         yAxis: {
-            type: 'log',
+            type: 'value',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
             nameGap: 60,
-            min: 0.1,
-            max: 99.9,
             axisLabel: {
-                formatter: (value: number) => value.toString(),
+                formatter: (value: number) => {
+                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                    const roundedProb = Math.round(prob);
+                    // Show labels only for the ticks we want to display
+                    if (probabilityTicks.some(tick => Math.abs(tick - prob) < 0.1 || Math.abs(tick - roundedProb) < 0.1)) {
+                         if (prob < 1) return prob.toFixed(1);
+                         return roundedProb;
+                    }
+                    return '';
+                },
                 color: "hsl(var(--foreground))"
             },
         },
