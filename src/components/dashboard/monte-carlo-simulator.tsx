@@ -173,7 +173,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         );
     }
 
-    const simulationSeries = simulations.map((sim) => ({
+    const simulationSeries = simulations.map((sim, i) => ({
         name: `Simulações`,
         type: 'line',
         data: sim.line.map(p => [Math.exp(p.x), p.y]),
@@ -220,7 +220,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
                             const prob = (1 - Math.exp(-Math.exp(value))) * 100;
                             return `${prob.toFixed(2)}%`;
                         }
-                        return `Tempo: ${Math.round(value)}`;
+                        return `Tempo: ${Math.round(Math.exp(value))}`;
                      }
                 }
             },
