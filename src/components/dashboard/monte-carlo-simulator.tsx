@@ -32,9 +32,6 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 interface SimulationResult {
-  mttf: number;
-  failureTimes: number[];
-  histogramData: { time: string; failures: number }[];
   boundsData?: FisherBoundsData;
 }
 
@@ -193,42 +190,8 @@ export default function MonteCarloSimulator() {
       
       // Step 2: Calculate confidence bounds for this sample
       const boundsData = calculateFisherConfidenceBounds(simulatedSample, data.confidenceLevel);
-
-      // Step 3: Run the full Monte Carlo for MTTF and cost analysis
-      const allFailureTimes: number[] = [];
-      for(let i = 0; i < data.simulations; i++) {
-        const failureTime = generateWeibullFailureTime(data.beta, data.eta);
-        allFailureTimes.push(failureTime);
-      }
-
-      const sumOfFailureTimes = allFailureTimes.reduce((acc, time) => acc + time, 0);
-      const mttf = sumOfFailureTimes / allFailureTimes.length;
       
-      // Gerar dados para o histograma
-      let maxTime = 0;
-      for (const time of allFailureTimes) {
-          if (time > maxTime) {
-              maxTime = time;
-          }
-      }
-      const binCount = 20;
-      const binSize = maxTime / binCount;
-      const bins = Array(binCount).fill(0);
-
-      for (const time of allFailureTimes) {
-        const binIndex = Math.min(Math.floor(time / binSize), binCount - 1);
-        bins[binIndex]++;
-      }
-
-      const histogramData = bins.map((count, index) => ({
-        time: `${Math.round(index * binSize)} - ${Math.round((index + 1) * binSize)}`,
-        failures: count,
-      }));
-
       setResult({
-        mttf,
-        failureTimes: allFailureTimes,
-        histogramData,
         boundsData,
       });
 
@@ -411,50 +374,6 @@ export default function MonteCarloSimulator() {
         {result && (
           <div className="grid grid-cols-1 gap-6">
              <FisherMatrixPlot data={result.boundsData} />
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Resultados da Simulação</CardTitle>
-                         <CardDescription>
-                            Baseado em {form.getValues('simulations').toLocaleString()} simulações.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 gap-4 text-center">
-                        <Alert>
-                        <AlertTitle className="text-sm font-semibold">Tempo Médio Para Falha (MTTF)</AlertTitle>
-                        <AlertDescription className="text-2xl font-bold text-primary">
-                            {result.mttf.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </AlertDescription>
-                        </Alert>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">Histograma de Falhas</CardTitle>
-                    <CardDescription>
-                    Distribuição dos tempos de falha simulados.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={result.histogramData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="time" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} angle={-45} textAnchor="end" height={60} />
-                        <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                        <Tooltip
-                        cursor={{ fill: 'hsl(var(--accent))', opacity: 0.1 }}
-                        contentStyle={{
-                            background: 'hsl(var(--background))',
-                            borderColor: 'hsl(var(--border))',
-                        }}
-                        />
-                        <Bar dataKey="failures" name="Falhas" fill="hsl(var(--primary))" />
-                    </BarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-                </Card>
-             </div>
           </div>
         )}
       </div>
