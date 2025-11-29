@@ -1,0 +1,22 @@
+<svg width="256" height="256" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <title>Firebase Logo</title>
+    <defs>
+        <linearGradient id="firebase-gradient" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFCA28"/>
+            <stop offset="0.5" stop-color="#FFA000"/>
+            <stop offset="1" stop-color="#F57C00"/>
+        </linearGradient>
+        <linearGradient id="firebase-gradient-alt" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#F57C00"/>
+            <stop offset="1" stop-color="#D32F2F"/>
+        </linearGradient>
+         <linearGradient id="cool-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFC247;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#E94057;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <path fill="url(#cool-gradient)" d="M21,85.3,50,100,79,85.3,50,70.6Z" />
+    <path fill="url(#cool-gradient)" d="m50,29.4,29,14.7V85.3L50,100V29.4Z" opacity=".8"/>
+    <path fill="url(#cool.gradient)" d="M50,29.4,21,44.1V85.3L50,100V29.4Z" opacity=".6"/>
+    <path d="M50,0,21,14.7,50,29.4,79,14.7Z" fill="url(#cool-gradient)" opacity="0.9" />
+</svg>
