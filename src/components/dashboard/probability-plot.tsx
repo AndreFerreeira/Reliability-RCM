@@ -206,6 +206,18 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
     const option = {
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 50, bottom: 60 },
+        dataZoom: [
+            {
+                type: 'inside',
+                filterMode: 'none',
+                xAxisIndex: [0],
+            },
+            {
+                type: 'inside',
+                filterMode: 'none',
+                yAxisIndex: [0],
+            },
+        ],
         legend: {
             data: validSuppliers.map(s => s.name),
             bottom: 0,

@@ -69,6 +69,10 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
     const option = {
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
+        dataZoom: [
+            { type: 'inside', filterMode: 'none', xAxisIndex: [0] },
+            { type: 'inside', filterMode: 'none', yAxisIndex: [0] },
+        ],
         title: {
             text: 'Limites de Confiança (Matriz de Fisher)',
             subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | R²: ${rSquared.toFixed(3)} | N: ${points.length}`,
@@ -202,6 +206,10 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     const option = {
         backgroundColor: 'transparent',
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
+        dataZoom: [
+            { type: 'inside', filterMode: 'none', xAxisIndex: [0] },
+            { type: 'inside', filterMode: 'none', yAxisIndex: [0] },
+        ],
         title: {
             text: 'Gráfico de Dispersão de Parâmetros',
             subtext: 'Visualização da incerteza dos parâmetros Beta e Eta',
