@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ReliabilityData, Supplier } from '@/lib/types';
 
@@ -70,14 +70,6 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
               />
               <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
               <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
-              <Brush 
-                dataKey="time" 
-                height={20} 
-                stroke="hsl(var(--primary))"
-                fill="hsl(var(--background))"
-                travellerWidth={10}
-                y={60}
-              />
               {suppliers.map(supplier => (
                 <Line
                   key={supplier.id}
