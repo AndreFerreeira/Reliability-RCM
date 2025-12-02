@@ -261,47 +261,47 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         return { beta: undefined, eta: undefined };
     }
 
-    let beta = 1.0; // Initial guess for beta
+    // Use Rank Regression as initial guess
+    const rr_params = estimateParametersByRankRegression('Weibull', failures, suspensions, 'SRM')?.params;
+    let beta = rr_params?.beta || 1.0;
 
     for (let iter = 0; iter < maxIterations; iter++) {
-        const beta_i = beta;
+        const beta_k = beta;
         
-        let sum_t_beta_logt = 0;
-        let sum_t_beta = 0;
-        let sum_t_beta_logt_sq = 0;
-        let sum_logt_failures = 0;
+        let sum1 = 0, sum2 = 0, sum3 = 0, sum_logt_failures = 0;
         
-        for (const t of allData) {
-            if (t <= 0) continue;
-            const t_beta = Math.pow(t, beta_i);
-            const logt = Math.log(t);
-            sum_t_beta += t_beta;
-            sum_t_beta_logt += t_beta * logt;
-            sum_t_beta_logt_sq += t_beta * logt * logt;
-        }
+        allData.forEach(t => {
+            if (t <= 0) return;
+            const t_beta = Math.pow(t, beta_k);
+            const log_t = Math.log(t);
+            sum1 += t_beta;
+            sum2 += t_beta * log_t;
+            sum3 += t_beta * log_t * log_t;
+        });
 
-        for (const t of failures) {
-            if (t <= 0) continue;
-            sum_logt_failures += Math.log(t);
-        }
+        failures.forEach(t => {
+             if (t <= 0) return;
+             sum_logt_failures += Math.log(t);
+        });
         
         const numFailures = failures.length;
-        if (numFailures === 0 || sum_t_beta === 0) return { beta: undefined, eta: undefined };
+        if (numFailures === 0 || sum1 === 0) return { beta: undefined, eta: undefined, rho: undefined };
 
         // First derivative of log-likelihood w.r.t beta
-        const dL_dbeta = (numFailures / beta_i) + sum_logt_failures - (numFailures / sum_t_beta) * sum_t_beta_logt;
+        const dL_dbeta = (numFailures / beta_k) + sum_logt_failures - (numFailures / sum1) * sum2;
         
         // Second derivative (Hessian)
-        const d2L_dbeta2 = (-numFailures / (beta_i * beta_i)) - numFailures * (
-            (sum_t_beta_logt_sq * sum_t_beta - Math.pow(sum_t_beta_logt, 2)) / Math.pow(sum_t_beta, 2)
+        const d2L_dbeta2 = (-numFailures / (beta_k * beta_k)) - numFailures * (
+            (sum3 * sum1 - sum2 * sum2) / (sum1 * sum1)
         );
 
-        if (Math.abs(d2L_dbeta2) < 1e-10) break; // Avoid division by zero
+        if (Math.abs(d2L_dbeta2) < 1e-10) {
+             return { beta: rr_params?.beta, eta: rr_params?.eta };
+        }; 
 
-        const newBeta = beta - dL_dbeta / d2L_dbeta2;
+        const newBeta = beta_k - dL_dbeta / d2L_dbeta2;
 
         if (!isFinite(newBeta) || newBeta <= 0) {
-             const rr_params = estimateParametersByRankRegression('Weibull', failures, suspensions, 'SRM')?.params;
              return { beta: rr_params?.beta, eta: rr_params?.eta };
         }
 
@@ -480,69 +480,72 @@ export function calculateContourEllipse(
     const n = failureTimes.length;
     const chi2 = invChi2(confidenceLevel / 100, 2);
 
-    // Fisher Matrix elements (approximated)
-    const var_beta = (beta_mle * beta_mle) / (n * 1.05); // Simplified approximation
-    const var_eta = (eta_mle * eta_mle) / (n * beta_mle * beta_mle * 0.67); // Simplified
-    const cov_beta_eta = 0; // Assuming no correlation for this simplified model
+    // Fisher Matrix elements for MLE
+    const L_bb = (n / (beta_mle * beta_mle)) * (1 + (1 / n) * failureTimes.reduce((acc, t) => acc + Math.pow(t / eta_mle, beta_mle) * Math.pow(Math.log(t / eta_mle), 2), 0));
+    const L_ee = (n * beta_mle * beta_mle) / (eta_mle * eta_mle);
+    const L_be = (n / eta_mle) * (1 - (beta_mle / n) * failureTimes.reduce((acc, t) => acc + Math.pow(t / eta_mle, beta_mle) * Math.log(t / eta_mle), 0) - (beta_mle / n) * failureTimes.reduce((acc, t) => acc + Math.pow(t / eta_mle, beta_mle), 0));
 
-    const cov_matrix = [[var_beta, cov_beta_eta], [cov_beta_eta, var_eta]];
-    
-    // Inverse of the covariance matrix
-    const det = cov_matrix[0][0]*cov_matrix[1][1] - cov_matrix[0][1]*cov_matrix[1][0];
-    if (Math.abs(det) < 1e-20) return undefined; // Matrix is not invertible
-    const inv_cov_matrix = [
-        [cov_matrix[1][1] / det, -cov_matrix[0][1] / det],
-        [-cov_matrix[1][0] / det, cov_matrix[0][0] / det]
+    const fisher_matrix = [[L_bb, L_be], [L_be, L_ee]];
+    const det = fisher_matrix[0][0] * fisher_matrix[1][1] - fisher_matrix[0][1] * fisher_matrix[1][0];
+    if (Math.abs(det) < 1e-20) return undefined;
+    const cov_matrix = [
+        [fisher_matrix[1][1] / det, -fisher_matrix[0][1] / det],
+        [-fisher_matrix[1][0] / det, fisher_matrix[0][0] / det]
     ];
     
-    // Eigenvalue decomposition to find ellipse properties
-    const a = inv_cov_matrix[0][0]; // For beta
-    const b = 2 * inv_cov_matrix[0][1]; // For covariance
-    const c = inv_cov_matrix[1][1]; // For eta
+    const var_beta = cov_matrix[0][0];
+    const var_eta = cov_matrix[1][1];
+    const cov_beta_eta = cov_matrix[0][1];
 
-    // Check if we can calculate eigenvalues
-    const discriminant = Math.sqrt((a-c)*(a-c) + b*b);
-    const L1 = 0.5 * (a + c + discriminant); // Eigenvalue 1
-    const L2 = 0.5 * (a + c - discriminant); // Eigenvalue 2
+    if(var_beta <= 0 || var_eta <= 0) return undefined;
 
-    if(L1 <= 0 || L2 <= 0) return undefined;
+    // Eigenvalue decomposition of covariance matrix
+    const trace = var_beta + var_eta;
+    const discriminant = Math.sqrt(Math.pow(var_beta - var_eta, 2) + 4 * cov_beta_eta * cov_beta_eta);
+    const L1 = (trace + discriminant) / 2;
+    const L2 = (trace - discriminant) / 2;
 
-    // Semi-axes
-    const semi_axis1 = Math.sqrt(chi2 / L2);
-    const semi_axis2 = Math.sqrt(chi2 / L1);
+    if (L1 <= 0 || L2 <= 0) return undefined;
 
-    // Angle of rotation
-    const angle = 0.5 * Math.atan2(b, a - c); // in radians
+    const semi_axis1 = Math.sqrt(chi2 * L1);
+    const semi_axis2 = Math.sqrt(chi2 * L2);
 
-    const ellipsePoints = [];
+    const angle = 0.5 * Math.atan2(2 * cov_beta_eta, var_beta - var_eta);
+
+    const ellipsePoints: number[][] = [];
     const pointsCount = 100;
     for (let i = 0; i <= pointsCount; i++) {
         const t = (2 * Math.PI * i) / pointsCount;
-        const x_ = semi_axis1 * Math.cos(t);
-        const y_ = semi_axis2 * Math.sin(t);
+        const x_prime = semi_axis1 * Math.cos(t);
+        const y_prime = semi_axis2 * Math.sin(t);
 
-        const beta_val = beta_mle + x_ * Math.cos(angle) - y_ * Math.sin(angle);
-        const eta_val = eta_mle + x_ * Math.sin(angle) + y_ * Math.cos(angle);
+        const eta_val = eta_mle + x_prime * Math.cos(angle) - y_prime * Math.sin(angle);
+        const beta_val = beta_mle + x_prime * Math.sin(angle) + y_prime * Math.cos(angle);
         
-        // Plot with Eta on X and Beta on Y
         ellipsePoints.push([eta_val, beta_val]);
     }
     
     const x_coords = ellipsePoints.map(p => p[0]);
     const y_coords = ellipsePoints.map(p => p[1]);
 
-    const bufferX = (Math.max(...x_coords) - Math.min(...x_coords)) * 0.2;
-    const bufferY = (Math.max(...y_coords) - Math.min(...y_coords)) * 0.2;
+    const eta_lower = Math.min(...x_coords);
+    const eta_upper = Math.max(...x_coords);
+    const beta_lower = Math.min(...y_coords);
+    const beta_upper = Math.max(...y_coords);
+
+    const bufferX = (eta_upper - eta_lower) * 0.2;
+    const bufferY = (beta_upper - beta_lower) * 0.2;
 
     return {
         center: { beta: beta_mle, eta: eta_mle },
         ellipse: ellipsePoints,
         confidenceLevel,
+        bounds: { eta_lower, eta_upper, beta_lower, beta_upper },
         limits: {
-            eta_min: Math.max(0, Math.min(...x_coords) - bufferX),
-            eta_max: Math.max(...x_coords) + bufferX,
-            beta_min: Math.max(0, Math.min(...y_coords) - bufferY),
-            beta_max: Math.max(...y_coords) + bufferY,
+            eta_min: Math.max(0, eta_lower - bufferX),
+            eta_max: eta_upper + bufferX,
+            beta_min: Math.max(0, beta_lower - bufferY),
+            beta_max: beta_upper + bufferY,
         }
     };
 }

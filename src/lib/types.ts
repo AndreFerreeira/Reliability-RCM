@@ -79,6 +79,12 @@ export type ContourData = {
   center: { beta: number; eta: number };
   ellipse: number[][];
   confidenceLevel: number;
+  bounds: {
+    beta_lower: number;
+    beta_upper: number;
+    eta_lower: number;
+    eta_upper: number;
+  };
   limits: {
     eta_min: number;
     eta_max: number;

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -65,7 +66,10 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
 
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
-    const transformedY = (prob: number) => Math.log(Math.log(1 / (1 - prob)));
+    const transformedY = (prob: number) => {
+      if (prob <= 0 || prob >= 1) return NaN;
+      return Math.log(Math.log(1 / (1 - prob)));
+    };
     const logTime = (time: number) => Math.log(time);
     
     let series: any[] = [
@@ -110,44 +114,55 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
     if (timeForCalc && calculation) {
         const { failureProb } = calculation;
         const logTimeForCalc = logTime(timeForCalc);
-        const yLower = transformedY(failureProb.lower);
+
         const yMedian = transformedY(failureProb.median);
+        const yLower = transformedY(failureProb.lower);
         const yUpper = transformedY(failureProb.upper);
 
-        const yAxisMin = Math.min(...series.flatMap(s => s.data?.map((d: any[]) => d[1]) || []).filter(y => isFinite(y)));
-        const xAxisMin = Math.min(...series.flatMap(s => s.data?.map((d: any[]) => d[0]) || []).filter(x => isFinite(x)));
+        const allY = series.flatMap(s => s.data?.map((d: any[]) => d[1]) || []).filter(y => isFinite(y));
+        const allX = series.flatMap(s => s.data?.map((d: any[]) => d[0]) || []).filter(x => isFinite(x));
+        const logXAxisMin = allX.length > 0 ? Math.min(...allX) : 0;
+        
+        let projectionData = [];
 
+        // Vertical Line
+        projectionData.push([{ coord: [logTimeForCalc, Math.min(...allY)] }, { coord: [logTimeForCalc, Math.max(...allY)] }]);
 
-        series.push({
-            name: 'Projeção',
-            type: 'line',
-            data: [
-                [logTimeForCalc, yAxisMin], [logTimeForCalc, yLower], [xAxisMin, yLower],
-                [logTimeForCalc, yLower], [logTimeForCalc, yMedian], [xAxisMin, yMedian],
-                [logTimeForCalc, yMedian], [logTimeForCalc, yUpper], [xAxisMin, yUpper],
-            ],
-            showSymbol: false,
-            lineStyle: {
-                type: 'dashed',
-                color: 'hsl(var(--chart-5))',
-                width: 1
-            },
-            z: 10,
-            animation: false,
-            label: {
+        // Horizontal Lines if values are valid
+        if (isFinite(logXAxisMin) && isFinite(yLower)) {
+          projectionData.push([{ coord: [logXAxisMin, yLower] }, { coord: [logTimeForCalc, yLower] }]);
+        }
+        if (isFinite(logXAxisMin) && isFinite(yMedian)) {
+          projectionData.push([{ coord: [logXAxisMin, yMedian] }, { coord: [logTimeForCalc, yMedian] }]);
+        }
+        if (isFinite(logXAxisMin) && isFinite(yUpper)) {
+          projectionData.push([{ coord: [logXAxisMin, yUpper] }, { coord: [logTimeForCalc, yUpper] }]);
+        }
+
+        series[1].markLine = {
+             symbol: 'none',
+             silent: true,
+             lineStyle: {
+                 type: 'dashed',
+                 color: 'hsl(var(--chart-5))',
+                 width: 1
+             },
+             data: projectionData,
+             label: {
                 show: true,
                 position: 'start',
                 formatter: (params: any) => {
-                    if (params.dataIndex === 2) return `F inf: ${(failureProb.lower * 100).toFixed(1)}%`;
-                    if (params.dataIndex === 5) return `F med: ${(failureProb.median * 100).toFixed(1)}%`;
-                    if (params.dataIndex === 8) return `F sup: ${(failureProb.upper * 100).toFixed(1)}%`;
+                    if (!isFinite(params.value)) return '';
+                    if (params.dataIndex === 1) return `F inf: ${(failureProb.lower * 100).toFixed(1)}%`;
+                    if (params.dataIndex === 2) return `F med: ${(failureProb.median * 100).toFixed(1)}%`;
+                    if (params.dataIndex === 3) return `F sup: ${(failureProb.upper * 100).toFixed(1)}%`;
                     return '';
                 },
                 color: 'hsl(var(--chart-5))',
                 fontSize: 10,
                 distance: 8
             }
-        });
+        };
     }
 
 
@@ -340,7 +355,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
 const ContourPlot = ({ data }: { data?: ContourData }) => {
     if (!data) return null;
 
-    const { center, ellipse, confidenceLevel, limits } = data;
+    const { center, ellipse, confidenceLevel, limits, bounds } = data;
 
     const series = [
         {
@@ -348,7 +363,26 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
             type: 'scatter',
             data: [[center.eta, center.beta]],
             symbolSize: 10,
-            itemStyle: { color: 'hsl(var(--accent))' }
+            itemStyle: { color: 'hsl(var(--accent))' },
+             markLine: {
+                silent: true,
+                symbol: 'none',
+                lineStyle: {
+                    type: 'dashed',
+                    color: 'hsl(var(--muted-foreground))'
+                },
+                data: [
+                    { name: 'Beta Lower', yAxis: bounds.beta_lower, label: { formatter: `β inf: ${bounds.beta_lower.toFixed(2)}` } },
+                    { name: 'Beta Upper', yAxis: bounds.beta_upper, label: { position: 'insideStartTop', formatter: `β sup: ${bounds.beta_upper.toFixed(2)}` } },
+                    { name: 'Eta Lower', xAxis: bounds.eta_lower, label: { formatter: `η inf: ${bounds.eta_lower.toFixed(2)}` } },
+                    { name: 'Eta Upper', xAxis: bounds.eta_upper, label: { position: 'insideStartTop', formatter: `η sup: ${bounds.eta_upper.toFixed(2)}` } }
+                ],
+                 label: {
+                    position: 'end',
+                    color: 'hsl(var(--muted-foreground))',
+                    fontSize: 10
+                }
+            }
         },
         {
             name: `Contorno de Confiança ${confidenceLevel}%`,
@@ -444,9 +478,6 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundT
                                         {...field}
                                     />
                                 </FormControl>
-                                <FormDescription>
-                                    Insira valores separados por vírgula, espaço ou nova linha.
-                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -577,9 +608,6 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
                                         {...field}
                                     />
                                 </FormControl>
-                                <FormDescription>
-                                    Insira valores separados por vírgula, espaço ou nova linha.
-                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -679,6 +707,48 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                 </CardContent>
             </Card>
         </div>
+    );
+};
+
+const ContourResultsDisplay = ({ result }: { result: SimulationResult }) => {
+    if (!result.contourData) return null;
+    const { center, bounds } = result.contourData;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Limites de Confiança dos Parâmetros</CardTitle>
+                <CardDescription>
+                    Estimativa de Máxima Verossimilhança (MLE) e os limites de confiança para cada parâmetro.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Parâmetro</TableHead>
+                            <TableHead className="text-right">Lim. Inferior</TableHead>
+                            <TableHead className="text-right">Estimativa (MLE)</TableHead>
+                            <TableHead className="text-right">Lim. Superior</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow>
+                            <TableCell className="font-medium">Beta (β)</TableCell>
+                            <TableCell className="text-right font-mono">{bounds.beta_lower.toFixed(3)}</TableCell>
+                            <TableCell className="text-right font-mono">{center.beta.toFixed(3)}</TableCell>
+                            <TableCell className="text-right font-mono">{bounds.beta_upper.toFixed(3)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium">Eta (η)</TableCell>
+                            <TableCell className="text-right font-mono">{bounds.eta_lower.toFixed(0)}</TableCell>
+                            <TableCell className="text-right font-mono">{center.eta.toFixed(0)}</TableCell>
+                            <TableCell className="text-right font-mono">{bounds.eta_upper.toFixed(0)}</TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     );
 };
 
@@ -960,6 +1030,10 @@ export default function MonteCarloSimulator() {
 
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
                     <ResultsDisplay result={result} timeForCalc={timeForCalc} />
+                )}
+
+                {!isSimulating && result?.contourData && simulationType === 'contour' && (
+                  <ContourResultsDisplay result={result} />
                 )}
             </div>
         </div>
