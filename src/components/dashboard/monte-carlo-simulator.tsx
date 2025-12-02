@@ -79,7 +79,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
             itemStyle: { color: 'hsl(var(--primary))' }
         },
         {
-            name: 'Linha de Ajuste',
+            name: 'Linha de Ajuste (Mediana)',
             type: 'line',
             data: line.map(p => [Math.exp(p.x), p.y]),
             showSymbol: false,
