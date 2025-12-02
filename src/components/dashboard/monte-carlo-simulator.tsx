@@ -75,12 +75,13 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
     const transformedY = (prob: number) => Math.log(Math.log(1 / (1 - prob)));
+    const logTime = (time: number) => Math.log(time);
     
-    const series = [
+    let series = [
         {
             name: 'Dados',
             type: 'scatter',
-            data: points.map(p => [p.time, transformedY(p.prob)]),
+            data: points.map(p => [logTime(p.time), transformedY(p.prob)]),
             symbolSize: 8,
             itemStyle: { color: 'hsl(var(--primary))' }
         },
@@ -97,7 +98,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         series.push({
             name: `Limite Inferior ${confidenceLevel}%`,
             type: 'line',
-            data: lower.map(p => [p.time, p.y]),
+            data: lower.map(p => [logTime(p.time), p.y]),
             showSymbol: false,
             lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
@@ -106,60 +107,59 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         series.push({
             name: `Limite Superior ${confidenceLevel}%`,
             type: 'line',
-            data: upper.map(p => [p.time, p.y]),
+            data: upper.map(p => [logTime(p.time), p.y]),
             showSymbol: false,
             lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
     }
 
     if (timeForCalc && calculation) {
-        const markLineData = [];
-        // Vertical Line
-        markLineData.push({
-            name: 'Tempo de Análise',
-            xAxis: timeForCalc,
-            lineStyle: { type: 'dashed', color: 'hsl(var(--foreground))' },
-            label: { show: false }
-        });
-
         const { failureProb } = calculation;
+        const logTimeForCalc = logTime(timeForCalc);
+        const yLower = transformedY(failureProb.lower);
+        const yMedian = transformedY(failureProb.median);
+        const yUpper = transformedY(failureProb.upper);
 
-        // Horizontal lines with labels
-        if (showUpper && isFinite(failureProb.upper)) {
-           markLineData.push({
-                yAxis: transformedY(failureProb.upper),
-                name: `F sup: ${(failureProb.upper * 100).toFixed(1)}%`,
-                lineStyle: { type: 'dashed', color: 'hsl(var(--chart-2))' },
-                label: { position: 'insideStartTop', formatter: '{b}', color: 'hsl(var(--chart-2))' }
-           });
-        }
-        if (isFinite(failureProb.median)) {
-             markLineData.push({
-                yAxis: transformedY(failureProb.median),
-                name: `F med: ${(failureProb.median * 100).toFixed(1)}%`,
-                lineStyle: { type: 'dashed', color: 'hsl(var(--accent))' },
-                label: { position: 'insideStartTop', formatter: '{b}', color: 'hsl(var(--accent))' }
-           });
-        }
-        if (showLower && isFinite(failureProb.lower)) {
-             markLineData.push({
-                yAxis: transformedY(failureProb.lower),
-                name: `F inf: ${(failureProb.lower * 100).toFixed(1)}%`,
-                lineStyle: { type: 'dashed', color: 'hsl(var(--chart-2))' },
-                label: { position: 'insideStartTop', formatter: '{b}', color: 'hsl(var(--chart-2))' }
-           });
-        }
-        
-        // @ts-ignore
-        series[1].markLine = {
-            symbol: 'none',
-            silent: true,
-            data: markLineData,
-            label: {
-                distance: [10, 8]
+        const yAxisMin = transformedY(0.001); // Approx min for y-axis
+        const xAxisMin = Math.min(...points.map(p => logTime(p.time)));
+
+
+        series.push({
+            name: 'Projeção',
+            type: 'line',
+            data: [
+                [logTimeForCalc, yAxisMin],
+                [logTimeForCalc, yLower],
+                [xAxisMin, yLower],
+                [logTimeForCalc, yLower],
+                [logTimeForCalc, yMedian],
+                [xAxisMin, yMedian],
+                [logTimeForCalc, yMedian],
+                [logTimeForCalc, yUpper],
+                [xAxisMin, yUpper],
+            ],
+            showSymbol: false,
+            lineStyle: {
+                type: 'dashed',
+                color: 'hsl(var(--chart-5))',
+                width: 1.5
             },
-            emphasis: { disabled: true },
-        };
+            z: 10,
+            animation: false,
+            label: {
+                show: true,
+                position: 'start',
+                formatter: (params: any) => {
+                    if (params.dataIndex === 2) return `F inf: ${(failureProb.lower * 100).toFixed(1)}%`;
+                    if (params.dataIndex === 5) return `F med: ${(failureProb.median * 100).toFixed(1)}%`;
+                    if (params.dataIndex === 8) return `F sup: ${(failureProb.upper * 100).toFixed(1)}%`;
+                    return '';
+                },
+                color: 'hsl(var(--chart-5))',
+                fontSize: 10,
+                distance: 8
+            }
+        });
     }
 
 
@@ -186,13 +186,13 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
                             const prob = (1 - Math.exp(-Math.exp(value))) * 100;
                             return `${prob.toFixed(2)}%`;
                         }
-                        return `Tempo: ${Math.round(value)}`;
+                        return `Tempo: ${Math.round(Math.exp(value))}`;
                      }
                 }
             },
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name !== 'Dados'),
+            data: series.map(s => s.name).filter(name => name !== 'Dados' && name !== 'Projeção'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))' }
         },
@@ -211,12 +211,16 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             nameGap: 60,
             axisLabel: {
                 formatter: (value: number) => {
-                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                    const roundedProb = Math.round(prob);
-                    // Show labels only for the ticks we want to display
-                    if (probabilityTicks.some(tick => Math.abs(tick - prob) < 0.1 || Math.abs(tick - roundedProb) < 0.1)) {
-                         if (prob < 1) return prob.toFixed(1);
-                         return roundedProb;
+                    try {
+                        const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                        const roundedProb = Math.round(prob);
+                        // Show labels only for the ticks we want to display
+                        if (probabilityTicks.some(tick => Math.abs(tick - prob) < 0.1 || Math.abs(tick - roundedProb) < 0.1)) {
+                             if (prob < 1) return prob.toFixed(1);
+                             return roundedProb;
+                        }
+                    } catch (e) {
+                        return '';
                     }
                     return '';
                 },
@@ -533,15 +537,21 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                     <CardTitle>Interpretando os Resultados</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground space-y-4">
-                    <p>
-                        Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a confiabilidade estimada (melhor palpite) é de <strong className="text-primary">{(reliability.median * 100).toFixed(2)}%</strong>.
-                    </p>
-                    <p>
-                        O intervalo de confiança de <strong className="text-foreground">{result.boundsData?.confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira confiabilidade</strong> do equipamento está entre <strong className="text-primary">{(reliability.lower * 100).toFixed(2)}%</strong> (pior cenário) e <strong className="text-primary">{(reliability.upper * 100).toFixed(2)}%</strong> (melhor cenário).
-                    </p>
-                     <p>
-                        Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.
-                    </p>
+                     {isFinite(reliability.median) ? (
+                        <>
+                            <p>
+                                Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a confiabilidade estimada (melhor palpite) é de <strong className="text-primary">{(reliability.median * 100).toFixed(2)}%</strong>.
+                            </p>
+                            <p>
+                                O intervalo de confiança de <strong className="text-foreground">{result.boundsData?.confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira confiabilidade</strong> do equipamento está entre <strong className="text-primary">{(reliability.lower * 100).toFixed(2)}%</strong> (pior cenário) e <strong className="text-primary">{(reliability.upper * 100).toFixed(2)}%</strong> (melhor cenário).
+                            </p>
+                             <p>
+                                Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.
+                            </p>
+                        </>
+                    ) : (
+                        <p>Não foi possível calcular a interpretação. Verifique os dados de entrada e os limites de confiança.</p>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -797,3 +807,4 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
+
