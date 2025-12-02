@@ -676,26 +676,60 @@ export default function MonteCarloSimulator() {
     }, 50);
   }
 
+  // Function to perform linear interpolation
+  const interpolateY = (points: { time: number; y: number }[], targetTime: number): number => {
+    if (points.length < 2) return NaN;
+
+    // Find the two points to interpolate between
+    let p1 = null, p2 = null;
+    for (let i = 0; i < points.length - 1; i++) {
+        if (points[i].time <= targetTime && points[i+1].time >= targetTime) {
+            p1 = points[i];
+            p2 = points[i+1];
+            break;
+        }
+    }
+    // Handle edge cases where targetTime is outside the range
+    if (!p1 || !p2) {
+      if (targetTime < points[0].time) {
+        p1 = points[0];
+        p2 = points[1];
+      } else {
+        p1 = points[points.length - 2];
+        p2 = points[points.length - 1];
+      }
+    }
+    
+    if (p2.time === p1.time) return p1.y; // Avoid division by zero
+
+    const t = (targetTime - p1.time) / (p2.time - p1.time);
+    return p1.y + t * (p2.y - p1.y);
+  };
+
+
   // Recalculate table when timeForCalc changes, if data is available
   useEffect(() => {
     if (result?.boundsData && timeForCalc && simulationType === 'confidence') {
-       const { beta, eta, confidenceLevel } = result.boundsData;
-       const y_median = beta * Math.log(timeForCalc) - beta * Math.log(eta);
+       const { beta, eta, lower: lowerBounds, upper: upperBounds } = result.boundsData;
+       if (!beta || !eta) return;
+       
+       const logTimeCalc = Math.log(timeForCalc);
+       const y_median = beta * logTimeCalc - beta * Math.log(eta);
        const prob_median = 1 - Math.exp(-Math.exp(y_median));
 
-       const y_lower = result.boundsData.lower.find(p => Math.abs(p.time - timeForCalc) < 0.1) // approximation
-           || result.boundsData.lower.reduce((prev, curr) => Math.abs(curr.time - timeForCalc) < Math.abs(prev.time - timeForCalc) ? curr : prev).y;
-       const y_upper = result.boundsData.upper.find(p => Math.abs(p.time - timeForCalc) < 0.1) // approximation
-           || result.boundsData.upper.reduce((prev, curr) => Math.abs(curr.time - timeForCalc) < Math.abs(prev.time - timeForCalc) ? curr : prev).y;
+       const y_lower = interpolateY(lowerBounds, timeForCalc);
+       const y_upper = interpolateY(upperBounds, timeForCalc);
         
        const prob_lower = 1 - Math.exp(-Math.exp(y_lower));
        const prob_upper = 1 - Math.exp(-Math.exp(y_upper));
 
-        const calculation: CalculationResult = {
-            failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
-            reliability: { median: 1 - prob_median, upper: 1 - prob_lower, lower: 1 - prob_upper }
-        };
-        setResult(prev => prev ? ({ ...prev, calculation, boundsData: { ...prev.boundsData!, calculation } }) : null);
+        if (!isNaN(prob_median) && !isNaN(prob_lower) && !isNaN(prob_upper)) {
+          const calculation: CalculationResult = {
+              failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
+              reliability: { median: 1 - prob_median, upper: 1 - prob_lower, lower: 1 - prob_upper }
+          };
+          setResult(prev => prev ? ({ ...prev, calculation, boundsData: { ...prev.boundsData!, calculation } }) : null);
+        }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeForCalc, result?.boundsData?.beta, result?.boundsData?.eta]);
