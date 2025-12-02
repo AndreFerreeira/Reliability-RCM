@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -590,7 +590,7 @@ export default function MonteCarloSimulator() {
   }
 
   // Update showUpper/showLower based on boundType
-  React.useEffect(() => {
+  useEffect(() => {
     if (boundType === 'bilateral') {
       setShowUpper(true);
       setShowLower(true);
@@ -677,7 +677,7 @@ export default function MonteCarloSimulator() {
   }
 
   // Recalculate table when timeForCalc changes, if data is available
-  React.useEffect(() => {
+  useEffect(() => {
     if (result?.boundsData && timeForCalc && simulationType === 'confidence') {
        const { beta, eta, confidenceLevel } = result.boundsData;
        const y_median = beta * Math.log(timeForCalc) - beta * Math.log(eta);
