@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -123,8 +123,8 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         const yMedian = transformedY(failureProb.median);
         const yUpper = transformedY(failureProb.upper);
 
-        const yAxisMin = transformedY(0.001);
-        const xAxisMin = Math.min(...points.map(p => logTime(p.time)));
+        const yAxisMin = Math.min(...series.flatMap(s => s.data?.map(d => d[1]) || []).filter(y => isFinite(y)));
+        const xAxisMin = Math.min(...series.flatMap(s => s.data?.map(d => d[0]) || []).filter(x => isFinite(x)));
 
 
         series.push({
@@ -812,3 +812,6 @@ export default function MonteCarloSimulator() {
 }
 
 
+
+
+    
