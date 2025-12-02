@@ -1,3 +1,4 @@
+
 'use client';
 
 import { z } from "zod";
@@ -56,16 +57,22 @@ export type PlotData = {
     angle?: number;
 };
 
+export type CalculationResult = {
+    reliability: { median: number; lower: number; upper: number };
+    failureProb: { median: number; lower: number; upper: number };
+}
+
 export type FisherBoundsData = {
     points: { x: number, y: number, time: number, prob: number }[];
     line: { x: number, y: number }[];
     lower: { time: number, y: number }[];
     upper: { time: number, y: number }[];
     rSquared: number;
-    angle: number;
+    angle?: number;
     beta: number;
     eta: number;
     confidenceLevel: number;
+    calculation?: CalculationResult;
 }
 
 export interface EstimateParams {

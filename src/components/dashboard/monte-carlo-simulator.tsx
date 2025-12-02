@@ -1,11 +1,11 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -15,13 +15,13 @@ import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
 import { calculateFisherConfidenceBounds, estimateParametersByRankRegression } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
 import { Slider } from '@/components/ui/slider';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
@@ -30,6 +30,7 @@ const formSchema = z.object({
   simulationCount: z.coerce.number().int().min(10, { message: "Mínimo de 10 simulações." }).max(1000, { message: "Máximo de 1000 simulações." }).optional(),
   confidenceLevel: z.coerce.number().min(1).max(99.9),
   manualData: z.string().optional(),
+  timeForCalc: z.coerce.number().gt(0, "O tempo deve ser positivo").optional(),
 }).refine(data => {
     // Se a dispersão for selecionada, beta, eta, sampleSize e simulationCount são necessários
     if (!data.manualData) {
@@ -49,11 +50,16 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 type BoundType = 'bilateral' | 'unilateral' | 'none';
 
+interface CalculationResult {
+    reliability: { median: number; lower: number; upper: number };
+    failureProb: { median: number; lower: number; upper: number };
+}
 
 interface SimulationResult {
   boundsData?: FisherBoundsData;
   dispersionData?: PlotData[];
   originalPlot?: PlotData;
+  calculation?: CalculationResult;
 }
 
 const generateWeibullFailureTime = (beta: number, eta: number): number => {
@@ -61,10 +67,10 @@ const generateWeibullFailureTime = (beta: number, eta: number): number => {
   return eta * Math.pow(-Math.log(1 - u), 1 / beta);
 };
 
-const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsData, showLower: boolean, showUpper: boolean }) => {
+const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: FisherBoundsData, showLower: boolean, showUpper: boolean, timeForCalc?: number }) => {
     if (!data) return null;
 
-    const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel } = data;
+    const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel, calculation } = data;
 
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
@@ -74,14 +80,14 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
         {
             name: 'Dados',
             type: 'scatter',
-            data: points.map(p => [Math.exp(p.x), transformedY(p.prob)]),
+            data: points.map(p => [p.time, transformedY(p.prob)]),
             symbolSize: 8,
             itemStyle: { color: 'hsl(var(--primary))' }
         },
         {
-            name: 'Linha de Ajuste (Mediana)',
+            name: `Ajuste Mediano`,
             type: 'line',
-            data: line.map(p => [Math.exp(p.x), p.y]),
+            data: line.map(p => [p.x, p.y]),
             showSymbol: false,
             lineStyle: { width: 2, color: 'hsl(var(--accent))' },
         },
@@ -105,6 +111,57 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
             lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
     }
+
+    if (timeForCalc && calculation) {
+        const markLineData = [];
+        // Vertical Line
+        markLineData.push({
+            name: 'Tempo de Análise',
+            xAxis: timeForCalc,
+            lineStyle: { type: 'dashed', color: 'hsl(var(--foreground))' },
+            label: { show: false }
+        });
+
+        const { failureProb } = calculation;
+
+        // Horizontal lines with labels
+        if (showUpper && isFinite(failureProb.upper)) {
+           markLineData.push({
+                yAxis: transformedY(failureProb.upper),
+                name: `F sup: ${(failureProb.upper * 100).toFixed(1)}%`,
+                lineStyle: { type: 'dashed', color: 'hsl(var(--chart-2))' },
+                label: { position: 'insideStartTop', formatter: '{b}', color: 'hsl(var(--chart-2))' }
+           });
+        }
+        if (isFinite(failureProb.median)) {
+             markLineData.push({
+                yAxis: transformedY(failureProb.median),
+                name: `F med: ${(failureProb.median * 100).toFixed(1)}%`,
+                lineStyle: { type: 'dashed', color: 'hsl(var(--accent))' },
+                label: { position: 'insideStartTop', formatter: '{b}', color: 'hsl(var(--accent))' }
+           });
+        }
+        if (showLower && isFinite(failureProb.lower)) {
+             markLineData.push({
+                yAxis: transformedY(failureProb.lower),
+                name: `F inf: ${(failureProb.lower * 100).toFixed(1)}%`,
+                lineStyle: { type: 'dashed', color: 'hsl(var(--chart-2))' },
+                label: { position: 'insideStartTop', formatter: '{b}', color: 'hsl(var(--chart-2))' }
+           });
+        }
+        
+        // @ts-ignore
+        series[1].markLine = {
+            symbol: 'none',
+            silent: true,
+            data: markLineData,
+            label: {
+                distance: [10, 8]
+            },
+            emphasis: { disabled: true },
+        };
+    }
+
 
     const option = {
         backgroundColor: "transparent",
@@ -212,7 +269,6 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     };
 
     const probabilityTicks = [0.1, 1, 10, 50, 90, 99, 99.9];
-    const transformedTicks = probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))));
     
     const option = {
         backgroundColor: 'transparent',
@@ -350,6 +406,20 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundT
                             </FormItem>
                         )}
                     />
+                    
+                    <FormField
+                        control={form.control}
+                        name="timeForCalc"
+                        render={({ field }) => (
+                           <FormItem>
+                               <FormLabel>Tempo para Cálculo (t)</FormLabel>
+                               <FormControl>
+                                   <Input type="number" placeholder="Ex: 700" {...field} value={field.value ?? ''}/>
+                               </FormControl>
+                               <FormMessage />
+                           </FormItem>
+                        )}
+                    />
 
                     <Button type="submit" disabled={isSimulating} className="w-full">
                         {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Limites'}
@@ -417,6 +487,67 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
     </Card>
 )
 
+const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, timeForCalc?: number }) => {
+    if (!result.calculation || timeForCalc === undefined) return null;
+    
+    const { reliability, failureProb } = result.calculation;
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Valores Calculados para t = {timeForCalc}</CardTitle>
+                    <CardDescription>
+                        Estimativas pontuais e limites de confiança para Confiabilidade e Probabilidade de Falha.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Métrica</TableHead>
+                                <TableHead className="text-right">Valor</TableHead>
+                                <TableHead className="text-right">Lim. Inferior</TableHead>
+                                <TableHead className="text-right">Lim. Superior</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow>
+                                <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
+                                <TableCell className="text-right font-mono">{(reliability.median * 100).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono">{(reliability.lower * 100).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono">{(reliability.upper * 100).toFixed(2)}%</TableCell>
+                            </TableRow>
+                             <TableRow>
+                                <TableCell className="font-medium">Prob. de Falha (F(t))</TableCell>
+                                <TableCell className="text-right font-mono">{(failureProb.median * 100).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono">{(failureProb.lower * 100).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono">{(failureProb.upper * 100).toFixed(2)}%</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Interpretando os Resultados</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-4">
+                    <p>
+                        Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a confiabilidade estimada (melhor palpite) é de <strong className="text-primary">{(reliability.median * 100).toFixed(2)}%</strong>.
+                    </p>
+                    <p>
+                        O intervalo de confiança de <strong className="text-foreground">{result.boundsData?.confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira confiabilidade</strong> do equipamento está entre <strong className="text-primary">{(reliability.lower * 100).toFixed(2)}%</strong> (pior cenário) e <strong className="text-primary">{(reliability.upper * 100).toFixed(2)}%</strong> (melhor cenário).
+                    </p>
+                     <p>
+                        Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+    );
+};
+
 
 export default function MonteCarloSimulator() {
   const [result, setResult] = useState<SimulationResult | null>(null);
@@ -438,8 +569,11 @@ export default function MonteCarloSimulator() {
       simulationCount: 200,
       confidenceLevel: 90,
       manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
+      timeForCalc: 700,
     },
   });
+
+  const timeForCalc = form.watch('timeForCalc');
   
   const handleSimulationTypeChange = (type: 'confidence' | 'dispersion') => {
       setSimulationType(type);
@@ -451,11 +585,12 @@ export default function MonteCarloSimulator() {
         simulationCount: 200,
         confidenceLevel: 90,
         manualData: type === 'confidence' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
+        timeForCalc: 700,
     });
   }
 
   // Update showUpper/showLower based on boundType
-  useEffect(() => {
+  React.useEffect(() => {
     if (boundType === 'bilateral') {
       setShowUpper(true);
       setShowLower(true);
@@ -465,6 +600,58 @@ export default function MonteCarloSimulator() {
     }
   }, [boundType]);
 
+  const runConfidenceSimulation = (data: FormData) => {
+    const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
+                
+    if (failureTimes.length < 2) {
+        toast({
+            variant: 'destructive',
+            title: 'Dados Insuficientes',
+            description: 'Por favor, insira pelo menos dois tempos de falha válidos.',
+        });
+        setIsSimulating(false);
+        return;
+    }
+
+    const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel, data.timeForCalc);
+    
+    if (!boundsData) {
+        throw new Error("Não foi possível calcular os limites de confiança.");
+    }
+    setResult({ boundsData, calculation: boundsData.calculation });
+  }
+
+  const runDispersionSimulation = (data: FormData) => {
+      const { beta, eta, sampleSize, simulationCount } = data;
+      if (!beta || !eta || !sampleSize || !simulationCount) {
+          toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para a simulação de dispersão.' });
+          setIsSimulating(false);
+          return;
+      }
+      
+      // 1. Calcular a linha "verdadeira"
+      const trueIntercept = -beta * Math.log(eta);
+      const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (eta * 3 / 100));
+      const logTimesForPlot = timesForPlot.map(t => Math.log(t));
+      const minLogTime = Math.min(...logTimesForPlot);
+      const maxLogTime = Math.max(...logTimesForPlot);
+      const trueLine = [
+          { x: minLogTime, y: beta * minLogTime + trueIntercept },
+          { x: maxLogTime, y: beta * maxLogTime + trueIntercept },
+      ];
+      const originalPlot: PlotData = { points: [], line: trueLine, rSquared: 1 };
+
+      // 2. Executar simulações
+      const dispersionData = Array.from({ length: simulationCount }, () => {
+          const sample = Array.from({ length: sampleSize }, () =>
+              generateWeibullFailureTime(beta, eta)
+          );
+          return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
+      }).filter((d): d is PlotData => !!d);
+      
+      setResult({ originalPlot, dispersionData });
+  }
+
   const onSubmit = (data: FormData) => {
     setIsSimulating(true);
     setResult(null);
@@ -473,55 +660,9 @@ export default function MonteCarloSimulator() {
     setTimeout(() => {
         try {
             if (simulationType === 'confidence') {
-                const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
-                
-                if (failureTimes.length < 2) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Dados Insuficientes',
-                        description: 'Por favor, insira pelo menos dois tempos de falha válidos.',
-                    });
-                    setIsSimulating(false);
-                    return;
-                }
-
-                const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel);
-                
-                if (!boundsData) {
-                    throw new Error("Não foi possível calcular os limites de confiança.");
-                }
-
-                setResult({ boundsData });
-
-            } else { // dispersion
-                const { beta, eta, sampleSize, simulationCount } = data;
-                if (!beta || !eta || !sampleSize || !simulationCount) {
-                    toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para a simulação de dispersão.' });
-                    setIsSimulating(false);
-                    return;
-                }
-                
-                // 1. Calcular a linha "verdadeira"
-                const trueIntercept = -beta * Math.log(eta);
-                const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (eta * 3 / 100));
-                const logTimesForPlot = timesForPlot.map(t => Math.log(t));
-                const minLogTime = Math.min(...logTimesForPlot);
-                const maxLogTime = Math.max(...logTimesForPlot);
-                const trueLine = [
-                    { x: minLogTime, y: beta * minLogTime + trueIntercept },
-                    { x: maxLogTime, y: beta * maxLogTime + trueIntercept },
-                ];
-                const originalPlot: PlotData = { points: [], line: trueLine, rSquared: 1 };
-
-                // 2. Executar simulações
-                const dispersionData = Array.from({ length: simulationCount }, () => {
-                    const sample = Array.from({ length: sampleSize }, () =>
-                        generateWeibullFailureTime(beta, eta)
-                    );
-                    return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
-                }).filter((d): d is PlotData => !!d);
-                
-                setResult({ originalPlot, dispersionData });
+                runConfidenceSimulation(data);
+            } else { 
+                runDispersionSimulation(data);
             }
         } catch (error: any) {
              toast({
@@ -534,6 +675,31 @@ export default function MonteCarloSimulator() {
         }
     }, 50);
   }
+
+  // Recalculate table when timeForCalc changes, if data is available
+  React.useEffect(() => {
+    if (result?.boundsData && timeForCalc && simulationType === 'confidence') {
+       const { beta, eta, confidenceLevel } = result.boundsData;
+       const y_median = beta * Math.log(timeForCalc) - beta * Math.log(eta);
+       const prob_median = 1 - Math.exp(-Math.exp(y_median));
+
+       const y_lower = result.boundsData.lower.find(p => Math.abs(p.time - timeForCalc) < 0.1) // approximation
+           || result.boundsData.lower.reduce((prev, curr) => Math.abs(curr.time - timeForCalc) < Math.abs(prev.time - timeForCalc) ? curr : prev).y;
+       const y_upper = result.boundsData.upper.find(p => Math.abs(p.time - timeForCalc) < 0.1) // approximation
+           || result.boundsData.upper.reduce((prev, curr) => Math.abs(curr.time - timeForCalc) < Math.abs(prev.time - timeForCalc) ? curr : prev).y;
+        
+       const prob_lower = 1 - Math.exp(-Math.exp(y_lower));
+       const prob_upper = 1 - Math.exp(-Math.exp(y_upper));
+
+        const calculation: CalculationResult = {
+            failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
+            reliability: { median: 1 - prob_median, upper: 1 - prob_lower, lower: 1 - prob_upper }
+        };
+        setResult(prev => prev ? ({ ...prev, calculation, boundsData: { ...prev.boundsData!, calculation } }) : null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeForCalc, result?.boundsData?.beta, result?.boundsData?.eta]);
+
 
   return (
     <div className="space-y-6">
@@ -566,7 +732,7 @@ export default function MonteCarloSimulator() {
                 }
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-6">
                 {isSimulating && (
                     <Card className="flex flex-col items-center justify-center min-h-[500px]">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -582,11 +748,15 @@ export default function MonteCarloSimulator() {
                 )}
 
                 {result?.boundsData && simulationType === 'confidence' && (
-                    <FisherMatrixPlot data={result.boundsData} showLower={showLower} showUpper={showUpper} />
+                    <FisherMatrixPlot data={result.boundsData} showLower={showLower} showUpper={showUpper} timeForCalc={timeForCalc} />
                 )}
 
                 {result?.dispersionData && simulationType === 'dispersion' && (
                     <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} />
+                )}
+
+                {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
+                    <ResultsDisplay result={result} timeForCalc={timeForCalc} />
                 )}
             </div>
         </div>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult } from '@/lib/types';
 
 // --- Statistical Helpers ---
 
@@ -372,7 +372,11 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     return { params: {} };
 }
 
-export function calculateFisherConfidenceBounds(failureTimes: number[], confidenceLevel: number): FisherBoundsData | undefined {
+export function calculateFisherConfidenceBounds(
+    failureTimes: number[], 
+    confidenceLevel: number,
+    timeForCalc?: number
+): FisherBoundsData | undefined {
     const analysis = estimateParametersByRankRegression('Weibull', failureTimes, [], 'SRM');
     if (!analysis || !analysis.params.beta || !analysis.params.eta || !analysis.plotData) return undefined;
 
@@ -389,14 +393,15 @@ export function calculateFisherConfidenceBounds(failureTimes: number[], confiden
     const upperBounds: { x: number; y: number; time: number }[] = [];
 
     const plotPointsCount = 100;
-    const logTimes = analysis.plotData.points.map(p => p.x);
-    const minLogTime = Math.min(...logTimes);
-    const maxLogTime = Math.max(...logTimes);
-    const logTimeRange = maxLogTime - minLogTime;
-
+    const allTimes = [...analysis.plotData.points.map(p => p.time), timeForCalc].filter(t => t !== undefined && t > 0) as number[];
+    const minTime = Math.min(...allTimes);
+    const maxTime = Math.max(...allTimes);
+    
     for (let i = 0; i <= plotPointsCount; i++) {
-        const currentLogTime = minLogTime + (i / plotPointsCount) * logTimeRange;
-        const currentTime = Math.exp(currentLogTime);
+        const currentTime = minTime + (i / plotPointsCount) * (maxTime - minTime);
+        if (currentTime <=0) continue;
+
+        const currentLogTime = Math.log(currentTime);
         const y_hat = beta * currentLogTime - beta * Math.log(eta);
 
         const var_Y = (Math.pow(currentLogTime - Math.log(eta), 2) * var_beta_hat) +
@@ -414,13 +419,38 @@ export function calculateFisherConfidenceBounds(failureTimes: number[], confiden
         upperBounds.push({ x: currentLogTime, y: y_upper, time: currentTime });
     }
     
+    let calculation: CalculationResult | undefined = undefined;
+    if (timeForCalc !== undefined && timeForCalc > 0) {
+        const logTimeCalc = Math.log(timeForCalc);
+        const y_median = beta * logTimeCalc - beta * Math.log(eta);
+        const var_Y_calc = (Math.pow(logTimeCalc - Math.log(eta), 2) * var_beta_hat) +
+                      (Math.pow(beta / eta, 2) * var_eta_hat) -
+                      (2 * (logTimeCalc - Math.log(eta)) * (beta / eta) * cov_beta_eta_hat);
+        
+        if(var_Y_calc >= 0) {
+            const std_Y_calc = Math.sqrt(var_Y_calc);
+            const y_lower_calc = y_median - z * std_Y_calc;
+            const y_upper_calc = y_median + z * std_Y_calc;
+
+            const prob_median = 1 - Math.exp(-Math.exp(y_median));
+            const prob_lower = 1 - Math.exp(-Math.exp(y_lower_calc));
+            const prob_upper = 1 - Math.exp(-Math.exp(y_upper_calc));
+
+            calculation = {
+                failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
+                reliability: { median: 1 - prob_median, upper: 1 - prob_upper, lower: 1 - prob_lower }
+            }
+        }
+    }
+
     return {
         ...analysis.plotData,
         lower: lowerBounds,
         upper: upperBounds,
         beta,
         eta,
-        confidenceLevel
+        confidenceLevel,
+        calculation
     };
 }
 
