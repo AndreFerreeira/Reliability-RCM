@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData } from '@/lib/types';
@@ -480,12 +481,12 @@ export function calculateContourEllipse(
     const chi2 = invChi2(confidenceLevel / 100, 2);
 
     // Fisher Matrix elements (approximated)
-    const var_beta_hat = (0.608 * beta_mle * beta_mle) / n;
-    const var_eta_hat = (0.370 * eta_mle * eta_mle) / (n * beta_mle * beta_mle);
-    const cov_beta_eta_hat = (0.255 * beta_mle * eta_mle) / n;
-    
-    const cov_matrix = [[var_beta_hat, cov_beta_eta_hat], [cov_beta_eta_hat, var_eta_hat]];
+    const var_beta = (beta_mle * beta_mle) / (n * 1.05); // Simplified approximation
+    const var_eta = (eta_mle * eta_mle) / (n * beta_mle * beta_mle * 0.67); // Simplified
+    const cov_beta_eta = 0; // Assuming no correlation for this simplified model
 
+    const cov_matrix = [[var_beta, cov_beta_eta], [cov_beta_eta, var_eta]];
+    
     // Inverse of the covariance matrix
     const det = cov_matrix[0][0]*cov_matrix[1][1] - cov_matrix[0][1]*cov_matrix[1][0];
     if (Math.abs(det) < 1e-20) return undefined; // Matrix is not invertible
@@ -495,14 +496,14 @@ export function calculateContourEllipse(
     ];
     
     // Eigenvalue decomposition to find ellipse properties
-    const a = inv_cov_matrix[0][0]; // var_beta
-    const b = 2 * inv_cov_matrix[0][1]; // cov
-    const c = inv_cov_matrix[1][1]; // var_eta
+    const a = inv_cov_matrix[0][0]; // For beta
+    const b = 2 * inv_cov_matrix[0][1]; // For covariance
+    const c = inv_cov_matrix[1][1]; // For eta
 
-    const T = a + c;
-    const D = a*c - (b/2)*(b/2);
-    const L1 = T/2 + Math.sqrt(T*T/4 - D);
-    const L2 = T/2 - Math.sqrt(T*T/4 - D);
+    // Check if we can calculate eigenvalues
+    const discriminant = Math.sqrt((a-c)*(a-c) + b*b);
+    const L1 = 0.5 * (a + c + discriminant); // Eigenvalue 1
+    const L2 = 0.5 * (a + c - discriminant); // Eigenvalue 2
 
     if(L1 <= 0 || L2 <= 0) return undefined;
 
@@ -520,27 +521,27 @@ export function calculateContourEllipse(
         const x_ = semi_axis1 * Math.cos(t);
         const y_ = semi_axis2 * Math.sin(t);
 
-        const x = beta_mle + x_ * Math.cos(angle) - y_ * Math.sin(angle);
-        const y = eta_mle + x_ * Math.sin(angle) + y_ * Math.cos(angle);
+        const beta_val = beta_mle + x_ * Math.cos(angle) - y_ * Math.sin(angle);
+        const eta_val = eta_mle + x_ * Math.sin(angle) + y_ * Math.cos(angle);
         
-        // Swap for plotting (Eta on X, Beta on Y)
-        ellipsePoints.push([y, x]);
+        // Plot with Eta on X and Beta on Y
+        ellipsePoints.push([eta_val, beta_val]);
     }
     
     const x_coords = ellipsePoints.map(p => p[0]);
     const y_coords = ellipsePoints.map(p => p[1]);
 
-    const bufferX = (Math.max(...x_coords) - Math.min(...x_coords)) * 0.1;
-    const bufferY = (Math.max(...y_coords) - Math.min(...y_coords)) * 0.1;
+    const bufferX = (Math.max(...x_coords) - Math.min(...x_coords)) * 0.2;
+    const bufferY = (Math.max(...y_coords) - Math.min(...y_coords)) * 0.2;
 
     return {
         center: { beta: beta_mle, eta: eta_mle },
         ellipse: ellipsePoints,
         confidenceLevel,
         limits: {
-            eta_min: Math.min(...x_coords) - bufferX,
+            eta_min: Math.max(0, Math.min(...x_coords) - bufferX),
             eta_max: Math.max(...x_coords) + bufferX,
-            beta_min: Math.min(...y_coords) - bufferY,
+            beta_min: Math.max(0, Math.min(...y_coords) - bufferY),
             beta_max: Math.max(...y_coords) + bufferY,
         }
     };
