@@ -59,8 +59,8 @@ export type PlotData = {
 export type FisherBoundsData = {
     points: { x: number, y: number, time: number, prob: number }[];
     line: { x: number, y: number }[];
-    lower: { x: number, y: number }[];
-    upper: { x: number, y: number }[];
+    lower: { time: number, y: number }[];
+    upper: { time: number, y: number }[];
     rSquared: number;
     angle: number;
     beta: number;

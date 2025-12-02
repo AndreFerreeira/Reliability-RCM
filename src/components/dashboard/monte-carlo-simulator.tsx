@@ -20,13 +20,14 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
+import { Checkbox } from '../ui/checkbox';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }).optional(),
   sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}).optional(),
   simulationCount: z.coerce.number().int().min(10, { message: "Mínimo de 10 simulações." }).max(1000, { message: "Máximo de 1000 simulações." }).optional(),
-  confidenceLevel: z.coerce.number().min(1).max(99),
+  confidenceLevel: z.coerce.number().min(1).max(99.9),
   manualData: z.string().optional(),
 }).refine(data => {
     // Se a dispersão for selecionada, beta, eta, sampleSize e simulationCount são necessários
@@ -45,6 +46,8 @@ const formSchema = z.object({
 
 
 type FormData = z.infer<typeof formSchema>;
+type BoundType = 'bilateral' | 'unilateral' | 'none';
+
 
 interface SimulationResult {
   boundsData?: FisherBoundsData;
@@ -57,7 +60,7 @@ const generateWeibullFailureTime = (beta: number, eta: number): number => {
   return eta * Math.pow(-Math.log(1 - u), 1 / beta);
 };
 
-const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
+const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsData, showLower: boolean, showUpper: boolean }) => {
     if (!data) return null;
 
     const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel } = data;
@@ -65,6 +68,42 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
     const transformedY = (prob: number) => Math.log(Math.log(1 / (1 - prob)));
+    
+    const series = [
+        {
+            name: 'Dados',
+            type: 'scatter',
+            data: points.map(p => [p.time, transformedY(p.prob)]),
+            symbolSize: 8,
+            itemStyle: { color: 'hsl(var(--primary))' }
+        },
+        {
+            name: 'Linha de Ajuste',
+            type: 'line',
+            data: line.map(p => [Math.exp(p.x), p.y]),
+            showSymbol: false,
+            lineStyle: { width: 2, color: 'hsl(var(--primary))' },
+        },
+    ];
+
+    if (showLower) {
+        series.push({
+            name: `Limite Inferior ${confidenceLevel}%`,
+            type: 'line',
+            data: lower.map(p => [p.time, p.y]),
+            showSymbol: false,
+            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
+        });
+    }
+     if (showUpper) {
+        series.push({
+            name: `Limite Superior ${confidenceLevel}%`,
+            type: 'line',
+            data: upper.map(p => [p.time, p.y]),
+            showSymbol: false,
+            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
+        });
+    }
 
     const option = {
         backgroundColor: "transparent",
@@ -95,7 +134,7 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
             },
         },
         legend: {
-            data: ['Dados', 'Linha de Ajuste', `Limites ${confidenceLevel}%`],
+            data: series.map(s => s.name),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))' }
         },
@@ -127,36 +166,7 @@ const FisherMatrixPlot = ({ data }: { data?: FisherBoundsData }) => {
             },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
-        series: [
-            {
-                name: 'Dados',
-                type: 'scatter',
-                data: points.map(p => [p.time, transformedY(p.prob)]),
-                symbolSize: 8,
-                itemStyle: { color: 'hsl(var(--primary))' }
-            },
-            {
-                name: 'Linha de Ajuste',
-                type: 'line',
-                data: line.map(p => [Math.exp(p.x), p.y]),
-                showSymbol: false,
-                lineStyle: { width: 2, color: 'hsl(var(--primary))' },
-            },
-            {
-                name: `Limites ${confidenceLevel}%`,
-                type: 'line',
-                data: lower.map(p => [p.time, p.y]),
-                showSymbol: false,
-                lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
-            },
-            {
-                name: `Limites ${confidenceLevel}%`,
-                type: 'line',
-                data: upper.map(p => [p.time, p.y]),
-                showSymbol: false,
-                lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
-            },
-        ]
+        series: series
     };
 
     return (
@@ -279,7 +289,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
 };
 
 
-const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
+const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundType, showUpper, setShowUpper, showLower, setShowLower }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void, boundType: BoundType, setBoundType: (t: BoundType) => void, showUpper: boolean, setShowUpper: (b: boolean) => void, showLower: boolean, setShowLower: (b: boolean) => void }) => (
     <Card>
         <CardHeader>
             <CardTitle>Limites de Confiança</CardTitle>
@@ -314,19 +324,20 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Nível de Confiança (%)</FormLabel>
-                                <Select onValueChange={(v) => field.onChange(parseInt(v))} defaultValue={field.value.toString()}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione um nível" />
-                                        </SelectTrigger>
-                                    </FormControl>
+                                <FormControl>
+                                  <Select onValueChange={(v) => field.onChange(parseFloat(v))} defaultValue={field.value.toString()}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione um nível" />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="80">80%</SelectItem>
                                         <SelectItem value="90">90%</SelectItem>
                                         <SelectItem value="95">95%</SelectItem>
                                         <SelectItem value="99">99%</SelectItem>
+                                        <SelectItem value="99.9">99.9%</SelectItem>
                                     </SelectContent>
-                                </Select>
+                                  </Select>
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -336,6 +347,40 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                     </Button>
                 </form>
             </Form>
+
+            <div className="space-y-4 rounded-md border p-4 mt-6">
+                <Label className="font-semibold">Lados</Label>
+                <RadioGroup value={boundType} onValueChange={(v) => setBoundType(v as BoundType)} className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="none" id="none" />
+                        <Label htmlFor="none">Nenhum</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="bilateral" id="bilateral" />
+                        <Label htmlFor="bilateral">Bilateral</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="unilateral" id="unilateral" />
+                        <Label htmlFor="unilateral">Unilateral</Label>
+                    </div>
+                </RadioGroup>
+                {boundType === 'unilateral' && (
+                    <div className="pl-6 space-y-3 pt-2">
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="showUpper" checked={showUpper} onCheckedChange={(checked) => setShowUpper(checked as boolean)} />
+                            <label htmlFor="showUpper" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Mostrar Superior
+                            </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="showLower" checked={showLower} onCheckedChange={(checked) => setShowLower(checked as boolean)} />
+                            <label htmlFor="showLower" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Mostrar Inferior
+                            </label>
+                        </div>
+                    </div>
+                )}
+            </div>
         </CardContent>
     </Card>
 )
@@ -369,6 +414,11 @@ export default function MonteCarloSimulator() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion'>('confidence');
   const { toast } = useToast();
+  
+  // State for confidence bound visibility
+  const [boundType, setBoundType] = useState<BoundType>('bilateral');
+  const [showUpper, setShowUpper] = useState(true);
+  const [showLower, setShowLower] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -394,6 +444,17 @@ export default function MonteCarloSimulator() {
         manualData: type === 'confidence' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
     });
   }
+
+  // Update showUpper/showLower based on boundType
+  useState(() => {
+    if (boundType === 'bilateral') {
+      setShowUpper(true);
+      setShowLower(true);
+    } else if (boundType === 'none') {
+      setShowUpper(false);
+      setShowLower(false);
+    }
+  }, [boundType]);
 
   const onSubmit = (data: FormData) => {
     setIsSimulating(true);
@@ -491,7 +552,7 @@ export default function MonteCarloSimulator() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
                 {simulationType === 'confidence' 
-                    ? <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    ? <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} boundType={boundType} setBoundType={setBoundType} showUpper={showUpper} setShowUpper={setShowUpper} showLower={showLower} setShowLower={setShowLower} />
                     : <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
                 }
             </div>
@@ -512,7 +573,7 @@ export default function MonteCarloSimulator() {
                 )}
 
                 {result?.boundsData && simulationType === 'confidence' && (
-                    <FisherMatrixPlot data={result.boundsData} />
+                    <FisherMatrixPlot data={result.boundsData} showLower={showLower} showUpper={showUpper} />
                 )}
 
                 {result?.dispersionData && simulationType === 'dispersion' && (
