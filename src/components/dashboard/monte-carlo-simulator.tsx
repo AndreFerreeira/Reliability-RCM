@@ -13,8 +13,8 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateFisherConfidenceBounds, estimateParametersByRankRegression } from '@/lib/reliability';
-import type { Supplier, FisherBoundsData, PlotData } from '@/lib/types';
+import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, calculateContourEllipse } from '@/lib/reliability';
+import type { Supplier, FisherBoundsData, PlotData, ContourData } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -32,18 +32,8 @@ const formSchema = z.object({
   manualData: z.string().optional(),
   timeForCalc: z.coerce.number().gt(0, "O tempo deve ser positivo").optional(),
 }).refine(data => {
-    // Se a dispersão for selecionada, beta, eta, sampleSize e simulationCount são necessários
-    if (!data.manualData) {
-        return data.beta != null && data.eta != null && data.sampleSize != null && data.simulationCount != null;
-    }
-    // Se os dados manuais forem fornecidos, os outros não são
-    if (data.manualData) {
-        return data.manualData.trim().length > 0
-    }
+    // Validação complexa baseada no tipo de simulação será tratada no momento do envio
     return true;
-}, {
-    message: "Preencha os campos necessários para o tipo de simulação.",
-    path: ["beta"], // Pode associar o erro a um campo específico
 });
 
 
@@ -59,6 +49,7 @@ interface SimulationResult {
   boundsData?: FisherBoundsData;
   dispersionData?: PlotData[];
   originalPlot?: PlotData;
+  contourData?: ContourData;
   calculation?: CalculationResult;
 }
 
@@ -77,7 +68,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
     const transformedY = (prob: number) => Math.log(Math.log(1 / (1 - prob)));
     const logTime = (time: number) => Math.log(time);
     
-    let series = [
+    let series: any[] = [
         {
             name: 'Dados',
             type: 'scatter',
@@ -123,29 +114,23 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         const yMedian = transformedY(failureProb.median);
         const yUpper = transformedY(failureProb.upper);
 
-        const yAxisMin = Math.min(...series.flatMap(s => s.data?.map(d => d[1]) || []).filter(y => isFinite(y)));
-        const xAxisMin = Math.min(...series.flatMap(s => s.data?.map(d => d[0]) || []).filter(x => isFinite(x)));
+        const yAxisMin = Math.min(...series.flatMap(s => s.data?.map((d: any[]) => d[1]) || []).filter(y => isFinite(y)));
+        const xAxisMin = Math.min(...series.flatMap(s => s.data?.map((d: any[]) => d[0]) || []).filter(x => isFinite(x)));
 
 
         series.push({
             name: 'Projeção',
             type: 'line',
             data: [
-                [logTimeForCalc, yAxisMin],
-                [logTimeForCalc, yLower],
-                [xAxisMin, yLower],
-                [logTimeForCalc, yLower],
-                [logTimeForCalc, yMedian],
-                [xAxisMin, yMedian],
-                [logTimeForCalc, yMedian],
-                [logTimeForCalc, yUpper],
-                [xAxisMin, yUpper],
+                [logTimeForCalc, yAxisMin], [logTimeForCalc, yLower], [xAxisMin, yLower],
+                [logTimeForCalc, yLower], [logTimeForCalc, yMedian], [xAxisMin, yMedian],
+                [logTimeForCalc, yMedian], [logTimeForCalc, yUpper], [xAxisMin, yUpper],
             ],
             showSymbol: false,
             lineStyle: {
                 type: 'dashed',
                 color: 'hsl(var(--chart-5))',
-                width: 1.5
+                width: 1
             },
             z: 10,
             animation: false,
@@ -352,6 +337,82 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     );
 };
 
+const ContourPlot = ({ data }: { data?: ContourData }) => {
+    if (!data) return null;
+
+    const { center, ellipse, confidenceLevel, limits } = data;
+
+    const series = [
+        {
+            name: 'Estimativa MLE',
+            type: 'scatter',
+            data: [[center.eta, center.beta]],
+            symbolSize: 10,
+            itemStyle: { color: 'hsl(var(--accent))' }
+        },
+        {
+            name: `Contorno de Confiança ${confidenceLevel}%`,
+            type: 'line',
+            data: ellipse,
+            symbol: 'none',
+            lineStyle: {
+                width: 2,
+                color: 'hsl(var(--primary))',
+            }
+        },
+    ];
+
+    const option = {
+        backgroundColor: 'transparent',
+        title: {
+            text: 'Gráfico de Contorno da Razão de Verossimilhança',
+            subtext: `Nível de Confiança: ${confidenceLevel}%`,
+            left: 'center',
+            textStyle: { color: 'hsl(var(--foreground))' },
+            subtextStyle: { color: 'hsl(var(--muted-foreground))' },
+        },
+        grid: { left: 80, right: 80, top: 70, bottom: 60 },
+        tooltip: {
+            trigger: 'item',
+            formatter: ({ seriesName, data }: any) => {
+                if (seriesName === 'Estimativa MLE') {
+                    return `<b>${seriesName}</b><br/>Eta (η): ${data[0].toFixed(2)}<br/>Beta (β): ${data[1].toFixed(2)}`;
+                }
+                return `Contorno de ${confidenceLevel}%`;
+            }
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Eta (η)',
+            nameLocation: 'middle',
+            nameGap: 30,
+            axisLabel: { color: 'hsl(var(--muted-foreground))' },
+            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
+            min: limits.eta_min,
+            max: limits.eta_max,
+        },
+        yAxis: {
+            type: 'value',
+            name: 'Beta (β)',
+            nameLocation: 'middle',
+            nameGap: 50,
+            axisLabel: { color: 'hsl(var(--muted-foreground))' },
+            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
+            min: limits.beta_min,
+            max: limits.beta_max,
+        },
+        series: series
+    };
+
+    return (
+        <Card>
+            <CardContent className="pt-6">
+                <ReactECharts option={option} style={{ height: '450px', width: '100%' }} notMerge={true} />
+            </CardContent>
+        </Card>
+    );
+};
+
 const SliderWrapper = React.forwardRef<HTMLDivElement, any>(({ className, ...props }, ref) => {
   return (
     <div ref={ref} className={className}>
@@ -494,6 +555,66 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
     </Card>
 )
 
+const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => (
+    <Card>
+        <CardHeader>
+            <CardTitle>Gráfico de Contorno</CardTitle>
+            <CardDescription>Calcule a elipse de confiança da razão de verossimilhança.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="manualData"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tempos de Falha (Manual)</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder="Ex: 150, 200, 210, 300..."
+                                        rows={5}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    Insira valores separados por vírgula, espaço ou nova linha.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="confidenceLevel"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Nível de confiança (%)</FormLabel>
+                                <FormControl>
+                                    <SliderWrapper
+                                        value={[field.value ?? 90]}
+                                        onValueChange={(value: number[]) => field.onChange(value[0])}
+                                        max={99.9}
+                                        min={80}
+                                        step={0.1}
+                                    />
+                                </FormControl>
+                                <div className="text-center text-sm text-muted-foreground pt-1">
+                                    {(Number(field.value) || 0).toFixed(1)}%
+                                </div>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" disabled={isSimulating} className="w-full">
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Contorno'}
+                    </Button>
+                </form>
+            </Form>
+        </CardContent>
+    </Card>
+);
+
 const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, timeForCalc?: number }) => {
     if (!result.calculation || timeForCalc === undefined) return null;
     
@@ -565,7 +686,7 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
 export default function MonteCarloSimulator() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion'>('confidence');
+  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour'>('confidence');
   const { toast } = useToast();
   
   // State for confidence bound visibility
@@ -588,7 +709,7 @@ export default function MonteCarloSimulator() {
 
   const timeForCalc = form.watch('timeForCalc');
   
-  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion') => {
+  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour') => {
       setSimulationType(type);
       setResult(null); // Limpa os resultados ao trocar de modo
       form.reset({ // Reseta o formulário para os valores padrão do modo selecionado
@@ -597,7 +718,7 @@ export default function MonteCarloSimulator() {
         sampleSize: 20,
         simulationCount: 200,
         confidenceLevel: 90,
-        manualData: type === 'confidence' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
+        manualData: type === 'confidence' || type === 'contour' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
         timeForCalc: 700,
     });
   }
@@ -665,6 +786,25 @@ export default function MonteCarloSimulator() {
       setResult({ originalPlot, dispersionData });
   }
 
+  const runContourSimulation = (data: FormData) => {
+    const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
+    
+    if (failureTimes.length < 2) {
+        toast({
+            variant: 'destructive',
+            title: 'Dados Insuficientes',
+            description: 'Por favor, insira pelo menos dois tempos de falha válidos.',
+        });
+        return;
+    }
+
+    const contourData = calculateContourEllipse(failureTimes, data.confidenceLevel);
+    if (!contourData) {
+        throw new Error("Não foi possível calcular o contorno de confiança. Verifique se os dados são adequados para uma análise Weibull.");
+    }
+    setResult({ contourData });
+  };
+
   const onSubmit = (data: FormData) => {
     setIsSimulating(true);
     setResult(null);
@@ -674,8 +814,10 @@ export default function MonteCarloSimulator() {
         try {
             if (simulationType === 'confidence') {
                 runConfidenceSimulation(data);
-            } else { 
+            } else if (simulationType === 'dispersion') {
                 runDispersionSimulation(data);
+            } else if (simulationType === 'contour') {
+                runContourSimulation(data);
             }
         } catch (error: any) {
              toast({
@@ -756,7 +898,7 @@ export default function MonteCarloSimulator() {
                 <CardDescription>Selecione o tipo de simulação que deseja realizar.</CardDescription>
             </CardHeader>
              <CardContent>
-                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion')} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion' | 'contour')} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <Label htmlFor="confidence" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'confidence' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="confidence" id="confidence" className="sr-only" />
                           <TestTube className="mb-3 h-6 w-6" />
@@ -767,15 +909,25 @@ export default function MonteCarloSimulator() {
                            <TestTube className="mb-3 h-6 w-6" />
                           Dispersão de Parâmetros
                       </Label>
+                      <Label htmlFor="contour" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'contour' ? 'border-primary' : 'border-muted'}`}>
+                          <RadioGroupItem value="contour" id="contour" className="sr-only" />
+                           <TestTube className="mb-3 h-6 w-6" />
+                          Gráfico de Contorno
+                      </Label>
               </RadioGroup>
             </CardContent>
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-                {simulationType === 'confidence' 
-                    ? <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} boundType={boundType} setBoundType={setBoundType} showUpper={showUpper} setShowUpper={setShowUpper} showLower={showLower} setShowLower={setShowLower} />
-                    : <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                {simulationType === 'confidence' &&
+                    <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} boundType={boundType} setBoundType={setBoundType} showUpper={showUpper} setShowUpper={setShowUpper} showLower={showLower} setShowLower={setShowLower} />
+                }
+                {simulationType === 'dispersion' &&
+                    <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                }
+                {simulationType === 'contour' &&
+                    <ContourControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
                 }
             </div>
 
@@ -802,6 +954,10 @@ export default function MonteCarloSimulator() {
                     <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} />
                 )}
 
+                {result?.contourData && simulationType === 'contour' && (
+                    <ContourPlot data={result.contourData} />
+                )}
+
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
                     <ResultsDisplay result={result} timeForCalc={timeForCalc} />
                 )}
@@ -810,8 +966,3 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
-
-
-
-
-    

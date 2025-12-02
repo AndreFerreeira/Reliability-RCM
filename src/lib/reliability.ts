@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData } from '@/lib/types';
 
 // --- Statistical Helpers ---
 
@@ -31,8 +31,20 @@ export function invNormalCdf(p: number): number {
   return z;
 }
 
+// Chi-Squared distribution quantile function
+function invChi2(p: number, df: number): number {
+    if (df <= 0) return NaN;
 
-// Helper for error function
+    // Abramowitz and Stegun 26.4.17
+    let x = invNormalCdf(p);
+    let p_ = 2.0/9.0/df;
+    let chi = df * Math.pow(1.0 - p_ + x*Math.sqrt(p_), 3);
+
+    // Refine with Newton's method if needed, but this is a good approximation.
+    return chi;
+}
+
+// --- Helper for error function ---
 function erf(x: number): number {
   const a1 =  0.254829592;
   const a2 = -0.284496736;
@@ -455,6 +467,86 @@ export function calculateFisherConfidenceBounds(
 }
 
 
+export function calculateContourEllipse(
+    failureTimes: number[],
+    confidenceLevel: number
+): ContourData | undefined {
+    const mle_params = estimateWeibullMLE(failureTimes);
+    if (!mle_params.beta || !mle_params.eta) return undefined;
+
+    const beta_mle = mle_params.beta;
+    const eta_mle = mle_params.eta;
+    const n = failureTimes.length;
+    const chi2 = invChi2(confidenceLevel / 100, 2);
+
+    // Fisher Matrix elements (approximated)
+    const var_beta_hat = (0.608 * beta_mle * beta_mle) / n;
+    const var_eta_hat = (0.370 * eta_mle * eta_mle) / (n * beta_mle * beta_mle);
+    const cov_beta_eta_hat = (0.255 * beta_mle * eta_mle) / n;
+    
+    const cov_matrix = [[var_beta_hat, cov_beta_eta_hat], [cov_beta_eta_hat, var_eta_hat]];
+
+    // Inverse of the covariance matrix
+    const det = cov_matrix[0][0]*cov_matrix[1][1] - cov_matrix[0][1]*cov_matrix[1][0];
+    if (Math.abs(det) < 1e-20) return undefined; // Matrix is not invertible
+    const inv_cov_matrix = [
+        [cov_matrix[1][1] / det, -cov_matrix[0][1] / det],
+        [-cov_matrix[1][0] / det, cov_matrix[0][0] / det]
+    ];
+    
+    // Eigenvalue decomposition to find ellipse properties
+    const a = inv_cov_matrix[0][0]; // var_beta
+    const b = 2 * inv_cov_matrix[0][1]; // cov
+    const c = inv_cov_matrix[1][1]; // var_eta
+
+    const T = a + c;
+    const D = a*c - (b/2)*(b/2);
+    const L1 = T/2 + Math.sqrt(T*T/4 - D);
+    const L2 = T/2 - Math.sqrt(T*T/4 - D);
+
+    if(L1 <= 0 || L2 <= 0) return undefined;
+
+    // Semi-axes
+    const semi_axis1 = Math.sqrt(chi2 / L2);
+    const semi_axis2 = Math.sqrt(chi2 / L1);
+
+    // Angle of rotation
+    const angle = 0.5 * Math.atan2(b, a - c); // in radians
+
+    const ellipsePoints = [];
+    const pointsCount = 100;
+    for (let i = 0; i <= pointsCount; i++) {
+        const t = (2 * Math.PI * i) / pointsCount;
+        const x_ = semi_axis1 * Math.cos(t);
+        const y_ = semi_axis2 * Math.sin(t);
+
+        const x = beta_mle + x_ * Math.cos(angle) - y_ * Math.sin(angle);
+        const y = eta_mle + x_ * Math.sin(angle) + y_ * Math.cos(angle);
+        
+        // Swap for plotting (Eta on X, Beta on Y)
+        ellipsePoints.push([y, x]);
+    }
+    
+    const x_coords = ellipsePoints.map(p => p[0]);
+    const y_coords = ellipsePoints.map(p => p[1]);
+
+    const bufferX = (Math.max(...x_coords) - Math.min(...x_coords)) * 0.1;
+    const bufferY = (Math.max(...y_coords) - Math.min(...y_coords)) * 0.1;
+
+    return {
+        center: { beta: beta_mle, eta: eta_mle },
+        ellipse: ellipsePoints,
+        confidenceLevel,
+        limits: {
+            eta_min: Math.min(...x_coords) - bufferX,
+            eta_max: Math.max(...x_coords) + bufferX,
+            beta_min: Math.min(...y_coords) - bufferY,
+            beta_max: Math.max(...y_coords) + bufferY,
+        }
+    };
+}
+
+
 // --- Reliability Calculations ---
 
 export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData {
@@ -553,5 +645,3 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
     lambda_t: transformToChartData('lambda_t')
   };
 }
-
-    

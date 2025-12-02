@@ -75,6 +75,18 @@ export type FisherBoundsData = {
     calculation?: CalculationResult;
 }
 
+export type ContourData = {
+  center: { beta: number; eta: number };
+  ellipse: number[][];
+  confidenceLevel: number;
+  limits: {
+    eta_min: number;
+    eta_max: number;
+    beta_min: number;
+    beta_max: number;
+  };
+};
+
 export interface EstimateParams {
   dist: Distribution;
   failureTimes: number[];
