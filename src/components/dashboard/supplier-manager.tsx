@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, useWatch } from 'react-hook-form';
@@ -222,7 +223,15 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
       plotData: plotData,
     };
     setSuppliers(prev => [...prev, newSupplier]);
-    form.reset();
+    form.reset({ 
+      name: '', 
+      failureTimes: '', 
+      distribution: 'Weibull',
+      units: 'Hora (h)',
+      hasSuspensions: false,
+      hasIntervals: false,
+      isGrouped: false,
+    });
   }
 
   function removeSupplier(id: string) {

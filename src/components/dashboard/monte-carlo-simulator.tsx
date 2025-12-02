@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
+import { Slider } from '@/components/ui/slider';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
@@ -73,7 +74,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
         {
             name: 'Dados',
             type: 'scatter',
-            data: points.map(p => [p.time, transformedY(p.prob)]),
+            data: points.map(p => [Math.exp(p.x), transformedY(p.prob)]),
             symbolSize: 8,
             itemStyle: { color: 'hsl(var(--primary))' }
         },
@@ -82,7 +83,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
             type: 'line',
             data: line.map(p => [Math.exp(p.x), p.y]),
             showSymbol: false,
-            lineStyle: { width: 2, color: 'hsl(var(--primary))' },
+            lineStyle: { width: 2, color: 'hsl(var(--accent))' },
         },
     ];
 
@@ -92,7 +93,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
             type: 'line',
             data: lower.map(p => [p.time, p.y]),
             showSymbol: false,
-            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
+            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
     }
      if (showUpper) {
@@ -101,7 +102,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
             type: 'line',
             data: upper.map(p => [p.time, p.y]),
             showSymbol: false,
-            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--destructive))' },
+            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
     }
 
@@ -128,13 +129,13 @@ const FisherMatrixPlot = ({ data, showLower, showUpper }: { data?: FisherBoundsD
                             const prob = (1 - Math.exp(-Math.exp(value))) * 100;
                             return `${prob.toFixed(2)}%`;
                         }
-                        return `Tempo: ${Math.round(Math.exp(value))}`;
+                        return `Tempo: ${Math.round(value)}`;
                      }
                 }
             },
         },
         legend: {
-            data: series.map(s => s.name),
+            data: series.map(s => s.name).filter(name => name !== 'Dados'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))' }
         },
@@ -236,7 +237,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
                             const prob = (1 - Math.exp(-Math.exp(value))) * 100;
                             return `${prob.toFixed(2)}%`;
                         }
-                        return `Tempo: ${Math.round(Math.exp(value))}`;
+                        return `Tempo: ${Math.round(value)}`;
                      }
                 }
             },
@@ -288,6 +289,14 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     );
 };
 
+const SliderWrapper = React.forwardRef<HTMLDivElement, any>(({ className, ...props }, ref) => {
+  return (
+    <div ref={ref} className={className}>
+      <Slider {...props} />
+    </div>
+  );
+});
+SliderWrapper.displayName = 'SliderWrapper';
 
 const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundType, showUpper, setShowUpper, showLower, setShowLower }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void, boundType: BoundType, setBoundType: (t: BoundType) => void, showUpper: boolean, setShowUpper: (b: boolean) => void, showLower: boolean, setShowLower: (b: boolean) => void }) => (
     <Card>
@@ -318,30 +327,30 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundT
                             </FormItem>
                         )}
                     />
+                    
                     <FormField
                         control={form.control}
                         name="confidenceLevel"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Nível de Confiança (%)</FormLabel>
+                                <FormLabel>Nível de confiança (%)</FormLabel>
                                 <FormControl>
-                                  <Select onValueChange={(v) => field.onChange(parseFloat(v))} defaultValue={field.value.toString()}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione um nível" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="80">80%</SelectItem>
-                                        <SelectItem value="90">90%</SelectItem>
-                                        <SelectItem value="95">95%</SelectItem>
-                                        <SelectItem value="99">99%</SelectItem>
-                                        <SelectItem value="99.9">99.9%</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <SliderWrapper
+                                      value={[field.value ?? 90]}
+                                      onValueChange={(value: number[]) => field.onChange(value[0])}
+                                      max={99.9}
+                                      min={80}
+                                      step={0.1}
+                                  />
                                 </FormControl>
+                                <div className="text-center text-sm text-muted-foreground pt-1">
+                                    {(Number(field.value) || 0).toFixed(1)}%
+                                </div>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
+
                     <Button type="submit" disabled={isSimulating} className="w-full">
                         {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Limites'}
                     </Button>
@@ -446,7 +455,7 @@ export default function MonteCarloSimulator() {
   }
 
   // Update showUpper/showLower based on boundType
-  useState(() => {
+  useEffect(() => {
     if (boundType === 'bilateral') {
       setShowUpper(true);
       setShowLower(true);
@@ -534,7 +543,7 @@ export default function MonteCarloSimulator() {
                 <CardDescription>Selecione o tipo de simulação que deseja realizar.</CardDescription>
             </CardHeader>
              <CardContent>
-                <RadioGroup value={simulationType} onValueChange={handleSimulationTypeChange} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion')} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Label htmlFor="confidence" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'confidence' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="confidence" id="confidence" className="sr-only" />
                           <TestTube className="mb-3 h-6 w-6" />
@@ -584,5 +593,3 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
-
-    
