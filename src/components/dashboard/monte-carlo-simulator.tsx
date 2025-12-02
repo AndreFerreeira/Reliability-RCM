@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -90,6 +90,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             type: 'line',
             data: line.map(p => [p.x, p.y]),
             showSymbol: false,
+            smooth: true,
             lineStyle: { width: 2, color: 'hsl(var(--accent))' },
         },
     ];
@@ -100,6 +101,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             type: 'line',
             data: lower.map(p => [logTime(p.time), p.y]),
             showSymbol: false,
+            smooth: true,
             lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
     }
@@ -109,6 +111,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             type: 'line',
             data: upper.map(p => [logTime(p.time), p.y]),
             showSymbol: false,
+            smooth: true,
             lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
         });
     }
@@ -120,7 +123,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         const yMedian = transformedY(failureProb.median);
         const yUpper = transformedY(failureProb.upper);
 
-        const yAxisMin = transformedY(0.001); // Approx min for y-axis
+        const yAxisMin = transformedY(0.001);
         const xAxisMin = Math.min(...points.map(p => logTime(p.time)));
 
 
@@ -537,7 +540,7 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                     <CardTitle>Interpretando os Resultados</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground space-y-4">
-                     {isFinite(reliability.median) ? (
+                     {isFinite(reliability.median) && timeForCalc ? (
                         <>
                             <p>
                                 Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a confiabilidade estimada (melhor palpite) é de <strong className="text-primary">{(reliability.median * 100).toFixed(2)}%</strong>.
@@ -736,7 +739,7 @@ export default function MonteCarloSimulator() {
         if (!isNaN(prob_median) && !isNaN(prob_lower) && !isNaN(prob_upper)) {
           const calculation: CalculationResult = {
               failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
-              reliability: { median: 1 - prob_median, upper: 1 - prob_lower, lower: 1 - prob_upper }
+              reliability: { median: 1 - prob_median, upper: 1 - prob_upper, lower: 1 - prob_lower }
           };
           setResult(prev => prev ? ({ ...prev, calculation, boundsData: { ...prev.boundsData!, calculation } }) : null);
         }
@@ -807,4 +810,5 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
+
 
