@@ -57,11 +57,18 @@ Este é um aplicativo web interativo, construído com Next.js e TypeScript, proj
 - **Previsor de Risco de Falha:** Utiliza IA para analisar os dados históricos e identificar os principais fatores de risco, classificando-os por ordem de importância.
 - **Relatório Abrangente:** Gera uma análise técnica comparativa e detalhada para todos os equipamentos nos quatro gráficos de confiabilidade, explicando o significado das curvas e as diferenças de desempenho.
 
+### 6. Simulador Monte Carlo Avançado
+
+- **Limites de Confiança:** Calcule e visualize os limites de confiança bilaterais ou unilaterais em um gráfico de probabilidade Weibull, usando a Matriz de Fisher. Isso permite quantificar a incerteza de suas previsões de confiabilidade com base em seus dados de falha.
+- **Dispersão de Parâmetros:** Execute simulações para visualizar a variabilidade dos parâmetros Beta e Eta. O gráfico mostra como a linha de ajuste pode variar com diferentes amostras, oferecendo uma visão clara sobre a incerteza da estimativa dos parâmetros.
+- **Gráfico de Contorno da Razão de Verossimilhança:** Gere um gráfico de contorno para visualizar a região de confiança conjunta dos parâmetros Beta e Eta. A elipse no gráfico mostra a correlação entre os parâmetros e fornece uma imagem completa da incerteza da estimativa, incluindo os limites inferior e superior para cada parâmetro.
+
 ## Como Usar
 
-1. **Adicionar Equipamento:** Na aba "Análise de Confiabilidade", use o painel "Entrada de Dados" para adicionar um novo equipamento.
-2. **Configurar Dados:** Insira o nome, as unidades e os dados de falha. Use as caixas de seleção para especificar se os dados são agrupados ou contêm suspensões.
-3. **Selecionar Análise:** Escolha a distribuição de probabilidade e o método de estimação desejados.
-4. **Analisar Gráficos:** Navegue pelos gráficos interativos para comparar o desempenho e entender o comportamento de falha.
-5. **Usar IA:** Vá para a aba "Análise com IA" para obter insights mais profundos e relatórios automatizados sobre seus dados.
-6. **Consultar Papéis de Probabilidade:** Na aba "Papéis de Probabilidade", explore as tabelas de postos medianos e visualize gráficos dinâmicos para dados inseridos manualmente, uma ótima ferramenta para aprendizado e cálculos manuais.
+1.  **Adicionar Equipamento:** Na aba "Análise de Confiabilidade", use o painel "Entrada de Dados" para adicionar um novo equipamento.
+2.  **Configurar Dados:** Insira o nome, as unidades e os dados de falha. Use as caixas de seleção para especificar se os dados são agrupados ou contêm suspensões.
+3.  **Selecionar Análise:** Escolha a distribuição de probabilidade e o método de estimação desejados.
+4.  **Analisar Gráficos:** Navegue pelos gráficos interativos para comparar o desempenho e entender o comportamento de falha.
+5.  **Usar IA:** Vá para a aba "Análise com IA" para obter insights mais profundos e relatórios automatizados sobre seus dados.
+6.  **Consultar Papéis de Probabilidade:** Na aba "Papéis de Probabilidade", explore as tabelas de postos medianos e visualize gráficos dinâmicos para dados inseridos manualmente, uma ótima ferramenta para aprendizado e cálculos manuais.
+7.  **Executar Simulações:** Na aba "Simulador Monte Carlo", escolha entre as análises de Limites de Confiança, Dispersão de Parâmetros ou Gráfico de Contorno para aprofundar a análise de incerteza de suas estimativas.
