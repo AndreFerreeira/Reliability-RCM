@@ -373,9 +373,9 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
                 },
                 data: [
                     { name: 'Beta Lower', yAxis: bounds.beta_lower, label: { formatter: `β inf: ${bounds.beta_lower.toFixed(2)}` } },
-                    { name: 'Beta Upper', yAxis: bounds.beta_upper, label: { position: 'insideStartTop', formatter: `β sup: ${bounds.beta_upper.toFixed(2)}` } },
-                    { name: 'Eta Lower', xAxis: bounds.eta_lower, label: { formatter: `η inf: ${bounds.eta_lower.toFixed(2)}` } },
-                    { name: 'Eta Upper', xAxis: bounds.eta_upper, label: { position: 'insideStartTop', formatter: `η sup: ${bounds.eta_upper.toFixed(2)}` } }
+                    { name: 'Beta Upper', yAxis: bounds.beta_upper, label: { formatter: `β sup: ${bounds.beta_upper.toFixed(2)}` } },
+                    { name: 'Eta Lower', xAxis: bounds.eta_lower, label: { formatter: `η inf: ${bounds.eta_lower.toFixed(0)}` } },
+                    { name: 'Eta Upper', xAxis: bounds.eta_upper, label: { position: 'insideEndTop', formatter: `η sup: ${bounds.eta_upper.toFixed(0)}` } }
                 ],
                  label: {
                     position: 'end',
@@ -735,7 +735,7 @@ const ContourResultsDisplay = ({ result }: { result: SimulationResult }) => {
                     <TableBody>
                         <TableRow>
                             <TableCell className="font-medium">Beta (β)</TableCell>
-                            <TableCell className="text-right font-mono">{bounds.beta_lower.toFixed(3)}</TableCell>
+                            <TableCell className="text-right font-mono">{Math.max(0, bounds.beta_lower).toFixed(3)}</TableCell>
                             <TableCell className="text-right font-mono">{center.beta.toFixed(3)}</TableCell>
                             <TableCell className="text-right font-mono">{bounds.beta_upper.toFixed(3)}</TableCell>
                         </TableRow>
