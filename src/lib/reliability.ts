@@ -63,7 +63,7 @@ function erf(x: number): number {
   return sign * y;
 }
 
-function normalCdf(x: number, mean: number, stdDev: number): number {
+function normalCdf(x: number, mean: number = 0, stdDev: number = 1): number {
     if (stdDev <= 0) return x < mean ? 0 : 1;
     return 0.5 * (1 + erf((x - mean) / (stdDev * Math.sqrt(2))));
 }
@@ -73,6 +73,30 @@ function normalPdf(x: number, mean: number, stdDev: number): number {
     const variance = stdDev * stdDev;
     return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean), 2) / variance);
 }
+
+const lognormalPdf = (t: number, mu: number, sigma: number) => {
+    if (t <= 0 || sigma <= 0) return 0;
+    const denom = t * sigma * Math.sqrt(2 * Math.PI);
+    const z = (Math.log(t) - mu) / sigma;
+    return Math.exp(-0.5 * z * z) / denom;
+};
+
+const lognormalSurvival = (t: number, mu: number, sigma: number) => {
+    if (t <= 0) return 1;
+    const z = (Math.log(t) - mu) / sigma;
+    return 1 - normalCdf(z);
+};
+
+const weibullPdf = (t: number, beta: number, eta: number) => {
+    if (t < 0 || beta <= 0 || eta <= 0) return 0;
+    return (beta / eta) * Math.pow(t / eta, beta - 1) * Math.exp(-Math.pow(t / eta, beta));
+};
+
+const weibullSurvival = (t: number, beta: number, eta: number) => {
+    if (t < 0 || beta <= 0 || eta <= 0) return 1;
+    return Math.exp(-Math.pow(t / eta, beta));
+};
+
 
 // --- Parameter Estimation ---
 
@@ -268,69 +292,142 @@ export function estimateParametersByRankRegression(
     };
 }
 
+//--- Nelder-Mead Optimizer ---
+type NMPoint = { x: number[]; fx: number };
 
-// Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
-function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
-    const allData = [...failures, ...suspensions];
-    const r = failures.length;
-    if (r === 0) {
-        return { beta: undefined, eta: undefined, lkv: -Infinity };
+function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxIter?: number; tol?: number; scale?: number } = {}) {
+    const maxIter = options.maxIter || 1000;
+    const tol = options.tol || 1e-9;
+    const alpha = 1, gamma = 2, rho = 0.5, sigma = 0.5;
+    const n = x0.length;
+    const scale = options.scale || 0.1;
+
+    const simplex: NMPoint[] = [];
+    simplex.push({ x: x0.slice(), fx: func(x0) });
+    for (let i = 0; i < n; i++) {
+        const xi = x0.slice();
+        xi[i] = xi[i] + scale * (Math.abs(xi[i]) + 1);
+        simplex.push({ x: xi, fx: func(xi) });
     }
 
-    // Use Rank Regression as initial guess
-    const rr_params = estimateParametersByRankRegression('Weibull', failures, suspensions, 'SRM')?.params;
-    let beta = rr_params?.beta || 1.0;
-    if (beta <= 0) beta = 1.0;
+    let iter = 0;
+    while (iter < maxIter) {
+        simplex.sort((a, b) => a.fx - b.fx);
+        const best = simplex[0];
+        const worst = simplex[simplex.length - 1];
+        const secondWorst = simplex[simplex.length - 2];
 
-    const log_t_failures = failures.map(t => Math.log(t));
-    const sum_log_t_failures = log_t_failures.reduce((a, b) => a + b, 0);
+        const fmean = simplex.reduce((s, v) => s + v.fx, 0) / simplex.length;
+        let fvar = simplex.reduce((s, v) => s + (v.fx - fmean) ** 2, 0) / simplex.length;
+        if (Math.sqrt(fvar) < tol) break;
 
-    for (let iter = 0; iter < maxIterations; iter++) {
-        const beta_k = beta;
-        
-        let sum1_all = 0, sum2_all = 0, sum3_all = 0;
-        allData.forEach(t => {
-            if (t > 0) {
-                const t_beta = Math.pow(t, beta_k);
-                const log_t = Math.log(t);
-                sum1_all += t_beta;
-                sum2_all += t_beta * log_t;
-                sum3_all += t_beta * log_t * log_t;
-            }
-        });
-
-        if (sum1_all === 0) break; // Avoid division by zero
-
-        // First derivative of log-likelihood w.r.t beta
-        const f_beta = (r / beta_k) + sum_log_t_failures - (r * sum2_all / sum1_all);
-        
-        // Second derivative (Hessian)
-        const f_prime_beta = (-r / (beta_k * beta_k)) - r * ((sum3_all * sum1_all - sum2_all * sum2_all) / (sum1_all * sum1_all));
-
-        if (Math.abs(f_prime_beta) < 1e-10) break; // Avoid instability
-
-        const newBeta = beta_k - f_beta / f_prime_beta;
-
-        if (!isFinite(newBeta) || newBeta <= 0) {
-            // Fallback to simpler estimation if Newton-Raphson fails
-            beta = rr_params?.beta || 1.0;
-            break;
-        };
-
-        if (Math.abs(newBeta - beta) < tolerance) {
-            beta = newBeta;
-            break;
+        const centroid = new Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) centroid[j] += simplex[i].x[j];
         }
-        beta = newBeta;
-    }
-    
-    const eta_numerator = allData.reduce((acc, t) => acc + Math.pow(t, beta), 0);
-    const eta = Math.pow(eta_numerator / r, 1 / beta);
-    const lkv = calculateWeibullLogLikelihood(failures, suspensions, beta, eta);
+        centroid.forEach((_, j) => centroid[j] /= n);
 
-    return { beta, eta, lkv };
+        const xr = centroid.map((c, j) => c + alpha * (c - worst.x[j]));
+        const fxr = func(xr);
+        if (fxr < secondWorst.fx && fxr >= best.fx) {
+            simplex[n] = { x: xr, fx: fxr };
+            iter++;
+            continue;
+        }
+
+        if (fxr < best.fx) {
+            const xe = centroid.map((c, j) => c + gamma * (xr[j] - c));
+            const fxe = func(xe);
+            simplex[n] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
+            iter++;
+            continue;
+        }
+
+        const xc = centroid.map((c, j) => c + rho * (worst.x[j] - c));
+        const fxc = func(xc);
+        if (fxc < worst.fx) {
+            simplex[n] = { x: xc, fx: fxc };
+            iter++;
+            continue;
+        }
+
+        for (let i = 1; i <= n; i++) {
+            simplex[i].x = simplex[0].x.map((b, j) => b + sigma * (simplex[i].x[j] - b));
+            simplex[i].fx = func(simplex[i].x);
+        }
+        iter++;
+    }
+
+    simplex.sort((a, b) => a.fx - b.fx);
+    return { x: simplex[0].x, fx: simplex[0].fx, iter };
 }
 
+//--- MLE Functions with Censoring ---
+type CensoredData = { time: number; event: 1 | 0 };
+
+function negLogLikLognormal(x: number[], data: CensoredData[]): number {
+    const mu = x[0];
+    const sigma = Math.exp(x[1]); // Ensure sigma > 0
+    if (!isFinite(mu) || !isFinite(sigma) || sigma <= 0) return 1e300;
+
+    let nll = 0;
+    for (const d of data) {
+        if (d.event === 1) { // Failure
+            const pdf = lognormalPdf(d.time, mu, sigma);
+            if (pdf <= 0) return 1e300;
+            nll -= Math.log(pdf);
+        } else { // Censored
+            const S = lognormalSurvival(d.time, mu, sigma);
+            nll -= Math.log(Math.max(S, 1e-300));
+        }
+    }
+    return nll;
+}
+
+function negLogLikWeibull(x: number[], data: CensoredData[]): number {
+    const beta = Math.exp(x[0]); // k (shape)
+    const eta = Math.exp(x[1]); // lambda (scale)
+    if (!isFinite(beta) || !isFinite(eta) || beta <= 0 || eta <= 0) return 1e300;
+
+    let nll = 0;
+    for (const d of data) {
+        if (d.event === 1) { // Failure
+            const pdf = weibullPdf(d.time, beta, eta);
+            if (pdf <= 0) return 1e300;
+            nll -= Math.log(pdf);
+        } else { // Censored
+            const S = weibullSurvival(d.time, beta, eta);
+            nll -= Math.log(Math.max(S, 1e-300));
+        }
+    }
+    return nll;
+}
+
+function fitLognormalMLE(data: CensoredData[]): Parameters {
+    const failures = data.filter(d => d.event === 1).map(d => d.time);
+    if (failures.length === 0) return { lkv: -Infinity };
+    const logs = failures.map(t => Math.log(t));
+    const mu0 = logs.reduce((s, v) => s + v, 0) / logs.length;
+    const sd0 = Math.sqrt(logs.reduce((s, v) => s + (v - mu0) ** 2, 0) / (logs.length - 1 || 1));
+    const x0 = [mu0, Math.log(sd0 || 1)];
+
+    const res = nelderMead(x => negLogLikLognormal(x, data), x0, { maxIter: 2000, tol: 1e-9, scale: 0.5 });
+    const mu = res.x[0];
+    const sigma = Math.exp(res.x[1]);
+    return { mean: mu, stdDev: sigma, lkv: -res.fx };
+}
+
+function fitWeibullMLE(data: CensoredData[]): Parameters {
+    const rrFit = estimateParametersByRankRegression('Weibull', data.filter(d => d.event === 1).map(d=>d.time), data.filter(d => d.event === 0).map(d=>d.time), 'SRM');
+    const beta0 = rrFit?.params.beta || 1.0;
+    const eta0 = rrFit?.params.eta || 1.0;
+    const x0 = [Math.log(beta0 > 0 ? beta0 : 1.0), Math.log(eta0 > 0 ? eta0 : 1.0)];
+
+    const res = nelderMead(x => negLogLikWeibull(x, data), x0, { maxIter: 2000, tol: 1e-9, scale: 0.5 });
+    const beta = Math.exp(res.x[0]);
+    const eta = Math.exp(res.x[1]);
+    return { beta, eta, lkv: -res.fx };
+}
 
 function estimateNormalMLE(failures: number[], suspensions: number[] = []): Parameters {
     if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
@@ -338,7 +435,7 @@ function estimateNormalMLE(failures: number[], suspensions: number[] = []): Para
     // Initial guess using only failures
     const r = failures.length;
     let mean = failures.reduce((a, b) => a + b, 0) / r;
-    let stdDev = Math.sqrt(failures.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / (r-1));
+    let stdDev = Math.sqrt(failures.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / (r-1 || 1));
     
     // Simplified: For this app, we will use the initial guess and calculate LKV, as iterating is complex.
     let lkv = 0;
@@ -354,34 +451,6 @@ function estimateNormalMLE(failures: number[], suspensions: number[] = []): Para
     return { mean, stdDev, lkv };
 }
 
-function estimateLognormalMLE(failures: number[], suspensions: number[] = []): Parameters {
-    if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
-    
-    const logFailures = failures.map(t => Math.log(t)).filter(isFinite);
-    if(logFailures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
-
-    const r = logFailures.length;
-    const logMean = logFailures.reduce((a, b) => a + b, 0) / r; // log-mean
-    const logStdDev = Math.sqrt(logFailures.reduce((sq, cur) => sq + Math.pow(cur - logMean, 2), 0) / (r-1)); // log-stdDev
-
-    // Simplified for this app, calculate LKV from initial guess
-    let lkv = -logFailures.reduce((sum, logT) => sum + logT, 0);
-
-    logFailures.forEach(logT => {
-        const pdfVal = normalPdf(logT, logMean, logStdDev);
-        lkv += (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
-    });
-    suspensions.forEach(t => {
-        if (t <= 0) return;
-        const logT = Math.log(t);
-        const cdfVal = normalCdf(logT, logMean, logStdDev);
-        lkv += (cdfVal < 1 ? Math.log(1 - cdfVal) : -Infinity);
-    });
-
-    return { mean: logMean, stdDev: logStdDev, lkv };
-}
-
-
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
     const allTimes = [...failures, ...suspensions];
     if (failures.length === 0) return { lambda: undefined, lkv: -Infinity };
@@ -394,27 +463,30 @@ function estimateExponentialMLE(failures: number[], suspensions: number[] = []):
     return { lambda, lkv };
 }
 
+
 export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM', isGrouped = false }: EstimateParams): { params: Parameters, plotData?: PlotData } {
     if (failureTimes.length === 0 && suspensionTimes.length === 0) return { params: {} };
     
-    // For SRM (Rank Regression on Y) and RRX (Rank Regression on X)
     if (method === 'SRM' || method === 'RRX') {
         const srmResult = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, method);
         return { params: srmResult?.params ?? {}, plotData: srmResult?.plotData };
     }
 
-    // For MLE
+    const censoredData: CensoredData[] = [
+        ...failureTimes.map(t => ({ time: t, event: 1 as const })),
+        ...suspensionTimes.map(t => ({ time: t, event: 0 as const }))
+    ];
+
     let params: Parameters = {};
     if (dist === 'Weibull' && method === 'MLE') {
-        params = estimateWeibullMLE(failureTimes, suspensionTimes);
+        params = fitWeibullMLE(censoredData);
+    } else if (dist === 'Lognormal' && method === 'MLE') {
+        params = fitLognormalMLE(censoredData);
     } else if (dist === 'Normal' && method === 'MLE') {
         params = estimateNormalMLE(failureTimes, suspensionTimes);
-    } else if (dist === 'Lognormal' && method === 'MLE') {
-        params = estimateLognormalMLE(failureTimes, suspensionTimes);
     } else if (dist === 'Exponential' && method === 'MLE') {
         params = estimateExponentialMLE(failureTimes, suspensionTimes);
     } else {
-        // Fallback to SRM for unsupported MLE or other methods
         return estimateParameters({ dist, failureTimes, suspensionTimes, method: 'SRM', isGrouped });
     }
     
@@ -511,7 +583,7 @@ export function calculateContourEllipse(
 ): ContourData | undefined {
     if (failureTimes.length < 2) return undefined;
     
-    const mle_params = estimateWeibullMLE(failureTimes, []);
+    const mle_params = fitWeibullMLE(failureTimes.map(t => ({time:t, event: 1})));
     if (!mle_params.beta || !mle_params.eta || !isFinite(mle_params.beta) || !isFinite(mle_params.eta)) {
         return undefined;
     }
@@ -714,53 +786,34 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
 
 // --- Goodness of Fit ---
 
-function calculateWeibullLogLikelihood(failures: number[], suspensions: number[], beta?: number, eta?: number): number {
-    if (!beta || !eta || beta <= 0 || eta <= 0) return -Infinity;
-    
-    let logLikelihood = 0;
-    const r = failures.length;
-
-    if (r > 0) {
-      logLikelihood += r * (Math.log(beta) - beta * Math.log(eta));
-      logLikelihood += (beta - 1) * failures.reduce((acc, t) => {
-          if (t > 0) return acc + Math.log(t);
-          return acc;
-      }, 0);
-    }
-    
-    const sumTbeta = [...failures, ...suspensions].reduce((acc, t) => {
-        if (t > 0) return acc + Math.pow(t / eta, beta);
-        return acc;
-    }, 0);
-    logLikelihood -= sumTbeta;
-
-    return isFinite(logLikelihood) ? logLikelihood : -Infinity;
-}
-
 export function findBestDistribution(failureTimes: number[], suspensionTimes: number[]): DistributionAnalysisResult[] {
     const distributionsToTest: Distribution[] = ['Weibull', 'Lognormal', 'Normal', 'Exponential'];
     const results: DistributionAnalysisResult[] = [];
+    
+    const censoredData: CensoredData[] = [
+        ...failureTimes.map(t => ({ time: t, event: 1 as const })),
+        ...suspensionTimes.map(t => ({ time: t, event: 0 as const }))
+    ];
 
     for (const dist of distributionsToTest) {
-        const analysis = estimateParameters({dist, failureTimes, suspensionTimes, method: 'MLE'});
-        const rrAnalysis = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, 'SRM');
-
-        let logLikelihood = -Infinity;
-        if (analysis.params.lkv !== undefined && isFinite(analysis.params.lkv)) {
-            logLikelihood = analysis.params.lkv;
-        } else {
-            // Fallback for LKV calculation if MLE fails
-            if (dist === 'Weibull' && rrAnalysis?.params.beta && rrAnalysis.params.eta) {
-                logLikelihood = calculateWeibullLogLikelihood(failureTimes, suspensionTimes, rrAnalysis.params.beta, rrAnalysis.params.eta);
-            }
+        let params: Parameters = {};
+        if (dist === 'Weibull') {
+            params = fitWeibullMLE(censoredData);
+        } else if (dist === 'Lognormal') {
+            params = fitLognormalMLE(censoredData);
+        } else if (dist === 'Normal') {
+            params = estimateNormalMLE(failureTimes, suspensionTimes);
+        } else if (dist === 'Exponential') {
+            params = estimateExponentialMLE(failureTimes, suspensionTimes);
         }
 
+        const rrAnalysis = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, 'SRM');
 
         results.push({
             distribution: dist,
-            params: analysis.params,
+            params: params,
             rSquared: rrAnalysis?.params.rho ?? 0,
-            logLikelihood: logLikelihood,
+            logLikelihood: params.lkv ?? -Infinity,
         });
     }
 
