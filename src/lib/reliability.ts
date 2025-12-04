@@ -131,43 +131,45 @@ type AnalysisResult = {
 
 function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[]): { time: number; prob: number; }[] {
     const failures = [...failureTimes].sort((a,b) => a-b);
-    const suspensions = [...suspensionTimes].sort((a,b) => a-b);
-    const allData = [
-        ...failures.map(t => ({ time: t, isFailure: true })),
-        ...suspensions.map(t => ({ time: t, isFailure: false }))
-    ].sort((a, b) => a.time - b.time);
-
-    const n = allData.length;
-    if (failures.length === 0) return [];
+    const n = failures.length + suspensionTimes.length;
     
-    // If no suspensions, use Benard's approximation for median rank
-    if (suspensions.length === 0) {
+    if (suspensionTimes.length === 0) {
+        // Benard's approximation for median ranks
         return failures.map((time, index) => {
             const rank = (index + 1 - 0.3) / (n + 0.4); 
             return { time, prob: rank };
         });
     }
+    
+    // For censored data, use Kaplan-Meier to find plotting positions.
+    const allData = [
+        ...failures.map(t => ({ time: t, isFailure: true })),
+        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+    ].sort((a, b) => a.time - b.time);
 
-    // Kaplan-Meier for plotting positions with censored data
+    const failurePoints = new Map<number, {reliability: number}>();
     let reliability = 1.0;
-    const kmPoints: { time: number, reliability: number }[] = [];
     let itemsAtRisk = n;
 
     const uniqueTimes = [...new Set(allData.map(d => d.time))].sort((a, b) => a - b);
     
     for (const time of uniqueTimes) {
-        const failuresAtTime = allData.filter(d => d.time === time && d.isFailure).length;
+        const eventsAtTime = allData.filter(d => d.time === time);
+        const failuresAtTime = eventsAtTime.filter(d => d.isFailure).length;
+        
         if (failuresAtTime > 0) {
-            const reliabilityAtTminus = reliability;
             reliability *= (1 - failuresAtTime / itemsAtRisk);
-            // The plotting position is often taken as the average of reliability before and after failure
-            const avgReliability = (reliabilityAtTminus + reliability) / 2;
-            kmPoints.push({ time, reliability: avgReliability });
+            failurePoints.set(time, { reliability });
         }
-        itemsAtRisk -= allData.filter(d => d.time === time).length;
+        itemsAtRisk -= eventsAtTime.length;
     }
-    
-    return kmPoints.map(p => ({ time: p.time, prob: 1 - p.reliability }));
+
+    const finalPoints: { time: number; prob: number; }[] = [];
+    for (const [time, data] of failurePoints.entries()) {
+        finalPoints.push({ time, prob: 1 - data.reliability });
+    }
+
+    return finalPoints.sort((a, b) => a.time - b.time);
 }
 
 
@@ -288,11 +290,13 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         
         let sum1_all = 0, sum2_all = 0, sum3_all = 0;
         allData.forEach(t => {
-            const t_beta = Math.pow(t, beta_k);
-            const log_t = Math.log(t);
-            sum1_all += t_beta;
-            sum2_all += t_beta * log_t;
-            sum3_all += t_beta * log_t * log_t;
+            if (t > 0) {
+                const t_beta = Math.pow(t, beta_k);
+                const log_t = Math.log(t);
+                sum1_all += t_beta;
+                sum2_all += t_beta * log_t;
+                sum3_all += t_beta * log_t * log_t;
+            }
         });
 
         if (sum1_all === 0) break; // Avoid division by zero
@@ -307,7 +311,11 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 
         const newBeta = beta_k - f_beta / f_prime_beta;
 
-        if (!isFinite(newBeta) || newBeta <= 0) break; // Stop if beta becomes invalid
+        if (!isFinite(newBeta) || newBeta <= 0) {
+            // Fallback to simpler estimation if Newton-Raphson fails
+            beta = rr_params?.beta || 1.0;
+            break;
+        };
 
         if (Math.abs(newBeta - beta) < tolerance) {
             beta = newBeta;
@@ -327,8 +335,6 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 function estimateNormalMLE(failures: number[], suspensions: number[] = []): Parameters {
     if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
 
-    const allData = [...failures, ...suspensions];
-    const n = allData.length;
     // Initial guess using only failures
     const r = failures.length;
     let mean = failures.reduce((a, b) => a + b, 0) / r;
@@ -352,9 +358,6 @@ function estimateLognormalMLE(failures: number[], suspensions: number[] = []): P
     if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
     
     const logFailures = failures.map(t => Math.log(t)).filter(isFinite);
-    const logSuspensions = suspensions.map(t => Math.log(t)).filter(isFinite);
-    const allLogData = [...logFailures, ...logSuspensions];
-    
     if(logFailures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
 
     const r = logFailures.length;
@@ -362,16 +365,16 @@ function estimateLognormalMLE(failures: number[], suspensions: number[] = []): P
     const logStdDev = Math.sqrt(logFailures.reduce((sq, cur) => sq + Math.pow(cur - logMean, 2), 0) / (r-1)); // log-stdDev
 
     // Simplified for this app, calculate LKV from initial guess
-    let lkv = -logFailures.reduce((sum, logT) => sum + Math.log(Math.exp(logT)), 0);
+    let lkv = -logFailures.reduce((sum, logT) => sum + logT, 0);
 
-    failures.forEach(t => {
-        if (t <= 0) return;
-        const pdfVal = normalPdf(Math.log(t), logMean, logStdDev);
+    logFailures.forEach(logT => {
+        const pdfVal = normalPdf(logT, logMean, logStdDev);
         lkv += (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
     });
     suspensions.forEach(t => {
         if (t <= 0) return;
-        const cdfVal = normalCdf(Math.log(t), logMean, logStdDev);
+        const logT = Math.log(t);
+        const cdfVal = normalCdf(logT, logMean, logStdDev);
         lkv += (cdfVal < 1 ? Math.log(1 - cdfVal) : -Infinity);
     });
 
