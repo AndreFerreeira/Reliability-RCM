@@ -138,23 +138,36 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
     const n = allData.length;
     if (n === 0 || failureTimes.length === 0) return [];
     
-    const rankedPoints: { time: number; prob: number; }[] = [];
-    let previousRank = 0;
+    // Kaplan-Meier estimation for F(t)
+    let reliability = 1.0;
+    const rankedPoints: { time: number, prob: number }[] = [];
+    let itemsAtRisk = n;
+
+    const uniqueTimes = [...new Set(allData.map(d => d.time))].sort((a, b) => a - b);
     
-    for (let i = 0; i < n; i++) {
-        if (allData[i].isFailure) {
-            const itemsRemaining = n - i;
-            const increment = (n + 1 - previousRank) / (1 + itemsRemaining);
-            const newRank = previousRank + increment;
-            const prob = (newRank - 0.3) / (n + 0.4); // Benard's approximation for Median Rank
-            
-            if (prob < 1) { // Ensure probability is less than 1
-                rankedPoints.push({ time: allData[i].time, prob });
-            }
-            previousRank = newRank;
+    for (const time of uniqueTimes) {
+        const failuresAtTime = allData.filter(d => d.time === time && d.isFailure).length;
+        if (failuresAtTime > 0) {
+            reliability *= (1 - failuresAtTime / itemsAtRisk);
+            const failureProb = 1 - reliability;
+            rankedPoints.push({ time, prob: failureProb });
         }
+        itemsAtRisk -= allData.filter(d => d.time === time).length;
     }
     
+    // For plotting, we need one point per failure. Let's adjust.
+    // We'll use Benard's approximation if no suspensions are present for simplicity and accuracy.
+    if (suspensionTimes.length === 0) {
+        const sortedFailures = [...failureTimes].sort((a, b) => a - b);
+        return sortedFailures.map((time, index) => {
+            const rank = index + 1;
+            const prob = (rank - 0.3) / (n + 0.4);
+            return { time, prob };
+        });
+    }
+
+    // If suspensions are present, the Kaplan-Meier points are what we plot for regression.
+    // The points are already calculated and stored in rankedPoints.
     return rankedPoints;
 }
 
@@ -325,12 +338,12 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 
 function estimateNormalMLE(failures: number[], suspensions: number[] = []): Parameters {
     if (failures.length < 1) return { mean: undefined, stdDev: undefined };
-    // Simplified MLE for normal without suspensions: same as method of moments
-    // For censored data, this is much more complex (EM algorithm). Sticking to a simplified version.
+
     const allData = [...failures, ...suspensions];
     const n = allData.length;
-    const mean = allData.reduce((a, b) => a + b, 0) / n;
-    const stdDev = Math.sqrt(allData.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n); // Use 'n' for MLE variance
+    // Initial guess using all data
+    let mean = allData.reduce((a, b) => a + b, 0) / n;
+    let stdDev = Math.sqrt(allData.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n);
     
     let lkv = 0;
     failures.forEach(t => {
@@ -387,7 +400,7 @@ function estimateExponentialMLE(failures: number[], suspensions: number[] = []):
 }
 
 export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM', isGrouped = false }: EstimateParams): { params: Parameters, plotData?: PlotData } {
-    if (failureTimes.length === 0) return { params: {} };
+    if (failureTimes.length === 0 && suspensionTimes.length === 0) return { params: {} };
     
     if (isGrouped && (method === 'SRM' || method === 'RRX')) {
         // Special handling for grouped data rank regression
@@ -509,7 +522,7 @@ export function calculateContourEllipse(
 ): ContourData | undefined {
     if (failureTimes.length < 2) return undefined;
     
-    const mle_params = estimateWeibullMLE(failureTimes);
+    const mle_params = estimateWeibullMLE(failureTimes, []);
     if (!mle_params.beta || !mle_params.eta || !isFinite(mle_params.beta) || !isFinite(mle_params.eta)) {
         return undefined;
     }
@@ -521,16 +534,32 @@ export function calculateContourEllipse(
     const chi2 = invChi2(confidenceLevel / 100, 2);
 
     const L_bb_Term1 = r / (beta_mle * beta_mle);
-    const L_bb_Term2 = failureTimes.reduce((sum, ti) => sum + Math.pow(ti / eta_mle, beta_mle) * Math.pow(Math.log(ti / eta_mle), 2), 0);
-    const L_bb = L_bb_Term1 + L_bb_Term2;
+    let sum_t_beta_log_t_sq = 0;
+    failureTimes.forEach(ti => {
+      if (ti > 0 && eta_mle > 0) {
+        sum_t_beta_log_t_sq += Math.pow(ti / eta_mle, beta_mle) * Math.pow(Math.log(ti / eta_mle), 2);
+      }
+    });
+    const L_bb = L_bb_Term1 + sum_t_beta_log_t_sq;
+
 
     const L_ee_Term1 = (beta_mle * r / (eta_mle * eta_mle));
-    const L_ee_Term2 = failureTimes.reduce((sum, ti) => sum + (beta_mle + 1) * Math.pow(ti / eta_mle, beta_mle), 0);
-    const L_ee = L_ee_Term1 * L_ee_Term2;
+    let sum_t_beta = 0;
+    failureTimes.forEach(ti => {
+        if(ti > 0 && eta_mle > 0){
+             sum_t_beta += (beta_mle + 1) * Math.pow(ti / eta_mle, beta_mle);
+        }
+    });
+    const L_ee = L_ee_Term1 * sum_t_beta;
 
     const L_be_Term1 = r / eta_mle;
-    const L_be_Term2 = failureTimes.reduce((sum, ti) => sum + Math.pow(ti / eta_mle, beta_mle) * (1 + beta_mle * Math.log(ti / eta_mle)), 0);
-    const L_be = -(L_be_Term1 * L_be_Term2);
+    let sum_t_beta_log_t = 0;
+    failureTimes.forEach(ti => {
+        if(ti > 0 && eta_mle > 0){
+            sum_t_beta_log_t += Math.pow(ti / eta_mle, beta_mle) * (1 + beta_mle * Math.log(ti / eta_mle));
+        }
+    });
+    const L_be = -(L_be_Term1 * sum_t_beta_log_t);
     
     if(!isFinite(L_bb) || !isFinite(L_ee) || !isFinite(L_be)) return undefined;
 
@@ -543,6 +572,7 @@ export function calculateContourEllipse(
 
     if(var_beta <= 0 || var_eta <= 0) return undefined;
 
+    // Use eigenvalues of the covariance matrix for ellipse properties
     const trace = var_beta + var_eta;
     const discriminant = Math.sqrt(Math.pow(var_beta - var_eta, 2) + 4 * cov_beta_eta * cov_beta_eta);
     const L1 = (trace + discriminant) / 2;
@@ -701,8 +731,10 @@ function calculateWeibullLogLikelihood(failures: number[], suspensions: number[]
     let logLikelihood = 0;
     const r = failures.length;
 
-    logLikelihood += r * (Math.log(beta) - beta * Math.log(eta));
-    logLikelihood += (beta - 1) * failures.reduce((acc, t) => acc + Math.log(t), 0);
+    if (r > 0) {
+      logLikelihood += r * (Math.log(beta) - beta * Math.log(eta));
+      logLikelihood += (beta - 1) * failures.reduce((acc, t) => acc + Math.log(t), 0);
+    }
     
     const sumTbeta = [...failures, ...suspensions].reduce((acc, t) => acc + Math.pow(t / eta, beta), 0);
     logLikelihood -= sumTbeta;
