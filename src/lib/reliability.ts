@@ -326,36 +326,53 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
 function estimateNormalMLE(failures: number[], suspensions: number[] = []): Parameters {
     if (failures.length < 1) return { mean: undefined, stdDev: undefined };
     // Simplified MLE for normal without suspensions: same as method of moments
-    const n = failures.length;
-    const mean = failures.reduce((a, b) => a + b, 0) / n;
-    const stdDev = Math.sqrt(failures.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n); // Use 'n' for MLE variance
+    // For censored data, this is much more complex (EM algorithm). Sticking to a simplified version.
+    const allData = [...failures, ...suspensions];
+    const n = allData.length;
+    const mean = allData.reduce((a, b) => a + b, 0) / n;
+    const stdDev = Math.sqrt(allData.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n); // Use 'n' for MLE variance
     
-    const lkv = failures.reduce((acc, t) => {
+    let lkv = 0;
+    failures.forEach(t => {
         const pdfVal = normalPdf(t, mean, stdDev);
-        return acc + (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
-    }, 0);
+        lkv += (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
+    });
+    suspensions.forEach(t => {
+        const cdfVal = normalCdf(t, mean, stdDev);
+        lkv += (cdfVal < 1 ? Math.log(1 - cdfVal) : -Infinity);
+    });
 
     return { mean, stdDev, lkv };
 }
 
 function estimateLognormalMLE(failures: number[], suspensions: number[] = []): Parameters {
     if (failures.length < 1) return { mean: undefined, stdDev: undefined };
-    const logTimes = failures.map(t => Math.log(t)).filter(isFinite);
-    if (logTimes.length < 1) return { mean: undefined, stdDev: undefined };
-
-    const n = logTimes.length;
-    const mean = logTimes.reduce((a, b) => a + b, 0) / n;
-    const stdDev = Math.sqrt(logTimes.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n);
     
-    const lkv = failures.reduce((acc, t) => {
-        if (t <= 0) return acc;
-        const log_t = Math.log(t);
-        const pdfVal = normalPdf(log_t, mean, stdDev) / t;
-        return acc + (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
-    }, 0);
+    const logFailures = failures.map(t => Math.log(t)).filter(isFinite);
+    const logSuspensions = suspensions.map(t => Math.log(t)).filter(isFinite);
+    const allLogData = [...logFailures, ...logSuspensions];
+    
+    if(logFailures.length < 1) return { mean: undefined, stdDev: undefined };
+
+    const n = allLogData.length;
+    const mean = allLogData.reduce((a, b) => a + b, 0) / n; // log-mean
+    const stdDev = Math.sqrt(allLogData.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n); // log-stdDev
+
+    let lkv = 0;
+    failures.forEach(t => {
+        if (t <= 0) return;
+        const pdfVal = normalPdf(Math.log(t), mean, stdDev) / t;
+        lkv += (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
+    });
+    suspensions.forEach(t => {
+        if (t <= 0) return;
+        const cdfVal = normalCdf(Math.log(t), mean, stdDev);
+        lkv += (cdfVal < 1 ? Math.log(1 - cdfVal) : -Infinity);
+    });
 
     return { mean, stdDev, lkv };
 }
+
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
     const allTimes = [...failures, ...suspensions];
@@ -684,8 +701,7 @@ function calculateWeibullLogLikelihood(failures: number[], suspensions: number[]
     let logLikelihood = 0;
     const r = failures.length;
 
-    // Contribution from failures
-    logLikelihood += r * Math.log(beta) - r * beta * Math.log(eta);
+    logLikelihood += r * (Math.log(beta) - beta * Math.log(eta));
     logLikelihood += (beta - 1) * failures.reduce((acc, t) => acc + Math.log(t), 0);
     
     const sumTbeta = [...failures, ...suspensions].reduce((acc, t) => acc + Math.pow(t / eta, beta), 0);
