@@ -11,23 +11,27 @@ export interface WeibullParams {
   beta: number; // shape parameter
   eta: number;  // scale parameter (characteristic life)
   rho: number; // correlation coefficient (R-squared)
+  lkv?: number; // log-likelihood value
 }
 
 export interface NormalParams {
     mean: number; // mu
     stdDev: number; // sigma
     rho: number;
+    lkv?: number;
 }
 
 export interface LognormalParams {
     mean: number; // log-mean
     stdDev: number; // log-stdDev
     rho: number;
+    lkv?: number;
 }
 
 export interface ExponentialParams {
     lambda: number; // rate parameter
     rho: number;
+    lkv?: number;
 }
 
 export interface LoglogisticParams {
@@ -126,6 +130,13 @@ export interface ReliabilityData {
   ft: ChartDataPoint[];
   lambda_t: ChartDataPoint[];
 }
+
+export type DistributionAnalysisResult = {
+    distribution: Distribution;
+    params: Parameters;
+    rSquared: number;
+    logLikelihood: number;
+};
 
 // AI Flow Schemas and Types
 

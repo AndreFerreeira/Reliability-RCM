@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, useWatch } from 'react-hook-form';
@@ -23,15 +24,17 @@ import {
 } from "@/components/ui/select"
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Supplier, Distribution, EstimationMethod } from '@/lib/types';
-import { X } from 'lucide-react';
+import type { Supplier, Distribution, EstimationMethod, DistributionAnalysisResult } from '@/lib/types';
+import { X, Wand2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { estimateParameters } from '@/lib/reliability';
+import { estimateParameters, findBestDistribution } from '@/lib/reliability';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import React from 'react';
+import React, { useState } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do equipamento é obrigatório.' }),
@@ -85,6 +88,75 @@ const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boole
     }
     
     return { title, placeholder, description };
+};
+
+
+const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, onApply: (dist: Distribution) => void }) => {
+    const [analysisResults, setAnalysisResults] = useState<DistributionAnalysisResult[]>([]);
+    
+    const handleAnalyze = () => {
+        const results = findBestDistribution(supplier.failureTimes, supplier.suspensionTimes);
+        setAnalysisResults(results);
+    };
+
+    return (
+        <Dialog onOpenChange={(open) => !open && setAnalysisResults([])}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full mt-2">
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Mago da Distribuição
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Mago da Distribuição - {supplier.name}</DialogTitle>
+                    <DialogDescription>
+                        Analise qual distribuição de probabilidade melhor se ajusta aos dados do seu equipamento.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <Button onClick={handleAnalyze}>Analisar Dados</Button>
+                    {analysisResults.length > 0 && (
+                        <Card>
+                            <CardContent className="pt-6">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Distribuição</TableHead>
+                                            <TableHead className="text-right">R² (Aderência)</TableHead>
+                                            <TableHead className="text-right">LKV (Verossimilhança)</TableHead>
+                                            <TableHead className="text-right">Ação</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {analysisResults.sort((a, b) => b.logLikelihood - a.logLikelihood).map(result => (
+                                            <TableRow key={result.distribution}>
+                                                <TableCell className="font-medium">{result.distribution}</TableCell>
+                                                <TableCell className="text-right font-mono">{result.rSquared.toFixed(4)}</TableCell>
+                                                <TableCell className="text-right font-mono">{result.logLikelihood.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="ghost" size="sm" onClick={() => onApply(result.distribution)}>
+                                                        Aplicar
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                             <CardHeader className="pt-0">
+                                <CardDescription>
+                                    <span className="font-semibold">R² (Coeficiente de Correlação):</span> Mede a aderência dos dados à linha de ajuste no gráfico de probabilidade. Valores mais próximos de 1 indicam um melhor ajuste visual.
+                                    <br />
+                                    <span className="font-semibold">LKV (Log-Likelihood Value):</span> Mede quão provável é o modelo estatístico, dados os dados. Valores maiores (menos negativos) indicam um modelo mais provável e, portanto, um melhor ajuste.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 };
 
 
@@ -549,6 +621,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
             <div className="mt-4 grid grid-cols-3 gap-2">
                 {renderParams(supplier)}
             </div>
+             <DistributionWizardDialog supplier={supplier} onApply={(dist) => handleDistributionChange(supplier.id, dist)} />
           </div>
         ))}
         </div>
