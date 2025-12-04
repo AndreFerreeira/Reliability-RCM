@@ -358,7 +358,7 @@ function estimateLognormalMLE(failures: number[], suspensions: number[] = []): P
 }
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
-    const allTimes = [...failures, ...suspensionTimes];
+    const allTimes = [...failures, ...suspensions];
     if (failures.length === 0) return { lambda: undefined };
     
     const sumOfTimes = allTimes.reduce((a, b) => a + b, 0);
@@ -491,35 +491,38 @@ export function calculateContourEllipse(
     confidenceLevel: number
 ): ContourData | undefined {
     if (failureTimes.length < 2) return undefined;
+    
     const mle_params = estimateWeibullMLE(failureTimes);
-    if (!mle_params.beta || !mle_params.eta) return undefined;
+    if (!mle_params.beta || !mle_params.eta || !isFinite(mle_params.beta) || !isFinite(mle_params.eta)) {
+        return undefined;
+    }
 
     const beta_mle = mle_params.beta;
     const eta_mle = mle_params.eta;
-    const n_failures = failureTimes.length;
+    const n = failureTimes.length;
+    const r = failureTimes.length; // No suspensions in this simplified case
     const chi2 = invChi2(confidenceLevel / 100, 2);
 
-    const sum_t_beta = failureTimes.reduce((s, t) => s + Math.pow(t, beta_mle), 0);
-    const sum_t_beta_logt = failureTimes.reduce((s, t) => s + Math.pow(t, beta_mle) * Math.log(t), 0);
-    const sum_t_beta_logt2 = failureTimes.reduce((s, t) => s + Math.pow(t, beta_mle) * Math.pow(Math.log(t), 2), 0);
+    const L_bb_Term1 = r / (beta_mle * beta_mle);
+    const L_bb_Term2 = failureTimes.reduce((sum, ti) => sum + Math.pow(ti / eta_mle, beta_mle) * Math.pow(Math.log(ti / eta_mle), 2), 0);
+    const L_bb = L_bb_Term1 + L_bb_Term2;
+
+    const L_ee_Term1 = (beta_mle * r / (eta_mle * eta_mle));
+    const L_ee_Term2 = failureTimes.reduce((sum, ti) => sum + (beta_mle + 1) * Math.pow(ti / eta_mle, beta_mle), 0);
+    const L_ee = L_ee_Term1 * L_ee_Term2;
+
+    const L_be_Term1 = r / eta_mle;
+    const L_be_Term2 = failureTimes.reduce((sum, ti) => sum + Math.pow(ti / eta_mle, beta_mle) * (1 + beta_mle * Math.log(ti / eta_mle)), 0);
+    const L_be = -(L_be_Term1 * L_be_Term2);
     
-    if(!isFinite(sum_t_beta) || !isFinite(sum_t_beta_logt) || !isFinite(sum_t_beta_logt2)) return undefined;
+    if(!isFinite(L_bb) || !isFinite(L_ee) || !isFinite(L_be)) return undefined;
 
-    const L_bb = (n_failures / Math.pow(beta_mle, 2)) + sum_t_beta_logt2 / Math.pow(eta_mle, beta_mle) - 2*sum_t_beta_logt*Math.log(eta_mle) / Math.pow(eta_mle, beta_mle) + n_failures * Math.pow(Math.log(eta_mle),2) * sum_t_beta / Math.pow(eta_mle, beta_mle);
-    const L_ee = (n_failures * beta_mle * (beta_mle + 1)) / Math.pow(eta_mle, 2);
-    const L_be = (-n_failures / eta_mle) + (beta_mle/eta_mle)*sum_t_beta_logt / Math.pow(eta_mle, beta_mle) - (beta_mle/eta_mle)*Math.log(eta_mle)*sum_t_beta / Math.pow(eta_mle, beta_mle);
-
-    const fisher_matrix = [[L_bb, L_be], [L_be, L_ee]];
-    const det = fisher_matrix[0][0] * fisher_matrix[1][1] - fisher_matrix[0][1] * fisher_matrix[1][0];
+    const det = L_bb * L_ee - L_be * L_be;
     if (Math.abs(det) < 1e-20) return undefined;
-    const cov_matrix = [
-        [fisher_matrix[1][1] / det, -fisher_matrix[0][1] / det],
-        [-fisher_matrix[1][0] / det, fisher_matrix[0][0] / det]
-    ];
     
-    const var_beta = cov_matrix[0][0];
-    const var_eta = cov_matrix[1][1];
-    const cov_beta_eta = cov_matrix[0][1];
+    const var_beta = L_ee / det;
+    const var_eta = L_bb / det;
+    const cov_beta_eta = -L_be / det;
 
     if(var_beta <= 0 || var_eta <= 0) return undefined;
 
