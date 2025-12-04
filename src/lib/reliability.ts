@@ -138,7 +138,7 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
     const n = allData.length;
     if (n === 0 || failureTimes.length === 0) return [];
     
-    // Kaplan-Meier estimation for F(t)
+    // Use Kaplan-Meier product-limit estimator for reliability, then get F(t)
     let reliability = 1.0;
     const rankedPoints: { time: number, prob: number }[] = [];
     let itemsAtRisk = n;
@@ -148,28 +148,65 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
     for (const time of uniqueTimes) {
         const failuresAtTime = allData.filter(d => d.time === time && d.isFailure).length;
         if (failuresAtTime > 0) {
-            reliability *= (1 - failuresAtTime / itemsAtRisk);
-            const failureProb = 1 - reliability;
+            const numAtRiskBefore = itemsAtRisk;
+            const newReliability = reliability * (1 - failuresAtTime / numAtRiskBefore);
+            
+            // The unreliability point is plotted at the time of failure
+            // F(t) = 1 - R(t)
+            const failureProb = 1 - newReliability;
             rankedPoints.push({ time, prob: failureProb });
+            reliability = newReliability;
         }
         itemsAtRisk -= allData.filter(d => d.time === time).length;
     }
     
-    // For plotting, we need one point per failure. Let's adjust.
-    // We'll use Benard's approximation if no suspensions are present for simplicity and accuracy.
+    // For plotting, we need a point for each failure time. 
+    // The issue with the previous method was associating the KM estimate with individual failure points.
+    // A better approach for RR with censored data is to use "median ranks" on adjusted failure orders.
+    const sortedFailures = [...failureTimes].sort((a,b) => a-b);
+    
     if (suspensionTimes.length === 0) {
-        const sortedFailures = [...failureTimes].sort((a, b) => a - b);
         return sortedFailures.map((time, index) => {
-            const rank = index + 1;
-            const prob = (rank - 0.3) / (n + 0.4);
-            return { time, prob };
+            const rank = (index + 1 - 0.3) / (n + 0.4); // Benard's approximation for median rank
+            return { time, prob: rank };
         });
     }
 
-    // If suspensions are present, the Kaplan-Meier points are what we plot for regression.
-    // The points are already calculated and stored in rankedPoints.
-    return rankedPoints;
+    // Johnson's method for adjusted ranks with suspensions
+    const adjustedRanks: { time: number; prob: number }[] = [];
+    let lastRankOrder = 0;
+    const increment = (n + 1) / (n + 2); // Simplified increment for demonstration
+    
+    for (let i = 0; i < sortedFailures.length; i++) {
+        const failureTime = sortedFailures[i];
+        const numItemsBefore = allData.filter(d => d.time < failureTime).length;
+        const numItemsAt = allData.filter(d => d.time === failureTime).length;
+        
+        let newRankOrder;
+        if (i === 0) {
+            newRankOrder = (n + 1) * (1 / (n + 1));
+        } else {
+            const prevFailureTime = sortedFailures[i-1];
+            const numItemsBetween = allData.filter(d => d.time > prevFailureTime && d.time < failureTime).length;
+            const prevRankOrder = adjustedRanks[i-1] ? (1 - adjustedRanks[i-1].prob) * n : n;
+            const increment = (n + 1 - prevRankOrder) / (1 + numItemsBetween);
+            newRankOrder = prevRankOrder + increment;
+        }
+
+        const medianRank = (newRankOrder - 0.3) / (n + 0.4);
+        if(isFinite(medianRank) && medianRank > 0 && medianRank < 1) {
+            adjustedRanks.push({ time: failureTime, prob: medianRank });
+        }
+    }
+     // Fallback to a simpler, more robust method if Johnson's fails
+     if (adjustedRanks.length !== failureTimes.length) {
+        // Simple KM-based plotting points
+        return rankedPoints;
+     }
+
+    return adjustedRanks;
 }
+
 
 export function estimateParametersByRankRegression(
     dist: Distribution,
