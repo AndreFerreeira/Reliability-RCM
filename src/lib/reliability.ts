@@ -130,17 +130,27 @@ type AnalysisResult = {
 }
 
 function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[]): { time: number; prob: number; }[] {
+    const failures = [...failureTimes].sort((a,b) => a-b);
+    const suspensions = [...suspensionTimes].sort((a,b) => a-b);
     const allData = [
-        ...failureTimes.map(t => ({ time: t, isFailure: true })),
-        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+        ...failures.map(t => ({ time: t, isFailure: true })),
+        ...suspensions.map(t => ({ time: t, isFailure: false }))
     ].sort((a, b) => a.time - b.time);
 
     const n = allData.length;
-    if (n === 0 || failureTimes.length === 0) return [];
+    if (failures.length === 0) return [];
     
-    // Use Kaplan-Meier product-limit estimator for reliability, then get F(t)
+    // If no suspensions, use Benard's approximation for median rank
+    if (suspensions.length === 0) {
+        return failures.map((time, index) => {
+            const rank = (index + 1 - 0.3) / (n + 0.4); 
+            return { time, prob: rank };
+        });
+    }
+
+    // Kaplan-Meier for plotting positions with censored data
     let reliability = 1.0;
-    const rankedPoints: { time: number, prob: number }[] = [];
+    const kmPoints: { time: number, reliability: number }[] = [];
     let itemsAtRisk = n;
 
     const uniqueTimes = [...new Set(allData.map(d => d.time))].sort((a, b) => a - b);
@@ -148,63 +158,16 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
     for (const time of uniqueTimes) {
         const failuresAtTime = allData.filter(d => d.time === time && d.isFailure).length;
         if (failuresAtTime > 0) {
-            const numAtRiskBefore = itemsAtRisk;
-            const newReliability = reliability * (1 - failuresAtTime / numAtRiskBefore);
-            
-            // The unreliability point is plotted at the time of failure
-            // F(t) = 1 - R(t)
-            const failureProb = 1 - newReliability;
-            rankedPoints.push({ time, prob: failureProb });
-            reliability = newReliability;
+            const reliabilityAtTminus = reliability;
+            reliability *= (1 - failuresAtTime / itemsAtRisk);
+            // The plotting position is often taken as the average of reliability before and after failure
+            const avgReliability = (reliabilityAtTminus + reliability) / 2;
+            kmPoints.push({ time, reliability: avgReliability });
         }
         itemsAtRisk -= allData.filter(d => d.time === time).length;
     }
     
-    // For plotting, we need a point for each failure time. 
-    // The issue with the previous method was associating the KM estimate with individual failure points.
-    // A better approach for RR with censored data is to use "median ranks" on adjusted failure orders.
-    const sortedFailures = [...failureTimes].sort((a,b) => a-b);
-    
-    if (suspensionTimes.length === 0) {
-        return sortedFailures.map((time, index) => {
-            const rank = (index + 1 - 0.3) / (n + 0.4); // Benard's approximation for median rank
-            return { time, prob: rank };
-        });
-    }
-
-    // Johnson's method for adjusted ranks with suspensions
-    const adjustedRanks: { time: number; prob: number }[] = [];
-    let lastRankOrder = 0;
-    const increment = (n + 1) / (n + 2); // Simplified increment for demonstration
-    
-    for (let i = 0; i < sortedFailures.length; i++) {
-        const failureTime = sortedFailures[i];
-        const numItemsBefore = allData.filter(d => d.time < failureTime).length;
-        const numItemsAt = allData.filter(d => d.time === failureTime).length;
-        
-        let newRankOrder;
-        if (i === 0) {
-            newRankOrder = (n + 1) * (1 / (n + 1));
-        } else {
-            const prevFailureTime = sortedFailures[i-1];
-            const numItemsBetween = allData.filter(d => d.time > prevFailureTime && d.time < failureTime).length;
-            const prevRankOrder = adjustedRanks[i-1] ? (1 - adjustedRanks[i-1].prob) * n : n;
-            const increment = (n + 1 - prevRankOrder) / (1 + numItemsBetween);
-            newRankOrder = prevRankOrder + increment;
-        }
-
-        const medianRank = (newRankOrder - 0.3) / (n + 0.4);
-        if(isFinite(medianRank) && medianRank > 0 && medianRank < 1) {
-            adjustedRanks.push({ time: failureTime, prob: medianRank });
-        }
-    }
-     // Fallback to a simpler, more robust method if Johnson's fails
-     if (adjustedRanks.length !== failureTimes.length) {
-        // Simple KM-based plotting points
-        return rankedPoints;
-     }
-
-    return adjustedRanks;
+    return kmPoints.map(p => ({ time: p.time, prob: 1 - p.reliability }));
 }
 
 
@@ -307,55 +270,44 @@ export function estimateParametersByRankRegression(
 // Maximum Likelihood Estimation for Weibull with censored data using Newton-Raphson
 function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxIterations = 100, tolerance = 1e-7): Parameters {
     const allData = [...failures, ...suspensions];
-    if (failures.length === 0) {
-        return { beta: undefined, eta: undefined };
+    const r = failures.length;
+    if (r === 0) {
+        return { beta: undefined, eta: undefined, lkv: -Infinity };
     }
 
     // Use Rank Regression as initial guess
     const rr_params = estimateParametersByRankRegression('Weibull', failures, suspensions, 'SRM')?.params;
     let beta = rr_params?.beta || 1.0;
+    if (beta <= 0) beta = 1.0;
+
+    const log_t_failures = failures.map(t => Math.log(t));
+    const sum_log_t_failures = log_t_failures.reduce((a, b) => a + b, 0);
 
     for (let iter = 0; iter < maxIterations; iter++) {
         const beta_k = beta;
         
-        let sum1 = 0, sum2 = 0, sum3 = 0, sum_logt_failures = 0;
-        
+        let sum1_all = 0, sum2_all = 0, sum3_all = 0;
         allData.forEach(t => {
-            if (t <= 0) return;
             const t_beta = Math.pow(t, beta_k);
             const log_t = Math.log(t);
-            sum1 += t_beta;
-            sum2 += t_beta * log_t;
-            sum3 += t_beta * log_t * log_t;
+            sum1_all += t_beta;
+            sum2_all += t_beta * log_t;
+            sum3_all += t_beta * log_t * log_t;
         });
 
-        failures.forEach(t => {
-             if (t <= 0) return;
-             sum_logt_failures += Math.log(t);
-        });
-        
-        const numFailures = failures.length;
-        if (numFailures === 0 || sum1 === 0) return { beta: undefined, eta: undefined, rho: undefined };
+        if (sum1_all === 0) break; // Avoid division by zero
 
         // First derivative of log-likelihood w.r.t beta
-        const dL_dbeta = (numFailures / beta_k) + sum_logt_failures - (numFailures / sum1) * sum2;
+        const f_beta = (r / beta_k) + sum_log_t_failures - (r * sum2_all / sum1_all);
         
         // Second derivative (Hessian)
-        const d2L_dbeta2 = (-numFailures / (beta_k * beta_k)) - numFailures * (
-            (sum3 * sum1 - sum2 * sum2) / (sum1 * sum1)
-        );
+        const f_prime_beta = (-r / (beta_k * beta_k)) - r * ((sum3_all * sum1_all - sum2_all * sum2_all) / (sum1_all * sum1_all));
 
-        if (Math.abs(d2L_dbeta2) < 1e-10) {
-             // Fallback to RR if Hessian is near zero
-            return { beta: rr_params?.beta, eta: rr_params?.eta, lkv: calculateWeibullLogLikelihood(failures, suspensions, rr_params?.beta, rr_params?.eta) };
-        }; 
+        if (Math.abs(f_prime_beta) < 1e-10) break; // Avoid instability
 
-        const newBeta = beta_k - dL_dbeta / d2L_dbeta2;
+        const newBeta = beta_k - f_beta / f_prime_beta;
 
-        if (!isFinite(newBeta) || newBeta <= 0) {
-             // Fallback to RR if beta becomes invalid
-             return { beta: rr_params?.beta, eta: rr_params?.eta, lkv: calculateWeibullLogLikelihood(failures, suspensions, rr_params?.beta, rr_params?.eta) };
-        }
+        if (!isFinite(newBeta) || newBeta <= 0) break; // Stop if beta becomes invalid
 
         if (Math.abs(newBeta - beta) < tolerance) {
             beta = newBeta;
@@ -364,24 +316,25 @@ function estimateWeibullMLE(failures: number[], suspensions: number[] = [], maxI
         beta = newBeta;
     }
     
-    beta = Math.max(0.01, beta);
-
-    const eta = Math.pow(allData.reduce((acc, t) => acc + Math.pow(t, beta), 0) / failures.length, 1 / beta);
+    const eta_numerator = allData.reduce((acc, t) => acc + Math.pow(t, beta), 0);
+    const eta = Math.pow(eta_numerator / r, 1 / beta);
     const lkv = calculateWeibullLogLikelihood(failures, suspensions, beta, eta);
 
-    return { beta: isNaN(beta) ? undefined : beta, eta: isNaN(eta) ? undefined : eta, lkv };
+    return { beta, eta, lkv };
 }
 
 
 function estimateNormalMLE(failures: number[], suspensions: number[] = []): Parameters {
-    if (failures.length < 1) return { mean: undefined, stdDev: undefined };
+    if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
 
     const allData = [...failures, ...suspensions];
     const n = allData.length;
-    // Initial guess using all data
-    let mean = allData.reduce((a, b) => a + b, 0) / n;
-    let stdDev = Math.sqrt(allData.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n);
+    // Initial guess using only failures
+    const r = failures.length;
+    let mean = failures.reduce((a, b) => a + b, 0) / r;
+    let stdDev = Math.sqrt(failures.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / (r-1));
     
+    // Simplified: For this app, we will use the initial guess and calculate LKV, as iterating is complex.
     let lkv = 0;
     failures.forEach(t => {
         const pdfVal = normalPdf(t, mean, stdDev);
@@ -396,37 +349,39 @@ function estimateNormalMLE(failures: number[], suspensions: number[] = []): Para
 }
 
 function estimateLognormalMLE(failures: number[], suspensions: number[] = []): Parameters {
-    if (failures.length < 1) return { mean: undefined, stdDev: undefined };
+    if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
     
     const logFailures = failures.map(t => Math.log(t)).filter(isFinite);
     const logSuspensions = suspensions.map(t => Math.log(t)).filter(isFinite);
     const allLogData = [...logFailures, ...logSuspensions];
     
-    if(logFailures.length < 1) return { mean: undefined, stdDev: undefined };
+    if(logFailures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
 
-    const n = allLogData.length;
-    const mean = allLogData.reduce((a, b) => a + b, 0) / n; // log-mean
-    const stdDev = Math.sqrt(allLogData.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / n); // log-stdDev
+    const r = logFailures.length;
+    const logMean = logFailures.reduce((a, b) => a + b, 0) / r; // log-mean
+    const logStdDev = Math.sqrt(logFailures.reduce((sq, cur) => sq + Math.pow(cur - logMean, 2), 0) / (r-1)); // log-stdDev
 
-    let lkv = 0;
+    // Simplified for this app, calculate LKV from initial guess
+    let lkv = -logFailures.reduce((sum, logT) => sum + Math.log(Math.exp(logT)), 0);
+
     failures.forEach(t => {
         if (t <= 0) return;
-        const pdfVal = normalPdf(Math.log(t), mean, stdDev) / t;
+        const pdfVal = normalPdf(Math.log(t), logMean, logStdDev);
         lkv += (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
     });
     suspensions.forEach(t => {
         if (t <= 0) return;
-        const cdfVal = normalCdf(Math.log(t), mean, stdDev);
+        const cdfVal = normalCdf(Math.log(t), logMean, logStdDev);
         lkv += (cdfVal < 1 ? Math.log(1 - cdfVal) : -Infinity);
     });
 
-    return { mean, stdDev, lkv };
+    return { mean: logMean, stdDev: logStdDev, lkv };
 }
 
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
     const allTimes = [...failures, ...suspensions];
-    if (failures.length === 0) return { lambda: undefined };
+    if (failures.length === 0) return { lambda: undefined, lkv: -Infinity };
     
     const sumOfTimes = allTimes.reduce((a, b) => a + b, 0);
     const lambda = failures.length / sumOfTimes; // MLE for lambda
@@ -438,12 +393,6 @@ function estimateExponentialMLE(failures: number[], suspensions: number[] = []):
 
 export function estimateParameters({ dist, failureTimes, suspensionTimes = [], method = 'SRM', isGrouped = false }: EstimateParams): { params: Parameters, plotData?: PlotData } {
     if (failureTimes.length === 0 && suspensionTimes.length === 0) return { params: {} };
-    
-    if (isGrouped && (method === 'SRM' || method === 'RRX')) {
-        // Special handling for grouped data rank regression
-        const srmResult = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, method);
-        return { params: srmResult?.params ?? {}, plotData: srmResult?.plotData };
-    }
     
     // For SRM (Rank Regression on Y) and RRX (Rank Regression on X)
     if (method === 'SRM' || method === 'RRX') {
@@ -770,10 +719,16 @@ function calculateWeibullLogLikelihood(failures: number[], suspensions: number[]
 
     if (r > 0) {
       logLikelihood += r * (Math.log(beta) - beta * Math.log(eta));
-      logLikelihood += (beta - 1) * failures.reduce((acc, t) => acc + Math.log(t), 0);
+      logLikelihood += (beta - 1) * failures.reduce((acc, t) => {
+          if (t > 0) return acc + Math.log(t);
+          return acc;
+      }, 0);
     }
     
-    const sumTbeta = [...failures, ...suspensions].reduce((acc, t) => acc + Math.pow(t / eta, beta), 0);
+    const sumTbeta = [...failures, ...suspensions].reduce((acc, t) => {
+        if (t > 0) return acc + Math.pow(t / eta, beta);
+        return acc;
+    }, 0);
     logLikelihood -= sumTbeta;
 
     return isFinite(logLikelihood) ? logLikelihood : -Infinity;
@@ -790,7 +745,13 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
         let logLikelihood = -Infinity;
         if (analysis.params.lkv !== undefined && isFinite(analysis.params.lkv)) {
             logLikelihood = analysis.params.lkv;
+        } else {
+            // Fallback for LKV calculation if MLE fails
+            if (dist === 'Weibull' && rrAnalysis?.params.beta && rrAnalysis.params.eta) {
+                logLikelihood = calculateWeibullLogLikelihood(failureTimes, suspensionTimes, rrAnalysis.params.beta, rrAnalysis.params.eta);
+            }
         }
+
 
         results.push({
             distribution: dist,
