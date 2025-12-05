@@ -1,9 +1,3 @@
-
-
-
-
-
-
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData, DistributionAnalysisResult } from '@/lib/types';
@@ -596,26 +590,23 @@ export function calculateContourEllipse(
     let L_be = 0;
 
     failureTimes.forEach(ti => {
-        const t_over_eta = ti > 0 && eta_mle > 0 ? ti / eta_mle : 0;
-        if (t_over_eta > 0) {
-            const t_pow_beta = Math.pow(t_over_eta, beta_mle);
-            const log_t_over_eta = Math.log(t_over_eta);
+        if (ti <= 0 || eta_mle <= 0) return;
+        const t_over_eta = ti / eta_mle;
+        const t_pow_beta = Math.pow(t_over_eta, beta_mle);
+        const log_t_over_eta = Math.log(t_over_eta);
 
-            if (isFinite(t_pow_beta) && isFinite(log_t_over_eta)) {
-                L_bb += t_pow_beta * Math.pow(log_t_over_eta, 2);
-                L_ee += (beta_mle + 1) * t_pow_beta;
-                L_be += t_pow_beta * (1 + beta_mle * log_t_over_eta);
-            }
-        }
+        if (!isFinite(t_pow_beta) || !isFinite(log_t_over_eta)) return;
+
+        L_bb += t_pow_beta * Math.pow(log_t_over_eta, 2);
+        L_ee += (beta_mle + 1) * t_pow_beta;
+        L_be += t_pow_beta * (1 + beta_mle * log_t_over_eta);
     });
 
     L_ee *= (beta_mle * r) / (eta_mle * eta_mle);
     L_be *= -r / eta_mle;
 
-    if (!isFinite(L_bb) || !isFinite(L_ee) || !isFinite(L_be)) return undefined;
-
     const det = L_bb * L_ee - L_be * L_be;
-    if (!isFinite(det) || det === 0) return undefined;
+    if (!isFinite(det) || det <= 0) return undefined;
     
     const var_beta = L_ee / det;
     const var_eta = L_bb / det;
