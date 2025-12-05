@@ -1,6 +1,7 @@
 
 
 
+
 'use client';
 
 import { useForm, useWatch } from 'react-hook-form';
@@ -97,26 +98,25 @@ const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boole
 const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, onApply: (dist: Distribution) => void }) => {
     const [analysisResults, setAnalysisResults] = useState<DistributionAnalysisResult[]>([]);
     const [bestDist, setBestDist] = useState<Distribution | null>(null);
+    const [bestDistExplanation, setBestDistExplanation] = useState('');
     
     const handleAnalyze = () => {
         const { results, best } = findBestDistribution(supplier.failureTimes, supplier.suspensionTimes);
         setAnalysisResults(results);
         setBestDist(best);
+
+        const bestResult = results.find(r => r.distribution === best);
+        if (best === "Lognormal" && bestResult?.params.lkv) {
+          setBestDistExplanation(`A distribuição Lognormal apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico aos dados de falha e censura deste equipamento. Este modelo captura corretamente a variabilidade e a cauda longa observada nos tempos de falha.`);
+        } else if (best === "Weibull" && bestResult?.params.lkv) {
+            setBestDistExplanation(`A distribuição Weibull apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico para os dados deste equipamento. O parâmetro beta revela o comportamento da taxa de falha ao longo do tempo.`);
+        } else {
+            setBestDistExplanation('');
+        }
     };
 
-    let bestDistExplanation = '';
-    if (bestDist) {
-        const bestResult = analysisResults.find(r => r.distribution === bestDist);
-        if (bestDist === 'Lognormal' && bestResult) {
-            bestDistExplanation = `A distribuição Lognormal apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico aos dados de falha e censura deste equipamento. Este modelo captura corretamente a variabilidade e a cauda longa observada nos tempos de falha.`;
-        } else if (bestDist === 'Weibull' && bestResult) {
-            bestDistExplanation = `A distribuição Weibull apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico para os dados deste equipamento. O parâmetro beta revela o comportamento da taxa de falha ao longo do tempo.`;
-        }
-    }
-
-
     return (
-        <Dialog onOpenChange={(open) => { if(!open) { setAnalysisResults([]); setBestDist(null); }}}>
+        <Dialog onOpenChange={(open) => { if(!open) { setAnalysisResults([]); setBestDist(null); setBestDistExplanation('') }}}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                     <Wand2 className="mr-2 h-4 w-4" />
@@ -138,13 +138,13 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
                             <Card>
                                 <CardHeader className="pb-4">
                                      <CardTitle className="text-lg">🔍 Como escolhemos a melhor distribuição</CardTitle>
-                                     <CardDescription className="text-sm text-foreground/80 space-y-2">
-                                        A ferramenta avalia diferentes distribuições estatísticas para encontrar qual modelo melhor representa o comportamento de falha do equipamento. O critério principal é:
-                                        <div className="font-semibold text-foreground">LKV – Log-Likelihood Value</div>
-                                        Indica o quão bem o modelo se ajusta aos dados. Valores **maiores** (menos negativos) significam um **ajuste estatístico melhor**.
-                                        <p className="text-xs pt-1">O R² mostrado é apenas **visual**, medido no gráfico de probabilidade, mas **não determina qual distribuição é melhor**. Ele serve apenas para referência gráfica.</p>
-                                     </CardDescription>
                                 </CardHeader>
+                                <CardContent className="text-sm text-foreground/80 space-y-2">
+                                    <p>A ferramenta avalia diferentes distribuições estatísticas para encontrar qual modelo melhor representa o comportamento de falha do equipamento. O critério principal é:</p>
+                                    <p className="font-semibold text-foreground">LKV – Log-Likelihood Value</p>
+                                    <p>Indica o quão bem o modelo se ajusta aos dados. Valores <strong>maiores</strong> (menos negativos) significam um <strong>ajuste estatístico melhor</strong>.</p>
+                                    <p className="text-xs pt-1">O R² mostrado é apenas <strong>visual</strong>, medido no gráfico de probabilidade, mas <strong>não determina qual distribuição é melhor</strong>. Ele serve apenas para referência gráfica.</p>
+                                </CardContent>
                             </Card>
 
                             <Card>
@@ -179,7 +179,7 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
                                 </CardContent>
                             </Card>
 
-                            {bestDistExplanation && (
+                            {bestDist && (
                                  <Card>
                                     <CardHeader>
                                         <CardTitle className="text-lg">🏆 Melhor Distribuição: {bestDist}</CardTitle>

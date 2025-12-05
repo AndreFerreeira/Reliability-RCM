@@ -14,8 +14,8 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, calculateContourEllipse } from '@/lib/reliability';
-import type { Supplier, FisherBoundsData, PlotData, ContourData } from '@/lib/types';
+import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, calculateContourEllipse, generateWeibullFailureTime } from '@/lib/reliability';
+import type { Supplier, FisherBoundsData, PlotData, ContourData, DistributionAnalysisResult } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -53,11 +53,6 @@ interface SimulationResult {
   contourData?: ContourData;
   calculation?: CalculationResult;
 }
-
-const generateWeibullFailureTime = (beta: number, eta: number): number => {
-  const u = Math.random();
-  return eta * Math.pow(-Math.log(1 - u), 1 / beta);
-};
 
 const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: FisherBoundsData, showLower: boolean, showUpper: boolean, timeForCalc?: number }) => {
     if (!data) return null;
@@ -126,7 +121,9 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         let projectionData = [];
 
         // Vertical Line
-        projectionData.push([{ coord: [logTimeForCalc, Math.min(...allY)] }, { coord: [logTimeForCalc, Math.max(...allY)] }]);
+        if (isFinite(logTimeForCalc) && allY.length > 0) {
+            projectionData.push([{ coord: [logTimeForCalc, Math.min(...allY)] }, { coord: [logTimeForCalc, Math.max(...allY)] }]);
+        }
 
         // Horizontal Lines if values are valid
         if (isFinite(logXAxisMin) && isFinite(yLower)) {
@@ -757,6 +754,7 @@ export default function MonteCarloSimulator() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour'>('confidence');
+  const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   
   // State for confidence bound visibility
@@ -776,6 +774,10 @@ export default function MonteCarloSimulator() {
       timeForCalc: 700,
     },
   });
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const timeForCalc = form.watch('timeForCalc');
   
@@ -959,6 +961,15 @@ export default function MonteCarloSimulator() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeForCalc, result?.boundsData?.beta, result?.boundsData?.eta]);
 
+
+  if (!isClient) {
+    return (
+      <Card className="flex flex-col items-center justify-center min-h-[500px]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Carregando simulador...</p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

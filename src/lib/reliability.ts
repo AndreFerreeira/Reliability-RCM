@@ -1,6 +1,7 @@
 
 
 
+
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData, DistributionAnalysisResult } from '@/lib/types';
@@ -96,6 +97,11 @@ const weibullPdf = (t: number, beta: number, eta: number) => {
 const weibullSurvival = (t: number, beta: number, eta: number) => {
     if (t < 0 || beta <= 0 || eta <= 0) return 1;
     return Math.exp(-Math.pow(t / eta, beta));
+};
+
+export const generateWeibullFailureTime = (beta: number, eta: number): number => {
+  const u = Math.random();
+  return eta * Math.pow(-Math.log(1 - u), 1 / beta);
 };
 
 
@@ -292,6 +298,10 @@ export function estimateParametersByRankRegression(
 //--- Nelder-Mead Optimizer ---
 type NMPoint = { x: number[]; fx: number };
 
+function isFiniteNumber(x: any): x is number {
+    return typeof x === "number" && isFinite(x);
+}
+
 function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxIter?: number; tol?: number; scale?: number } = {}) {
     const maxIter = options.maxIter || 1000;
     const tol = options.tol || 1e-9;
@@ -365,7 +375,7 @@ type CensoredData = { time: number; event: 1 | 0 };
 function negLogLikLognormal(x: number[], data: CensoredData[]): number {
     const mu = x[0];
     const sigma = Math.exp(x[1]); // Ensure sigma > 0
-    if (!isFinite(mu) || !isFinite(sigma) || sigma <= 0) return 1e300;
+    if (!isFiniteNumber(mu) || !isFiniteNumber(sigma) || sigma <= 0) return 1e300;
 
     let nll = 0;
     for (const d of data) {
@@ -384,7 +394,7 @@ function negLogLikLognormal(x: number[], data: CensoredData[]): number {
 function negLogLikWeibull(x: number[], data: CensoredData[]): number {
     const beta = Math.exp(x[0]); // k (shape)
     const eta = Math.exp(x[1]); // lambda (scale)
-    if (!isFinite(beta) || !isFinite(eta) || beta <= 0 || eta <= 0) return 1e300;
+    if (!isFiniteNumber(beta) || !isFiniteNumber(eta) || beta <= 0 || eta <= 0) return 1e300;
 
     let nll = 0;
     for (const d of data) {
@@ -415,11 +425,10 @@ function fitLognormalMLE(data: CensoredData[]): Parameters {
 }
 
 function fitWeibullMLE(data: CensoredData[]): Parameters {
-    // Initial guess from rank regression
-    const rrFit = estimateParametersByRankRegression('Weibull', data.filter(d => d.event === 1).map(d=>d.time), data.filter(d => d.event === 0).map(d=>d.time), 'SRM');
-    const beta0 = rrFit?.params.beta || 1.0;
-    const eta0 = rrFit?.params.eta || 1.0;
-    const x0 = [Math.log(beta0 > 0 ? beta0 : 1.0), Math.log(eta0 > 0 ? eta0 : 1.0)];
+    const failures = data.filter(d => d.event === 1).map(d => d.time);
+    if (failures.length === 0) return { lkv: -Infinity };
+    const median = failures.sort((a,b) => a-b)[Math.floor(failures.length/2)] || 1;
+    const x0 = [Math.log(1.0), Math.log(median)];
 
     const res = nelderMead(x => negLogLikWeibull(x, data), x0, { maxIter: 2000, tol: 1e-9, scale: 0.5 });
     const beta = Math.exp(res.x[0]);
@@ -427,6 +436,14 @@ function fitWeibullMLE(data: CensoredData[]): Parameters {
     return { beta, eta, lkv: -res.fx };
 }
 
+function estimateNormalMLE(data: CensoredData[]): Parameters {
+    // Placeholder - requires more complex implementation for censored Normal
+    const failures = data.filter(d => d.event === 1).map(d => d.time);
+    if (failures.length === 0) return { lkv: -Infinity };
+    const mean = failures.reduce((a, b) => a + b, 0) / failures.length;
+    const stdDev = Math.sqrt(failures.reduce((a, b) => a + (b - mean) ** 2, 0) / failures.length);
+    return { mean, stdDev, lkv: -Infinity }; // LKV not accurate
+}
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
     const allTimes = [...failures, ...suspensions];
@@ -461,8 +478,7 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
         params = fitLognormalMLE(censoredData);
     } else if (dist === 'Normal' && method === 'MLE') {
         // MLE for Normal with censoring is more complex, using RR as proxy for now
-        const rrParams = estimateParametersByRankRegression('Normal', failureTimes, suspensionTimes, 'SRM')?.params;
-        params = { ...rrParams, lkv: -Infinity }; // LKV not implemented for censored Normal
+        params = estimateNormalMLE(censoredData);
     } else if (dist === 'Exponential' && method === 'MLE') {
         params = estimateExponentialMLE(failureTimes, suspensionTimes);
     } else {
@@ -781,8 +797,7 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
         } else if (dist === 'Lognormal') {
             params = fitLognormalMLE(censoredData);
         } else if (dist === 'Normal') {
-             const rrParams = estimateParametersByRankRegression('Normal', failureTimes, suspensionTimes, 'SRM')?.params;
-             params = { ...rrParams, lkv: -Infinity };
+             params = estimateNormalMLE(censoredData);
         } else if (dist === 'Exponential') {
             params = estimateExponentialMLE(failureTimes, suspensionTimes);
         }
@@ -803,7 +818,7 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
         return { results: [], best: null };
     }
 
-    analysisResults.sort((a, b) => b.logLikelihood - a.logLikelihood);
+    analysisResults.sort((a, b) => (b.logLikelihood ?? -Infinity) - (a.logLikelihood ?? -Infinity));
     
     const bestDistribution = analysisResults[0].distribution;
 
