@@ -162,24 +162,25 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
         ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
     ].sort((a, b) => a.time - b.time);
 
-    const uniqueTimes = [...new Set(allEvents.map(e => e.time))];
     const n = allEvents.length;
     let reliability = 1.0;
     let itemsAtRisk = n;
 
     const reliabilityAtTime: { [time: number]: number } = {};
 
-    for (const time of uniqueTimes) {
-        const eventsAtTime = allEvents.filter(d => d.time === time);
-        const failuresAtTime = eventsAtTime.filter(d => d.isFailure).length;
+    for (let i = 0; i < allEvents.length; i++) {
+        const event = allEvents[i];
+        const failuresAtThisTime = allEvents.filter(e => e.time === event.time && e.isFailure).length;
+        const totalAtThisTime = allEvents.filter(e => e.time === event.time).length;
 
-        if (failuresAtTime > 0) {
-            reliability *= (1 - failuresAtTime / itemsAtRisk);
+        if (failuresAtThisTime > 0) {
+             reliability *= (1 - failuresAtThisTime / itemsAtRisk);
         }
-        reliabilityAtTime[time] = reliability;
-        itemsAtRisk -= eventsAtTime.length;
+        reliabilityAtTime[event.time] = reliability;
+        itemsAtRisk -= totalAtThisTime;
+        i += totalAtThisTime - 1;
     }
-
+    
     const failurePoints = failureTimes.map(t => ({ time: t, prob: 1 - reliabilityAtTime[t] }));
     
     // Remove duplicates for regression plotting, keeping the one with highest probability
@@ -300,7 +301,7 @@ function isFiniteNumber(x: any): x is number {
 
 function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxIter?: number; tol?: number; scale?: number } = {}) {
     const maxIter = options.maxIter || 1000;
-    const tol = options.tol || 1e-9;
+    const tol = options.tol || 1e-8;
     const alpha = 1, gamma = 2, rho = 0.5, sigma = 0.5;
     const n = x0.length;
     const scale = options.scale || 0.1;
@@ -433,12 +434,19 @@ function fitWeibullMLE(data: CensoredData[]): Parameters {
 }
 
 function estimateNormalMLE(data: CensoredData[]): Parameters {
-    // Placeholder - requires more complex implementation for censored Normal
     const failures = data.filter(d => d.event === 1).map(d => d.time);
     if (failures.length === 0) return { lkv: -Infinity };
     const mean = failures.reduce((a, b) => a + b, 0) / failures.length;
     const stdDev = Math.sqrt(failures.reduce((a, b) => a + (b - mean) ** 2, 0) / failures.length);
-    return { mean, stdDev, lkv: -Infinity }; // LKV not accurate
+    let lkv = 0;
+    for (const d of data) {
+        if (d.event === 1) {
+            lkv += Math.log(normalPdf(d.time, mean, stdDev));
+        } else {
+            lkv += Math.log(1 - normalCdf(d.time, mean, stdDev));
+        }
+    }
+    return { mean, stdDev, lkv: isFinite(lkv) ? lkv : -Infinity };
 }
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
@@ -473,7 +481,6 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     } else if (dist === 'Lognormal' && method === 'MLE') {
         params = fitLognormalMLE(censoredData);
     } else if (dist === 'Normal' && method === 'MLE') {
-        // MLE for Normal with censoring is more complex, using RR as proxy for now
         params = estimateNormalMLE(censoredData);
     } else if (dist === 'Exponential' && method === 'MLE') {
         params = estimateExponentialMLE(failureTimes, suspensionTimes);
@@ -568,82 +575,153 @@ export function calculateFisherConfidenceBounds(
 }
 
 
-export function calculateContourEllipse(
+export function calculateLikelihoodRatioContour(
     failureTimes: number[],
+    suspensionTimes: number[],
     confidenceLevel: number
 ): ContourData | undefined {
-    if (failureTimes.length < 2) return undefined;
+    const data: CensoredData[] = [
+        ...failureTimes.map(t => ({ time: t, event: 1 as const })),
+        ...suspensionTimes.map(t => ({ time: t, event: 0 as const }))
+    ];
 
-    const mle_params = fitWeibullMLE(failureTimes.map(t => ({ time: t, event: 1 })));
-    if (!mle_params.beta || !mle_params.eta || !isFinite(mle_params.beta) || !isFinite(mle_params.eta)) {
+    if (data.filter(d => d.event === 1).length === 0) return undefined;
+
+    const mle_params = fitWeibullMLE(data);
+    if (!mle_params.beta || !mle_params.eta || !isFinite(mle_params.beta) || !isFinite(mle_params.eta) || !isFinite(mle_params.lkv)) {
         return undefined;
     }
 
     const beta_mle = mle_params.beta;
     const eta_mle = mle_params.eta;
-    const r = failureTimes.length;
-    const chi2 = invChi2(confidenceLevel / 100, 2);
+    const ll_max = mle_params.lkv;
+    
+    const chi2_val = invChi2(confidenceLevel / 100, 2);
+    const target_ll = ll_max - chi2_val / 2.0;
 
-    // Calculate Fisher Information Matrix elements
-    let f11 = r / (beta_mle * beta_mle); // F11 = F_bb
-    let f22 = 0; // F22 = F_ee
-    let f12 = 0; // F12 = F_be
+    const gridSize = 50;
+    const rangeFactor = 4;
+    
+    // Heuristic range finding
+    const beta_rr_params = estimateParametersByRankRegression('Weibull', failureTimes, suspensionTimes, 'SRM')?.params;
+    const initialBeta = beta_rr_params?.beta ?? beta_mle;
+    const beta_sd_approx = 0.8 / Math.sqrt(failureTimes.length) * initialBeta;
 
-    for (const ti of failureTimes) {
-        if (ti <= 0) continue;
-        const t_over_eta = ti / eta_mle;
-        const log_t_over_eta = Math.log(t_over_eta);
-        const t_pow_beta = Math.pow(t_over_eta, beta_mle);
-        
-        if (!isFinite(log_t_over_eta) || !isFinite(t_pow_beta)) continue;
+    const beta_min = Math.max(0.1, beta_mle - rangeFactor * beta_sd_approx);
+    const beta_max = beta_mle + rangeFactor * beta_sd_approx;
 
-        f11 += t_pow_beta * Math.pow(log_t_over_eta, 2);
-        f22 += (beta_mle + 1) * t_pow_beta;
-        f12 += t_pow_beta * (1 + beta_mle * log_t_over_eta);
+    const eta_min_log = Math.log(eta_mle) - rangeFactor * (1 / (beta_mle * Math.sqrt(failureTimes.length)));
+    const eta_max_log = Math.log(eta_mle) + rangeFactor * (1 / (beta_mle * Math.sqrt(failureTimes.length)));
+
+    const eta_min = Math.max(1, Math.exp(eta_min_log));
+    const eta_max = Math.exp(eta_max_log);
+
+    const beta_step = (beta_max - beta_min) / gridSize;
+    const eta_step = (eta_max - eta_min) / gridSize;
+    
+    const grid: number[][] = [];
+    for (let i = 0; i <= gridSize; i++) {
+        const row: number[] = [];
+        for (let j = 0; j <= gridSize; j++) {
+            const beta = beta_min + i * beta_step;
+            const eta = eta_min + j * eta_step;
+            const nll = negLogLikWeibull([Math.log(beta), Math.log(eta)], data);
+            row.push(-nll);
+        }
+        grid.push(row);
     }
     
-    f22 *= (beta_mle * r) / (eta_mle * eta_mle);
-    f12 *= -r / eta_mle;
-    
-    // Essential validation
-    if (!isFinite(f11) || !isFinite(f12) || !isFinite(f22)) {
-        return undefined;
+    // Marching squares algorithm to find the contour
+    const contourPaths = [];
+    const targetIsovalue = target_ll;
+
+    for (let i = 0; i < gridSize; i++) {
+        for (let j = 0; j < gridSize; j++) {
+            const cell_values = [
+                grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]
+            ];
+            let case_index = 0;
+            if (cell_values[0] > targetIsovalue) case_index |= 1;
+            if (cell_values[1] > targetIsovalue) case_index |= 2;
+            if (cell_values[2] > targetIsovalue) case_index |= 4;
+            if (cell_values[3] > targetIsovalue) case_index |= 8;
+            
+            if (case_index === 0 || case_index === 15) continue;
+
+            const cell_coords = [
+                [beta_min + i * beta_step, eta_min + j * eta_step],
+                [beta_min + (i + 1) * beta_step, eta_min + j * eta_step],
+                [beta_min + (i + 1) * beta_step, eta_min + (j + 1) * eta_step],
+                [beta_min + i * beta_step, eta_min + (j + 1) * eta_step],
+            ];
+            
+            const interp = (p1_idx: number, p2_idx: number) => {
+                 const v1 = cell_values[p1_idx];
+                 const v2 = cell_values[p2_idx];
+                 const c1 = cell_coords[p1_idx];
+                 const c2 = cell_coords[p2_idx];
+                 const t = (targetIsovalue - v1) / (v2 - v1);
+                 return [c1[0] * (1 - t) + c2[0] * t, c1[1] * (1-t) + c2[1] * t];
+            };
+
+            const add_segment = (p1: number, p2: number, q1:number, q2:number) => {
+                const seg1 = interp(p1,p2);
+                const seg2 = interp(q1,q2);
+                contourPaths.push([seg1, seg2]);
+            };
+
+            // This is a simplified version of marching squares
+            switch (case_index) {
+                case 1: add_segment(0,3,0,1); break;
+                case 2: add_segment(0,1,1,2); break;
+                case 3: add_segment(0,3,1,2); break;
+                case 4: add_segment(1,2,2,3); break;
+                case 5: add_segment(0,1,2,3); add_segment(0,3,1,2); break;
+                case 6: add_segment(0,1,2,3); break;
+                case 7: add_segment(0,3,2,3); break;
+                case 8: add_segment(0,3,2,3); break;
+                case 9: add_segment(0,1,2,3); break;
+                case 10: add_segment(0,3,1,2); add_segment(0,1,2,3); break;
+                case 11: add_segment(1,2,2,3); break;
+                case 12: add_segment(0,3,1,2); break;
+                case 13: add_segment(0,1,1,2); break;
+                case 14: add_segment(0,1,0,3); break;
+            }
+        }
     }
-
-    const det = f11 * f22 - f12 * f12;
     
-    // Essential validation
-    if (det <= 0 || !isFinite(det)) {
-        return undefined;
+    if (contourPaths.length === 0) return undefined;
+    
+    // Stitch paths - simple approach: find closest points
+    const stitched = contourPaths.shift() || [];
+    while (contourPaths.length > 0) {
+        const last_point = stitched[stitched.length - 1];
+        let best_match_idx = -1;
+        let min_dist = Infinity;
+        let reverse_order = false;
+
+        for (let i = 0; i < contourPaths.length; i++) {
+            const dist1 = Math.hypot(last_point[0] - contourPaths[i][0][0], last_point[1] - contourPaths[i][0][1]);
+            const dist2 = Math.hypot(last_point[0] - contourPaths[i][1][0], last_point[1] - contourPaths[i][1][1]);
+            if (dist1 < min_dist) { min_dist = dist1; best_match_idx = i; reverse_order = false; }
+            if (dist2 < min_dist) { min_dist = dist2; best_match_idx = i; reverse_order = true; }
+        }
+
+        if (best_match_idx !== -1) {
+            const match = contourPaths.splice(best_match_idx, 1)[0];
+            if (reverse_order) {
+                stitched.push(match[0]);
+            } else {
+                stitched.push(match[1]);
+            }
+        } else {
+            break; // No more paths can be stitched
+        }
     }
     
-    const var_beta = f22 / det;
-    const var_eta = f11 / det;
-    const cov_beta_eta = -f12 / det;
-
-    if (var_beta <= 0 || var_eta <= 0) return undefined;
-
-    const trace = var_beta + var_eta;
-    const discriminant = Math.sqrt(Math.pow(var_beta - var_eta, 2) + 4 * cov_beta_eta * cov_beta_eta);
-    const L1 = (trace + discriminant) / 2;
-    const L2 = (trace - discriminant) / 2;
-
-    if (L1 <= 0 || L2 <= 0) return undefined;
-
-    const semi_axis1 = Math.sqrt(chi2 * L1);
-    const semi_axis2 = Math.sqrt(chi2 * L2);
-    const angle = 0.5 * Math.atan2(2 * cov_beta_eta, var_beta - var_eta);
-
-    const ellipsePoints: number[][] = [];
-    const pointsCount = 100;
-    for (let i = 0; i <= pointsCount; i++) {
-        const t = (2 * Math.PI * i) / pointsCount;
-        const x_prime = semi_axis1 * Math.cos(t);
-        const y_prime = semi_axis2 * Math.sin(t);
-        const eta_val = eta_mle + x_prime * Math.cos(angle) - y_prime * Math.sin(angle);
-        const beta_val = beta_mle + x_prime * Math.sin(angle) + y_prime * Math.cos(angle);
-        ellipsePoints.push([eta_val, beta_val]);
-    }
+    const ellipsePoints = stitched.map(p => [p[1], p[0]]); // swap to [eta, beta]
+    
+    if (ellipsePoints.length === 0) return undefined;
     
     const x_coords = ellipsePoints.map(p => p[0]);
     const y_coords = ellipsePoints.map(p => p[1]);

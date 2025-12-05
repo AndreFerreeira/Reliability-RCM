@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, calculateContourEllipse, generateWeibullFailureTime } from '@/lib/reliability';
+import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData, ContourData, DistributionAnalysisResult } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -870,7 +868,7 @@ export default function MonteCarloSimulator() {
         return;
     }
 
-    const contourData = calculateContourEllipse(failureTimes, data.confidenceLevel);
+    const contourData = calculateLikelihoodRatioContour(failureTimes, [], data.confidenceLevel);
     if (!contourData) {
         throw new Error("Não foi possível calcular o contorno de confiança. Verifique se os dados são adequados para uma análise Weibull.");
     }
