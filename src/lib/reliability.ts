@@ -3,6 +3,7 @@
 
 
 
+
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData, DistributionAnalysisResult } from '@/lib/types';
@@ -578,58 +579,50 @@ export function calculateContourEllipse(
     confidenceLevel: number
 ): ContourData | undefined {
     if (failureTimes.length < 2) return undefined;
-    
-    const mle_params = fitWeibullMLE(failureTimes.map(t => ({time:t, event: 1})));
+
+    const mle_params = fitWeibullMLE(failureTimes.map(t => ({ time: t, event: 1 })));
     if (!mle_params.beta || !mle_params.eta || !isFinite(mle_params.beta) || !isFinite(mle_params.eta)) {
         return undefined;
     }
 
     const beta_mle = mle_params.beta;
     const eta_mle = mle_params.eta;
-    const n = failureTimes.length;
-    const r = failureTimes.length; // No suspensions in this simplified case
+    const r = failureTimes.length;
     const chi2 = invChi2(confidenceLevel / 100, 2);
 
-    const L_bb_Term1 = r / (beta_mle * beta_mle);
-    let sum_t_beta_log_t_sq = 0;
-    failureTimes.forEach(ti => {
-      if (ti > 0 && eta_mle > 0) {
-        sum_t_beta_log_t_sq += Math.pow(ti / eta_mle, beta_mle) * Math.pow(Math.log(ti / eta_mle), 2);
-      }
-    });
-    const L_bb = L_bb_Term1 + sum_t_beta_log_t_sq;
+    // Calculate Fisher Information Matrix elements
+    let L_bb = r / (beta_mle * beta_mle);
+    let L_ee = 0;
+    let L_be = 0;
 
-
-    const L_ee_Term1 = (beta_mle * r / (eta_mle * eta_mle));
-    let sum_t_beta = 0;
     failureTimes.forEach(ti => {
-        if(ti > 0 && eta_mle > 0){
-             sum_t_beta += (beta_mle + 1) * Math.pow(ti / eta_mle, beta_mle);
+        const t_over_eta = ti > 0 && eta_mle > 0 ? ti / eta_mle : 0;
+        if (t_over_eta > 0) {
+            const t_pow_beta = Math.pow(t_over_eta, beta_mle);
+            const log_t_over_eta = Math.log(t_over_eta);
+
+            if (isFinite(t_pow_beta) && isFinite(log_t_over_eta)) {
+                L_bb += t_pow_beta * Math.pow(log_t_over_eta, 2);
+                L_ee += (beta_mle + 1) * t_pow_beta;
+                L_be += t_pow_beta * (1 + beta_mle * log_t_over_eta);
+            }
         }
     });
-    const L_ee = L_ee_Term1 * sum_t_beta;
 
-    const L_be_Term1 = r / eta_mle;
-    let sum_t_beta_log_t = 0;
-    failureTimes.forEach(ti => {
-        if(ti > 0 && eta_mle > 0){
-            sum_t_beta_log_t += Math.pow(ti / eta_mle, beta_mle) * (1 + beta_mle * Math.log(ti / eta_mle));
-        }
-    });
-    const L_be = -(L_be_Term1 * sum_t_beta_log_t);
-    
-    if(!isFinite(L_bb) || !isFinite(L_ee) || !isFinite(L_be)) return undefined;
+    L_ee *= (beta_mle * r) / (eta_mle * eta_mle);
+    L_be *= -r / eta_mle;
+
+    if (!isFinite(L_bb) || !isFinite(L_ee) || !isFinite(L_be)) return undefined;
 
     const det = L_bb * L_ee - L_be * L_be;
-    if (Math.abs(det) < 1e-20) return undefined;
+    if (!isFinite(det) || det === 0) return undefined;
     
     const var_beta = L_ee / det;
     const var_eta = L_bb / det;
     const cov_beta_eta = -L_be / det;
 
-    if(var_beta <= 0 || var_eta <= 0) return undefined;
+    if (var_beta <= 0 || var_eta <= 0) return undefined;
 
-    // Use eigenvalues of the covariance matrix for ellipse properties
     const trace = var_beta + var_eta;
     const discriminant = Math.sqrt(Math.pow(var_beta - var_eta, 2) + 4 * cov_beta_eta * cov_beta_eta);
     const L1 = (trace + discriminant) / 2;
@@ -639,7 +632,6 @@ export function calculateContourEllipse(
 
     const semi_axis1 = Math.sqrt(chi2 * L1);
     const semi_axis2 = Math.sqrt(chi2 * L2);
-
     const angle = 0.5 * Math.atan2(2 * cov_beta_eta, var_beta - var_eta);
 
     const ellipsePoints: number[][] = [];
@@ -648,10 +640,8 @@ export function calculateContourEllipse(
         const t = (2 * Math.PI * i) / pointsCount;
         const x_prime = semi_axis1 * Math.cos(t);
         const y_prime = semi_axis2 * Math.sin(t);
-
         const eta_val = eta_mle + x_prime * Math.cos(angle) - y_prime * Math.sin(angle);
         const beta_val = beta_mle + x_prime * Math.sin(angle) + y_prime * Math.cos(angle);
-        
         ellipsePoints.push([eta_val, beta_val]);
     }
     
