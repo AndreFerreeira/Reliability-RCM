@@ -157,31 +157,31 @@ type AnalysisResult = {
 }
 
 function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[]): { time: number; prob: number; }[] {
-    const allData = [
-      ...failureTimes.map(t => ({ time: t, isFailure: true })),
-      ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+    const allEvents = [
+        ...failureTimes.map(t => ({ time: t, isFailure: true })),
+        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
     ].sort((a, b) => a.time - b.time);
-  
-    const uniqueTimes = [...new Set(allData.map(d => d.time))].sort((a, b) => a - b);
-    const n = allData.length;
-    let itemsAtRisk = n;
+
+    const uniqueTimes = [...new Set(allEvents.map(e => e.time))];
+    const n = allEvents.length;
     let reliability = 1.0;
-    
+    let itemsAtRisk = n;
+
     const reliabilityAtTime: { [time: number]: number } = {};
-  
+
     for (const time of uniqueTimes) {
-      const eventsAtTime = allData.filter(d => d.time === time);
-      const failuresAtTime = eventsAtTime.filter(d => d.isFailure).length;
-      
-      if (failuresAtTime > 0) {
-        reliability *= (1 - failuresAtTime / itemsAtRisk);
-      }
-      reliabilityAtTime[time] = reliability;
-      itemsAtRisk -= eventsAtTime.length;
+        const eventsAtTime = allEvents.filter(d => d.time === time);
+        const failuresAtTime = eventsAtTime.filter(d => d.isFailure).length;
+
+        if (failuresAtTime > 0) {
+            reliability *= (1 - failuresAtTime / itemsAtRisk);
+        }
+        reliabilityAtTime[time] = reliability;
+        itemsAtRisk -= eventsAtTime.length;
     }
-  
+
     const failurePoints = failureTimes.map(t => ({ time: t, prob: 1 - reliabilityAtTime[t] }));
-  
+    
     // Remove duplicates for regression plotting, keeping the one with highest probability
     const uniqueFailurePoints = Array.from(
         failurePoints.reduce((map, point) => {
@@ -192,7 +192,7 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
         }, new Map()).values()
     );
 
-    return uniqueFailurePoints.sort((a,b) => a.time - b.time);
+    return uniqueFailurePoints.sort((a, b) => a.time - b.time);
 }
 
 
@@ -585,32 +585,41 @@ export function calculateContourEllipse(
     const chi2 = invChi2(confidenceLevel / 100, 2);
 
     // Calculate Fisher Information Matrix elements
-    let L_bb = r / (beta_mle * beta_mle);
-    let L_ee = 0;
-    let L_be = 0;
+    let f11 = r / (beta_mle * beta_mle); // F11 = F_bb
+    let f22 = 0; // F22 = F_ee
+    let f12 = 0; // F12 = F_be
 
-    failureTimes.forEach(ti => {
-        if (ti <= 0 || eta_mle <= 0) return;
+    for (const ti of failureTimes) {
+        if (ti <= 0) continue;
         const t_over_eta = ti / eta_mle;
-        const t_pow_beta = Math.pow(t_over_eta, beta_mle);
         const log_t_over_eta = Math.log(t_over_eta);
+        const t_pow_beta = Math.pow(t_over_eta, beta_mle);
+        
+        if (!isFinite(log_t_over_eta) || !isFinite(t_pow_beta)) continue;
 
-        if (!isFinite(t_pow_beta) || !isFinite(log_t_over_eta)) return;
-
-        L_bb += t_pow_beta * Math.pow(log_t_over_eta, 2);
-        L_ee += (beta_mle + 1) * t_pow_beta;
-        L_be += t_pow_beta * (1 + beta_mle * log_t_over_eta);
-    });
-
-    L_ee *= (beta_mle * r) / (eta_mle * eta_mle);
-    L_be *= -r / eta_mle;
-
-    const det = L_bb * L_ee - L_be * L_be;
-    if (!isFinite(det) || det <= 0) return undefined;
+        f11 += t_pow_beta * Math.pow(log_t_over_eta, 2);
+        f22 += (beta_mle + 1) * t_pow_beta;
+        f12 += t_pow_beta * (1 + beta_mle * log_t_over_eta);
+    }
     
-    const var_beta = L_ee / det;
-    const var_eta = L_bb / det;
-    const cov_beta_eta = -L_be / det;
+    f22 *= (beta_mle * r) / (eta_mle * eta_mle);
+    f12 *= -r / eta_mle;
+    
+    // Essential validation
+    if (!isFinite(f11) || !isFinite(f12) || !isFinite(f22)) {
+        return undefined;
+    }
+
+    const det = f11 * f22 - f12 * f12;
+    
+    // Essential validation
+    if (det <= 0 || !isFinite(det)) {
+        return undefined;
+    }
+    
+    const var_beta = f22 / det;
+    const var_eta = f11 / det;
+    const cov_beta_eta = -f12 / det;
 
     if (var_beta <= 0 || var_eta <= 0) return undefined;
 
