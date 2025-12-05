@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData, DistributionAnalysisResult } from '@/lib/types';
@@ -154,46 +155,42 @@ type AnalysisResult = {
 }
 
 function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[]): { time: number; prob: number; }[] {
-    const failures = [...failureTimes].sort((a,b) => a-b);
-    const n = failures.length + suspensionTimes.length;
-    
-    if (suspensionTimes.length === 0) {
-        // Benard's approximation for median ranks
-        return failures.map((time, index) => {
-            const rank = (index + 1 - 0.3) / (n + 0.4); 
-            return { time, prob: rank };
-        });
-    }
-    
-    // For censored data, use Kaplan-Meier to find plotting positions.
     const allData = [
-        ...failures.map(t => ({ time: t, isFailure: true })),
-        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+      ...failureTimes.map(t => ({ time: t, isFailure: true })),
+      ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
     ].sort((a, b) => a.time - b.time);
-
-    const failurePoints = new Map<number, {reliability: number}>();
-    let reliability = 1.0;
-    let itemsAtRisk = n;
-
+  
     const uniqueTimes = [...new Set(allData.map(d => d.time))].sort((a, b) => a - b);
+    const n = allData.length;
+    let itemsAtRisk = n;
+    let reliability = 1.0;
     
+    const reliabilityAtTime: { [time: number]: number } = {};
+  
     for (const time of uniqueTimes) {
-        const eventsAtTime = allData.filter(d => d.time === time);
-        const failuresAtTime = eventsAtTime.filter(d => d.isFailure).length;
-        
-        if (failuresAtTime > 0) {
-            reliability *= (1 - failuresAtTime / itemsAtRisk);
-            failurePoints.set(time, { reliability });
-        }
-        itemsAtRisk -= eventsAtTime.length;
+      const eventsAtTime = allData.filter(d => d.time === time);
+      const failuresAtTime = eventsAtTime.filter(d => d.isFailure).length;
+      
+      if (failuresAtTime > 0) {
+        reliability *= (1 - failuresAtTime / itemsAtRisk);
+      }
+      reliabilityAtTime[time] = reliability;
+      itemsAtRisk -= eventsAtTime.length;
     }
+  
+    const failurePoints = failureTimes.map(t => ({ time: t, prob: 1 - reliabilityAtTime[t] }));
+  
+    // Remove duplicates for regression plotting, keeping the one with highest probability
+    const uniqueFailurePoints = Array.from(
+        failurePoints.reduce((map, point) => {
+            if (!map.has(point.time) || point.prob > (map.get(point.time) as {prob: number}).prob) {
+                map.set(point.time, point);
+            }
+            return map;
+        }, new Map()).values()
+    );
 
-    const finalPoints: { time: number; prob: number; }[] = [];
-    for (const [time, data] of failurePoints.entries()) {
-        finalPoints.push({ time, prob: 1 - data.reliability });
-    }
-
-    return finalPoints.sort((a, b) => a.time - b.time);
+    return uniqueFailurePoints.sort((a,b) => a.time - b.time);
 }
 
 
@@ -322,15 +319,15 @@ function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxI
         if (Math.sqrt(fvar) < tol) break;
 
         const centroid = new Array(n).fill(0);
-        for (let i = 0; i < n; i++) {
+        for (let i = 0; i < simplex.length - 1; i++) {
             for (let j = 0; j < n; j++) centroid[j] += simplex[i].x[j];
         }
-        centroid.forEach((_, j) => centroid[j] /= n);
+        centroid.forEach((_, j) => centroid[j] /= (simplex.length - 1));
 
         const xr = centroid.map((c, j) => c + alpha * (c - worst.x[j]));
         const fxr = func(xr);
         if (fxr < secondWorst.fx && fxr >= best.fx) {
-            simplex[n] = { x: xr, fx: fxr };
+            simplex[simplex.length - 1] = { x: xr, fx: fxr };
             iter++;
             continue;
         }
@@ -338,7 +335,7 @@ function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxI
         if (fxr < best.fx) {
             const xe = centroid.map((c, j) => c + gamma * (xr[j] - c));
             const fxe = func(xe);
-            simplex[n] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
+            simplex[simplex.length - 1] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
             iter++;
             continue;
         }
@@ -346,12 +343,12 @@ function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxI
         const xc = centroid.map((c, j) => c + rho * (worst.x[j] - c));
         const fxc = func(xc);
         if (fxc < worst.fx) {
-            simplex[n] = { x: xc, fx: fxc };
+            simplex[simplex.length - 1] = { x: xc, fx: fxc };
             iter++;
             continue;
         }
 
-        for (let i = 1; i <= n; i++) {
+        for (let i = 1; i < simplex.length; i++) {
             simplex[i].x = simplex[0].x.map((b, j) => b + sigma * (simplex[i].x[j] - b));
             simplex[i].fx = func(simplex[i].x);
         }
@@ -418,6 +415,7 @@ function fitLognormalMLE(data: CensoredData[]): Parameters {
 }
 
 function fitWeibullMLE(data: CensoredData[]): Parameters {
+    // Initial guess from rank regression
     const rrFit = estimateParametersByRankRegression('Weibull', data.filter(d => d.event === 1).map(d=>d.time), data.filter(d => d.event === 0).map(d=>d.time), 'SRM');
     const beta0 = rrFit?.params.beta || 1.0;
     const eta0 = rrFit?.params.eta || 1.0;
@@ -429,27 +427,6 @@ function fitWeibullMLE(data: CensoredData[]): Parameters {
     return { beta, eta, lkv: -res.fx };
 }
 
-function estimateNormalMLE(failures: number[], suspensions: number[] = []): Parameters {
-    if (failures.length < 1) return { mean: undefined, stdDev: undefined, lkv: -Infinity };
-
-    // Initial guess using only failures
-    const r = failures.length;
-    let mean = failures.reduce((a, b) => a + b, 0) / r;
-    let stdDev = Math.sqrt(failures.reduce((sq, cur) => sq + Math.pow(cur - mean, 2), 0) / (r-1 || 1));
-    
-    // Simplified: For this app, we will use the initial guess and calculate LKV, as iterating is complex.
-    let lkv = 0;
-    failures.forEach(t => {
-        const pdfVal = normalPdf(t, mean, stdDev);
-        lkv += (pdfVal > 0 ? Math.log(pdfVal) : -Infinity);
-    });
-    suspensions.forEach(t => {
-        const cdfVal = normalCdf(t, mean, stdDev);
-        lkv += (cdfVal < 1 ? Math.log(1 - cdfVal) : -Infinity);
-    });
-
-    return { mean, stdDev, lkv };
-}
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
     const allTimes = [...failures, ...suspensions];
@@ -483,7 +460,9 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     } else if (dist === 'Lognormal' && method === 'MLE') {
         params = fitLognormalMLE(censoredData);
     } else if (dist === 'Normal' && method === 'MLE') {
-        params = estimateNormalMLE(failureTimes, suspensionTimes);
+        // MLE for Normal with censoring is more complex, using RR as proxy for now
+        const rrParams = estimateParametersByRankRegression('Normal', failureTimes, suspensionTimes, 'SRM')?.params;
+        params = { ...rrParams, lkv: -Infinity }; // LKV not implemented for censored Normal
     } else if (dist === 'Exponential' && method === 'MLE') {
         params = estimateExponentialMLE(failureTimes, suspensionTimes);
     } else {
@@ -786,9 +765,9 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
 
 // --- Goodness of Fit ---
 
-export function findBestDistribution(failureTimes: number[], suspensionTimes: number[]): DistributionAnalysisResult[] {
+export function findBestDistribution(failureTimes: number[], suspensionTimes: number[]): { results: DistributionAnalysisResult[]; best: Distribution | null; } {
     const distributionsToTest: Distribution[] = ['Weibull', 'Lognormal', 'Normal', 'Exponential'];
-    const results: DistributionAnalysisResult[] = [];
+    let analysisResults: DistributionAnalysisResult[] = [];
     
     const censoredData: CensoredData[] = [
         ...failureTimes.map(t => ({ time: t, event: 1 as const })),
@@ -802,20 +781,31 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
         } else if (dist === 'Lognormal') {
             params = fitLognormalMLE(censoredData);
         } else if (dist === 'Normal') {
-            params = estimateNormalMLE(failureTimes, suspensionTimes);
+             const rrParams = estimateParametersByRankRegression('Normal', failureTimes, suspensionTimes, 'SRM')?.params;
+             params = { ...rrParams, lkv: -Infinity };
         } else if (dist === 'Exponential') {
             params = estimateExponentialMLE(failureTimes, suspensionTimes);
         }
 
         const rrAnalysis = estimateParametersByRankRegression(dist, failureTimes, suspensionTimes, 'SRM');
 
-        results.push({
-            distribution: dist,
-            params: params,
-            rSquared: rrAnalysis?.params.rho ?? 0,
-            logLikelihood: params.lkv ?? -Infinity,
-        });
+        if (params.lkv && isFinite(params.lkv)) {
+           analysisResults.push({
+                distribution: dist,
+                params: params,
+                rSquared: rrAnalysis?.params.rho ?? 0,
+                logLikelihood: params.lkv,
+            });
+        }
+    }
+    
+    if (analysisResults.length === 0) {
+        return { results: [], best: null };
     }
 
-    return results;
+    analysisResults.sort((a, b) => b.logLikelihood - a.logLikelihood);
+    
+    const bestDistribution = analysisResults[0].distribution;
+
+    return { results: analysisResults, best: bestDistribution };
 }

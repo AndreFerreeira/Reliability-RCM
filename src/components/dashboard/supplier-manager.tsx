@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import { useForm, useWatch } from 'react-hook-form';
@@ -35,6 +36,8 @@ import React, { useState } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do equipamento é obrigatório.' }),
@@ -93,14 +96,27 @@ const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boole
 
 const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, onApply: (dist: Distribution) => void }) => {
     const [analysisResults, setAnalysisResults] = useState<DistributionAnalysisResult[]>([]);
+    const [bestDist, setBestDist] = useState<Distribution | null>(null);
     
     const handleAnalyze = () => {
-        const results = findBestDistribution(supplier.failureTimes, supplier.suspensionTimes);
+        const { results, best } = findBestDistribution(supplier.failureTimes, supplier.suspensionTimes);
         setAnalysisResults(results);
+        setBestDist(best);
     };
 
+    let bestDistExplanation = '';
+    if (bestDist) {
+        const bestResult = analysisResults.find(r => r.distribution === bestDist);
+        if (bestDist === 'Lognormal' && bestResult) {
+            bestDistExplanation = `A distribuição Lognormal apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico aos dados de falha e censura deste equipamento. Este modelo captura corretamente a variabilidade e a cauda longa observada nos tempos de falha.`;
+        } else if (bestDist === 'Weibull' && bestResult) {
+            bestDistExplanation = `A distribuição Weibull apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico para os dados deste equipamento. O parâmetro beta revela o comportamento da taxa de falha ao longo do tempo.`;
+        }
+    }
+
+
     return (
-        <Dialog onOpenChange={(open) => !open && setAnalysisResults([])}>
+        <Dialog onOpenChange={(open) => { if(!open) { setAnalysisResults([]); setBestDist(null); }}}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                     <Wand2 className="mr-2 h-4 w-4" />
@@ -110,48 +126,70 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Mago da Distribuição - {supplier.name}</DialogTitle>
-                    <DialogDescription>
+                     <DialogDescription>
                         Analise qual distribuição de probabilidade melhor se ajusta aos dados do seu equipamento.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <Button onClick={handleAnalyze}>Analisar Dados</Button>
+                    
                     {analysisResults.length > 0 && (
-                        <Card>
-                            <CardContent className="pt-6">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Distribuição</TableHead>
-                                            <TableHead className="text-right">R² (Aderência)</TableHead>
-                                            <TableHead className="text-right">LKV (Verossimilhança)</TableHead>
-                                            <TableHead className="text-right">Ação</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {analysisResults.sort((a, b) => b.logLikelihood - a.logLikelihood).map(result => (
-                                            <TableRow key={result.distribution}>
-                                                <TableCell className="font-medium">{result.distribution}</TableCell>
-                                                <TableCell className="text-right font-mono">{result.rSquared.toFixed(4)}</TableCell>
-                                                <TableCell className="text-right font-mono">{result.logLikelihood.toFixed(2)}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="sm" onClick={() => onApply(result.distribution)}>
-                                                        Aplicar
-                                                    </Button>
-                                                </TableCell>
+                        <>
+                            <Card>
+                                <CardHeader className="pb-4">
+                                     <CardTitle className="text-lg">🔍 Como escolhemos a melhor distribuição</CardTitle>
+                                     <CardDescription className="text-sm text-foreground/80 space-y-2">
+                                        A ferramenta avalia diferentes distribuições estatísticas para encontrar qual modelo melhor representa o comportamento de falha do equipamento. O critério principal é:
+                                        <div className="font-semibold text-foreground">LKV – Log-Likelihood Value</div>
+                                        Indica o quão bem o modelo se ajusta aos dados. Valores **maiores** (menos negativos) significam um **ajuste estatístico melhor**.
+                                        <p className="text-xs pt-1">O R² mostrado é apenas **visual**, medido no gráfico de probabilidade, mas **não determina qual distribuição é melhor**. Ele serve apenas para referência gráfica.</p>
+                                     </CardDescription>
+                                </CardHeader>
+                            </Card>
+
+                            <Card>
+                                <CardContent className="pt-6">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Distribuição</TableHead>
+                                                <TableHead className="text-right">LKV (Ajuste)</TableHead>
+                                                <TableHead className="text-right">R² (Visual)</TableHead>
+                                                <TableHead className="text-right">Ação</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                             <CardHeader className="pt-0">
-                                <CardDescription>
-                                    <span className="font-semibold">R² (Coeficiente de Correlação):</span> Mede a aderência dos dados à linha de ajuste no gráfico de probabilidade. Valores mais próximos de 1 indicam um melhor ajuste visual.
-                                    <br />
-                                    <span className="font-semibold">LKV (Log-Likelihood Value):</span> Mede quão provável é o modelo estatístico, dados os dados. Valores maiores (menos negativos) indicam um modelo mais provável e, portanto, um melhor ajuste.
-                                </CardDescription>
-                            </CardHeader>
-                        </Card>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {analysisResults.map(result => (
+                                                <TableRow key={result.distribution} className={cn(result.distribution === bestDist && 'bg-primary/10')}>
+                                                    <TableCell className="font-medium">
+                                                        {result.distribution}
+                                                        {result.distribution === bestDist && <Badge variant="secondary" className="ml-2">Melhor</Badge>}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">{result.logLikelihood.toFixed(2)}</TableCell>
+                                                    <TableCell className="text-right font-mono">{result.rSquared.toFixed(4)}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="sm" onClick={() => onApply(result.distribution)}>
+                                                            {result.distribution === bestDist ? 'Aplicar (Melhor)' : 'Aplicar'}
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+
+                            {bestDistExplanation && (
+                                 <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">🏆 Melhor Distribuição: {bestDist}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-sm text-muted-foreground">{bestDistExplanation}</p>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </>
                     )}
                 </div>
             </DialogContent>
