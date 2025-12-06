@@ -46,7 +46,7 @@ interface SimulationResult {
 }
 
 const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeForCalc?: number }) => {
-    if (!data) return null;
+    if (!data || !data.medianCurve) return null;
 
     const {
         medianCurve: rawMedian,
@@ -103,25 +103,25 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     const bandBaseSeries = {
-        name: 'BandBase',
+        name: 'Lower Confidence Band',
         type: 'line',
-        data: lowerData.map(p => [p[0], 0]), // A base da área é o eixo Y em 0
+        data: lowerData,
+        smooth: 0.35,
         showSymbol: false,
         lineStyle: { width: 0 },
-        areaStyle: { color: 'transparent' },
-        stack: 'confidence-band',
+        stack: 'confidence',
         z: 1,
     };
     
     const bandFillSeries = {
-        name: 'Faixa de Confiança',
+        name: 'Upper Confidence Band',
         type: 'line',
-        data: upperData.map((p, i) => [p[0], p[1] - lowerData[i][1]]), // A altura da área é a diferença
-        showSymbol: false,
+        data: upperData.map((p, i) => [p[0], p[1] - lowerData[i][1]]),
         smooth: 0.35,
+        showSymbol: false,
         lineStyle: { width: 0 },
-        areaStyle: { color: 'rgba(255,215,102,0.08)' },
-        stack: 'confidence-band',
+        areaStyle: { color: 'rgba(255,215,102,0.1)' },
+        stack: 'confidence',
         z: 1,
     };
 
@@ -172,7 +172,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
-    // PASSO 3: Eixos Logarítmicos
     const option = {
         backgroundColor: "transparent",
         grid: { left: 65, right: 40, top: 70, bottom: 60 },
@@ -949,8 +948,3 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
-
-
-    
-
-    
