@@ -71,17 +71,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const upperData = upperCurve.map(p => [p.x, p.y]);
     const scatterData = points.map(p => [p.time, p.prob]);
 
-    // --- Series ---
-    const medianSeries = {
-        name: `Ajuste Mediano`,
-        type: 'line',
-        data: medianData,
-        showSymbol: false,
-        smooth: 0.35,
-        lineStyle: { width: 3, color: '#a88cff' },
-        z: 10,
-    };
-
     const lowerSeries = {
         name: `Limite Inferior ${data.confidenceLevel}%`,
         type: 'line',
@@ -116,7 +105,10 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const bandFillSeries = {
         name: 'Upper Confidence Band',
         type: 'line',
-        data: upperData.map((p, i) => [p[0], p[1] - lowerData[i][1]]),
+        data: upperData.map((p, i) => {
+            const lowerY = lowerData[i] ? lowerData[i][1] : 0;
+            return [p[0], p[1] - lowerY];
+        }),
         smooth: 0.35,
         showSymbol: false,
         lineStyle: { width: 0 },
@@ -125,6 +117,15 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         z: 1,
     };
 
+     const medianSeries = {
+        name: `Ajuste Mediano`,
+        type: 'line',
+        data: medianData,
+        showSymbol: false,
+        smooth: 0.35,
+        lineStyle: { width: 3, color: '#a88cff' },
+        z: 10,
+    };
 
     const scatterSeries = {
         name: 'Dados Originais',
@@ -240,7 +241,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
 const DispersionPlot = ({ original, simulations }: { original?: PlotData; simulations?: PlotData[] }) => {
     if (!original || !simulations) return null;
 
-    // Converte cada curva simulada para pares (tempo real, prob real)
     const convertCurve = (line: { x: number; y: number }[]) =>
         line.map(p => {
             const t = Math.exp(p.x);
@@ -248,15 +248,57 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             return [t, F];
         });
 
+    const aggregated: Record<string, number[]> = {};
+    simulations.forEach(sim => {
+        sim.line.forEach((p, idx) => {
+            if (!aggregated[idx]) aggregated[idx] = [];
+            const fValue = (1 - Math.exp(-Math.exp(p.y))) * 100;
+            if(isFinite(fValue)) {
+              aggregated[idx].push(fValue);
+            }
+        });
+    });
+
+    const getPercentile = (arr: number[], percentile: number) => {
+      if (!arr || arr.length === 0) return 0;
+      arr.sort((a,b) => a-b);
+      const index = (percentile / 100) * arr.length;
+      if (index === Math.floor(index)) {
+        return (arr[index - 1] + arr[index]) / 2;
+      }
+      return arr[Math.floor(index)];
+    }
+
+    const meanCurve = Object.keys(aggregated).map(k => {
+        const idx = parseInt(k, 10);
+        const arr = aggregated[idx];
+        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+        const x = Math.exp(simulations[0].line[idx].x);
+        return [x, mean];
+    });
+
+    const p05Curve = Object.keys(aggregated).map(k => {
+      const idx = parseInt(k, 10);
+      const arr = aggregated[idx];
+      const p = getPercentile(arr, 5);
+      const x = Math.exp(simulations[0].line[idx].x);
+      return [x,p];
+    });
+    
+    const p95Curve = Object.keys(aggregated).map(k => {
+      const idx = parseInt(k, 10);
+      const arr = aggregated[idx];
+      const p = getPercentile(arr, 95);
+      const x = Math.exp(simulations[0].line[idx].x);
+      return [x,p];
+    });
+
     const simulationSeries = simulations.map(sim => ({
         name: "Simulação",
         type: "line",
         data: convertCurve(sim.line),
         showSymbol: false,
-        lineStyle: {
-            width: 1,
-            color: "rgba(180,180,255,0.15)",
-        },
+        lineStyle: { width: 1, color: "rgba(180,180,255,0.15)" },
         z: 1,
     }));
 
@@ -265,17 +307,63 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         type: "line",
         data: convertCurve(original.line),
         showSymbol: false,
-        lineStyle: {
-            width: 3,
-            color: "hsl(var(--accent))",
-        },
+        lineStyle: { width: 3, color: "hsl(var(--accent))" },
         z: 20,
     };
+    
+    const meanSeries = {
+        name: 'Média das Simulações',
+        type: 'line',
+        data: meanCurve,
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { color: 'hsl(var(--chart-4))', width: 2.5 },
+        z: 30,
+    }
+
+    const bandLowerSeries = {
+        name: 'Percentil 5%',
+        type: 'line',
+        data: p05Curve,
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { width: 0 },
+        stack: 'percentile_band',
+    }
+
+    const bandUpperSeries = {
+        name: 'Percentil 95%',
+        type: 'line',
+        data: p95Curve.map((p, i) => [p[0], p[1] - p05Curve[i][1]]),
+        smooth: 0.35,
+        showSymbol: false,
+        areaStyle: { color: 'rgba(80, 220, 80, 0.15)' },
+        lineStyle: { width: 0 },
+        stack: 'percentile_band',
+    }
+    
+    const p05Line = {
+        name: "P5",
+        type: 'line',
+        data: p05Curve,
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { width: 1.5, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
+    }
+    const p95Line = {
+        name: "P95",
+        type: 'line',
+        data: p95Curve,
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { width: 1.5, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
+    }
+
+    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 95, 99, 99.9];
 
     const option = {
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
-
         title: {
             text: "Dispersão dos Parâmetros",
             subtext: "Simulações Monte Carlo sobre β e η",
@@ -283,28 +371,25 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             textStyle: { color: "hsl(var(--foreground))" },
             subtextStyle: { color: "hsl(var(--muted-foreground))" },
         },
-
         tooltip: {
             trigger: "axis",
             formatter: (params: any) => {
                 let t = params[0].value[0];
                 let html = `<b>Tempo: </b>${Math.round(t)} h<br/>`;
-
                 params.forEach((p:any) => {
-                    const F = p.value[1];
-                    html += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${F.toFixed(2)}%<br/>`;
+                    if (p.seriesName !== 'Percentil 5%' && p.value && typeof p.value[1] !== 'undefined') {
+                       const F = p.seriesName === 'Percentil 95%' ? p.value[1] + p05Curve.find(item => item[0] === p.value[0])![1] : p.value[1];
+                       html += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${F.toFixed(2)}%<br/>`;
+                    }
                 });
-
                 return html;
             },
         },
-
         legend: {
-            data: ["Curva Original", "Simulação"],
+            data: ["Curva Original", "Simulação", "Média das Simulações", "P5", "P95"],
             bottom: 0,
             textStyle: { color: "hsl(var(--muted-foreground))" },
         },
-
         xAxis: {
             type: "log",
             name: "Tempo (t)",
@@ -313,22 +398,17 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             axisLabel: { color: "hsl(var(--muted-foreground))" },
             splitLine: { show: false },
         },
-
         yAxis: {
             type: "value",
             name: "Probabilidade de Falha F(t)%",
             nameLocation: "middle",
             nameGap: 50,
-            min: 0.1,
-            max: 99.9,
-            axisLabel: { color: "hsl(var(--muted-foreground))" },
-            splitLine: {
-                show: true,
-                lineStyle: { type: "dashed", opacity: 0.3 },
-            },
+            min: 0,
+            max: 100,
+            axisLabel: { color: "hsl(var(--muted-foreground))", formatter: (v: number) => `${v.toFixed(0)}%` },
+            splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } },
         },
-
-        series: [...simulationSeries, originalSeries],
+        series: [...simulationSeries, bandLowerSeries, bandUpperSeries, originalSeries, meanSeries, p05Line, p95Line],
     };
 
     return (
