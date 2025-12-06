@@ -56,124 +56,129 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
     if (!data) return null;
 
     const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel, calculation } = data;
-
-    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     
-    const transformedY = (prob: number) => {
-      if (prob <= 0 || prob >= 1) return NaN;
-      return Math.log(Math.log(1 / (1 - prob)));
+    // Helper function to transform probability to the Weibull Y-axis scale
+    const probToY = (prob: number) => {
+        if (prob <= 0 || prob >= 1) return NaN;
+        return Math.log(Math.log(1 / (1 - prob)));
     };
-    const logTime = (time: number) => Math.log(time);
     
-    let series: any[] = [
-        {
-            name: 'Dados',
-            type: 'scatter',
-            data: points.map(p => [logTime(p.time), transformedY(p.prob)]),
-            symbolSize: 8,
-            itemStyle: { color: 'hsl(var(--primary))' }
-        },
-        {
-            name: `Ajuste Mediano`,
-            type: 'line',
-            data: line.map(p => [p.x, p.y]),
-            showSymbol: false,
-            smooth: true,
-            lineStyle: { width: 2, color: 'hsl(var(--accent))' },
-        },
-    ];
+    // Helper function to transform time to the Weibull X-axis scale
+    const timeToX = (time: number) => Math.log(time);
+    
+    // Series for the data points
+    const pointsSeries = {
+        name: 'Dados',
+        type: 'scatter',
+        data: points.map(p => [timeToX(p.time), p.y]),
+        symbolSize: 6,
+        itemStyle: { color: 'hsl(var(--muted-foreground))', opacity: 0.7 }
+    };
+    
+    // Series for the median fit line
+    const medianLineSeries = {
+        name: `Ajuste Mediano`,
+        type: 'line',
+        data: line.map(p => [p.x, p.y]),
+        showSymbol: false,
+        smooth: 0.35,
+        lineStyle: { width: 2, color: 'hsl(var(--chart-2))' },
+    };
 
-    if (showLower) {
-        series.push({
-            name: `Limite Inferior ${confidenceLevel}%`,
-            type: 'line',
-            data: lower.map(p => [logTime(p.time), p.y]),
-            showSymbol: false,
-            smooth: true,
-            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
-        });
-    }
-     if (showUpper) {
-        series.push({
-            name: `Limite Superior ${confidenceLevel}%`,
-            type: 'line',
-            data: upper.map(p => [logTime(p.time), p.y]),
-            showSymbol: false,
-            smooth: true,
-            lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--chart-2))' },
-        });
-    }
+    // Series for lower and upper confidence bounds
+    const lowerBoundSeries = {
+        name: `Limite Inferior ${confidenceLevel}%`,
+        type: 'line',
+        data: lower.map(p => [timeToX(p.time), p.y]),
+        showSymbol: false,
+        smooth: 0.35,
+        lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--primary))' },
+    };
 
+    const upperBoundSeries = {
+        name: `Limite Superior ${confidenceLevel}%`,
+        type: 'line',
+        data: upper.map(p => [timeToX(p.time), p.y]),
+        showSymbol: false,
+        smooth: 0.35,
+        lineStyle: { width: 1.5, type: 'dashed', color: 'hsl(var(--primary))' },
+        areaStyle: { // Fill area between upper and lower bounds
+            origin: 'auto',
+            color: 'hsla(var(--primary), 0.1)',
+        },
+        stack: 'confidence-band' // Stacking group for area filling
+    };
+
+    // Initialize series array
+    let series: any[] = [pointsSeries, medianLineSeries];
+
+    if (showLower) series.push(lowerBoundSeries);
+    if (showUpper) series.push(upperBoundSeries);
+
+    // --- Annotation for timeForCalc ---
     if (timeForCalc && calculation) {
         const { failureProb } = calculation;
-        const logTimeForCalc = logTime(timeForCalc);
+        const logTimeForCalc = timeToX(timeForCalc);
 
-        const yMedian = transformedY(failureProb.median);
-        const yLower = transformedY(failureProb.lower);
-        const yUpper = transformedY(failureProb.upper);
+        // Vertical line at the specified time
+        const verticalMarkLine = {
+            silent: true,
+            symbol: 'none',
+            lineStyle: { color: 'hsl(var(--chart-5))', type: 'dashed', width: 1.5 },
+            data: [{ xAxis: logTimeForCalc }]
+        };
 
-        const allY = series.flatMap(s => s.data?.map((d: any[]) => d[1]) || []).filter(y => isFinite(y));
-        const allX = series.flatMap(s => s.data?.map((d: any[]) => d[0]) || []).filter(x => isFinite(x));
-        const logXAxisMin = allX.length > 0 ? Math.min(...allX) : 0;
-        
-        let projectionData = [];
-
-        // Vertical Line
-        if (isFinite(logTimeForCalc) && allY.length > 0) {
-            projectionData.push([{ coord: [logTimeForCalc, Math.min(...allY)] }, { coord: [logTimeForCalc, Math.max(...allY)] }]);
-        }
-
-        // Horizontal Lines if values are valid
-        if (isFinite(logXAxisMin) && isFinite(yLower)) {
-          projectionData.push([{ coord: [logXAxisMin, yLower] }, { coord: [logTimeForCalc, yLower] }]);
-        }
-        if (isFinite(logXAxisMin) && isFinite(yMedian)) {
-          projectionData.push([{ coord: [logXAxisMin, yMedian] }, { coord: [logTimeForCalc, yMedian] }]);
-        }
-        if (isFinite(logXAxisMin) && isFinite(yUpper)) {
-          projectionData.push([{ coord: [logXAxisMin, yUpper] }, { coord: [logTimeForCalc, yUpper] }]);
-        }
-
-        series[1].markLine = {
-             symbol: 'none',
-             silent: true,
-             lineStyle: {
-                 type: 'dashed',
-                 color: 'hsl(var(--chart-5))',
-                 width: 1
-             },
-             data: projectionData,
-             label: {
+        // Horizontal lines for median, lower, and upper probability
+        const horizontalMarkLines = {
+            silent: true,
+            symbol: 'none',
+            lineStyle: { color: 'hsl(var(--chart-5))', type: 'dashed', width: 1 },
+            label: {
                 show: true,
                 position: 'start',
                 formatter: (params: any) => {
-                    if (!isFinite(params.value)) return '';
-                    if (params.dataIndex === 1) return `F inf: ${(failureProb.lower * 100).toFixed(1)}%`;
-                    if (params.dataIndex === 2) return `F med: ${(failureProb.median * 100).toFixed(1)}%`;
-                    if (params.dataIndex === 3) return `F sup: ${(failureProb.upper * 100).toFixed(1)}%`;
+                    if (params.name === 'median') return `F med: ${(failureProb.median * 100).toFixed(1)}%`;
+                    if (params.name === 'lower') return `F inf: ${(failureProb.lower * 100).toFixed(1)}%`;
+                    if (params.name === 'upper') return `F sup: ${(failureProb.upper * 100).toFixed(1)}%`;
                     return '';
                 },
                 color: 'hsl(var(--chart-5))',
                 fontSize: 10,
                 distance: 8
-            }
+            },
+            data: [
+                { name: 'median', yAxis: probToY(failureProb.median) },
+                { name: 'lower', yAxis: probToY(failureProb.lower) },
+                { name: 'upper', yAxis: probToY(failureProb.upper) },
+            ]
         };
+        
+        // Add annotations to the median line series
+        medianLineSeries.markLine = { ...verticalMarkLine, ...horizontalMarkLines };
+
+        // Add a highlighted point
+        medianLineSeries.markPoint = {
+            symbol: 'circle',
+            symbolSize: 8,
+            itemStyle: { color: 'hsl(var(--chart-5))' },
+            data: [{
+                name: 'Ponto Calculado',
+                coord: [logTimeForCalc, probToY(failureProb.median)]
+            }]
+        }
     }
-
-
+    
+    // --- ECharts Option Object ---
+    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
     const option = {
         backgroundColor: "transparent",
-        grid: { left: 80, right: 40, top: 70, bottom: 60 },
-        dataZoom: [
-            { type: 'inside', filterMode: 'none', xAxisIndex: [0] },
-            { type: 'inside', filterMode: 'none', yAxisIndex: [0] },
-        ],
+        grid: { left: 65, right: 40, top: 70, bottom: 60 },
         title: {
             text: 'Limites de Confiança (Matriz de Fisher)',
             subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | R²: ${rSquared.toFixed(3)} | N: ${points.length}`,
             left: 'center',
-            textStyle: { color: 'hsl(var(--foreground))' },
-            subtextStyle: { color: 'hsl(var(--muted-foreground))' },
+            textStyle: { color: 'hsl(var(--foreground))', fontSize: 16 },
+            subtextStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
         },
         tooltip: { 
             trigger: 'axis',
@@ -190,9 +195,10 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             },
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name !== 'Dados' && name !== 'Projeção'),
+            data: series.map(s => s.name).filter(name => name && name !== 'Dados'),
             bottom: 0,
-            textStyle: { color: 'hsl(var(--muted-foreground))' }
+            textStyle: { color: 'hsl(var(--muted-foreground))' },
+            itemGap: 20
         },
         xAxis: {
             type: 'log',
@@ -206,20 +212,18 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             type: 'value',
             name: 'Probabilidade de Falha, F(t)%',
             nameLocation: 'middle',
-            nameGap: 60,
+            nameGap: 50,
             axisLabel: {
                 formatter: (value: number) => {
                     try {
                         const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                        const roundedProb = Math.round(prob);
-                        // Show labels only for the ticks we want to display
-                        if (probabilityTicks.some(tick => Math.abs(tick - prob) < 0.1 || Math.abs(tick - roundedProb) < 0.1)) {
-                             if (prob < 1) return prob.toFixed(1);
-                             return roundedProb;
+                        // Find the closest tick to the current probability
+                        const closestTick = probabilityTicks.reduce((prev, curr) => (Math.abs(curr - prob) < Math.abs(prev - prob) ? curr : prev));
+                        // Show label only if it's very close to one of our desired ticks
+                        if (Math.abs(closestTick - prob) < 0.1) {
+                           return prob < 1 ? prob.toFixed(1) : Math.round(prob).toString();
                         }
-                    } catch (e) {
-                        return '';
-                    }
+                    } catch (e) {}
                     return '';
                 },
                 color: "hsl(var(--foreground))",
