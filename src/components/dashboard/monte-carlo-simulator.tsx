@@ -99,24 +99,28 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
-        areaStyle: {
-            color: 'rgba(255,215,102,0.08)',
-            origin: 'auto'
-        },
-        stack: 'confidence-band',
         z: 9,
     };
     
     const bandBaseSeries = {
         name: 'BandBase',
         type: 'line',
-        data: lowerData,
-        smooth: 0.35,
+        data: lowerData.map(p => [p[0], 0]), // A base da área é o eixo Y em 0
         showSymbol: false,
         lineStyle: { width: 0 },
-        areaStyle: {
-            color: 'rgba(255,215,102,0.08)'
-        },
+        areaStyle: { color: 'transparent' },
+        stack: 'confidence-band',
+        z: 1,
+    };
+    
+    const bandFillSeries = {
+        name: 'Faixa de Confiança',
+        type: 'line',
+        data: upperData.map((p, i) => [p[0], p[1] - lowerData[i][1]]), // A altura da área é a diferença
+        showSymbol: false,
+        smooth: 0.35,
+        lineStyle: { width: 0 },
+        areaStyle: { color: 'rgba(255,215,102,0.08)' },
         stack: 'confidence-band',
         z: 1,
     };
@@ -132,6 +136,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     
     let series: any[] = [
         bandBaseSeries,
+        bandFillSeries,
         upperSeries,
         lowerSeries,
         medianSeries,
@@ -236,106 +241,101 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
 const DispersionPlot = ({ original, simulations }: { original?: PlotData; simulations?: PlotData[] }) => {
     if (!original || !simulations) return null;
 
-    const simulationSeries = simulations.map(() => ({
-        type: 'line',
+    // Converte cada curva simulada para pares (tempo real, prob real)
+    const convertCurve = (line: { x: number; y: number }[]) =>
+        line.map(p => {
+            const t = Math.exp(p.x);
+            const F = (1 - Math.exp(-Math.exp(p.y))) * 100;
+            return [t, F];
+        });
+
+    const simulationSeries = simulations.map(sim => ({
+        name: "Simulação",
+        type: "line",
+        data: convertCurve(sim.line),
         showSymbol: false,
         lineStyle: {
             width: 1,
-            color: 'hsl(var(--chart-3))',
-            opacity: 0.1
+            color: "rgba(180,180,255,0.15)",
         },
         z: 1,
     }));
-    
-    simulationSeries.forEach((s, i) => {
-      s.data = simulations[i].line.map(p => [Math.exp(p.x), p.y]);
-    });
-    
+
     const originalSeries = {
-        name: 'Curva Original',
-        type: 'line',
-        data: original.line.map(p => [Math.exp(p.x), p.y]),
+        name: "Curva Original",
+        type: "line",
+        data: convertCurve(original.line),
         showSymbol: false,
         lineStyle: {
-            width: 2.5,
-            color: 'hsl(var(--accent))',
-            opacity: 1
+            width: 3,
+            color: "hsl(var(--accent))",
         },
-        z: 10,
+        z: 20,
     };
 
-    const probabilityTicks = [0.1, 1, 10, 50, 90, 99, 99.9];
-    
     const option = {
-        backgroundColor: 'transparent',
+        backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
-        dataZoom: [
-            { type: 'inside', filterMode: 'none', xAxisIndex: [0] },
-            { type: 'inside', filterMode: 'none', yAxisIndex: [0] },
-        ],
+
         title: {
-            text: 'Gráfico de Dispersão de Parâmetros',
-            subtext: 'Visualização da incerteza dos parâmetros Beta e Eta',
-            left: 'center',
-            textStyle: { color: 'hsl(var(--foreground))' },
-            subtextStyle: { color: 'hsl(var(--muted-foreground))' },
+            text: "Dispersão dos Parâmetros",
+            subtext: "Simulações Monte Carlo sobre β e η",
+            left: "center",
+            textStyle: { color: "hsl(var(--foreground))" },
+            subtextStyle: { color: "hsl(var(--muted-foreground))" },
         },
-        tooltip: { 
-            trigger: 'axis',
-             axisPointer: {
-                label: {
-                     formatter: ({ axisDimension, value }: { axisDimension: string, value: number }) => {
-                        if (axisDimension === 'y') {
-                            const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                            return `${prob.toFixed(2)}%`;
-                        }
-                        return `Tempo: ${Math.round(value)}`;
-                     }
-                }
+
+        tooltip: {
+            trigger: "axis",
+            formatter: (params: any) => {
+                let t = params[0].value[0];
+                let html = `<b>Tempo: </b>${Math.round(t)} h<br/>`;
+
+                params.forEach((p:any) => {
+                    const F = p.value[1];
+                    html += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${F.toFixed(2)}%<br/>`;
+                });
+
+                return html;
             },
         },
+
         legend: {
-            data: ['Curva Original', 'Simulações'],
+            data: ["Curva Original", "Simulação"],
             bottom: 0,
-            textStyle: { color: 'hsl(var(--muted-foreground))' }
+            textStyle: { color: "hsl(var(--muted-foreground))" },
         },
+
         xAxis: {
-            type: 'log',
-            name: 'Tempo',
-            nameLocation: 'middle',
+            type: "log",
+            name: "Tempo (t)",
+            nameLocation: "middle",
             nameGap: 30,
-            axisLabel: { color: 'hsl(var(--muted-foreground))' },
-            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
+            axisLabel: { color: "hsl(var(--muted-foreground))" },
+            splitLine: { show: false },
         },
+
         yAxis: {
-            type: 'value',
-            name: 'Probabilidade de Falha, F(t)%',
-            nameLocation: 'middle',
-            nameGap: 60,
-            axisLabel: {
-                formatter: (value: number) => {
-                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                    if (prob > 99.9) return "99.9";
-                    if (prob < 0.1) return "0.1";
-                     const closestTick = probabilityTicks.reduce((prev, curr) => 
-                        (Math.abs(curr - prob) < Math.abs(prev - prob) ? curr : prev)
-                    );
-                    if (Math.abs(closestTick - prob) < 0.5) {
-                        return closestTick.toString();
-                    }
-                    return '';
-                },
-                color: "hsl(var(--foreground))"
+            type: "value",
+            name: "Probabilidade de Falha F(t)%",
+            nameLocation: "middle",
+            nameGap: 50,
+            min: 0.1,
+            max: 99.9,
+            axisLabel: { color: "hsl(var(--muted-foreground))" },
+            splitLine: {
+                show: true,
+                lineStyle: { type: "dashed", opacity: 0.3 },
             },
-            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
         },
-        series: [originalSeries, ...simulationSeries]
+
+        series: [...simulationSeries, originalSeries],
     };
-    
+
     return (
         <Card>
             <CardContent className="pt-6">
-                <ReactECharts option={option} style={{ height: '450px', width: '100%' }} notMerge={true} />
+                <ReactECharts option={option} style={{ height: "450px", width: "100%" }} notMerge />
             </CardContent>
         </Card>
     );
