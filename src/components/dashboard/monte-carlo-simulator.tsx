@@ -105,15 +105,15 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const bandUpper = {
         name: 'Faixa de Confiança',
         type: 'line',
-        data: upperData.map(p => [p[0], p[1]]),
+        data: upperData,
         smooth: 0.35,
         showSymbol: false,
         lineStyle: { width: 0 },
+        stack: 'confidence-band',
         areaStyle: { 
             color: 'rgba(255,215,102,0.15)',
             origin: 'auto'
         },
-        stack: 'confidence-band',
         z: 1
     };
     
@@ -124,10 +124,10 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         smooth: 0.35,
         showSymbol: false,
         lineStyle: { width: 0 },
+        stack: 'confidence-band',
         areaStyle: { 
              color: 'rgba(255,215,102,0.15)' 
         },
-        stack: 'confidence-band',
         z: 1
     };
 
@@ -779,6 +779,8 @@ export default function MonteCarloSimulator() {
         tValue: data.timeForCalc
     });
     
+    console.log("DEBUG_BOUNDS", JSON.stringify(boundsData, null, 2));
+
     if (!boundsData || boundsData.error) {
         throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança pelo método da razão de verossimilhança.");
     }
