@@ -18,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
-import { Checkbox } from '../ui/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
@@ -102,32 +102,32 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         z: 9,
     };
 
-    const confidenceBand = {
-        name: "Faixa de Confiança",
-        type: "custom",
-        renderItem: (params: any, api: any) => {
-            const idx = api.value(0);
-            if (idx >= medianData.length) return;
-
-            const x = api.coord([medianData[idx][0], 0])[0];
-            const yLow = api.coord([0, lowerData[idx][1]])[1];
-            const yHigh = api.coord([0, upperData[idx][1]])[1];
-
-            return {
-                type: "rect",
-                shape: {
-                    x: x,
-                    y: yHigh,
-                    width: 2, // A largura pode ser ajustada para melhor visualização
-                    height: yLow - yHigh
-                },
-                style: {
-                    fill: "rgba(255,215,102,0.12)"
-                }
-            };
+    const bandUpper = {
+        name: 'Faixa de Confiança',
+        type: 'line',
+        data: upperData.map(p => [p[0], p[1]]),
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { width: 0 },
+        areaStyle: { 
+            color: 'rgba(255,215,102,0.15)',
+            origin: 'auto'
         },
-        data: medianData.map((d: any, idx: number) => [idx]),
-        silent: true,
+        stack: 'confidence-band',
+        z: 1
+    };
+    
+    const bandLower = {
+        name: 'Faixa de Confiança Base',
+        type: 'line',
+        data: lowerData.map((p,i) => [p[0], upperData[i][1] - p[1]]),
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { width: 0 },
+        areaStyle: { 
+             color: 'rgba(255,215,102,0.15)' 
+        },
+        stack: 'confidence-band',
         z: 1
     };
 
@@ -140,7 +140,8 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     let series: any[] = [
-        confidenceBand,
+        bandUpper,
+        bandLower,
         lowerSeries,
         upperSeries,
         medianSeries,
@@ -193,7 +194,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
               const axisValue = params[0].axisValue;
               let tooltip = `<strong>Tempo:</strong> ${Number(axisValue).toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Band') && p.seriesName !== 'Dados Originais' && p.seriesName !== 'Valor no t' ) {
+                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Band') && p.seriesName !== 'Dados Originais' && p.seriesName !== 'Valor no t' && !p.seriesName.includes('Base') ) {
                       const value = p.value[1];
                       if(typeof value === 'number') {
                          tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${value.toFixed(2)}%<br/>`;
@@ -204,7 +205,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t' && name !== 'Faixa de Confiança'),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t' && name !== 'Faixa de Confiança' && !name.includes('Base')),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -955,5 +956,7 @@ export default function MonteCarloSimulator() {
   );
 }
 
+
+    
 
     
