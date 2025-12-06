@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { z } from "zod";
@@ -46,6 +44,8 @@ export interface GumbelParams {
     rho: number;
 }
 
+export type CensoredData = { time: number; event: 1 | 0 };
+
 
 export type Parameters = Partial<WeibullParams & NormalParams & LognormalParams & ExponentialParams & LoglogisticParams & GumbelParams>;
 
@@ -62,23 +62,26 @@ export type PlotData = {
     angle?: number;
 };
 
-export type CalculationResult = {
-    reliability: { median: number; lower: number; upper: number };
-    failureProb: { median: number; lower: number; upper: number };
+export type LRBoundsResult = {
+  betaMLE: number;
+  etaMLE: number;
+  llMLE: number;
+  confidenceLevel: number;
+  points: { x: number, y: number, time: number, prob: number }[];
+  rSquared: number;
+  medianCurve: { x: number, y: number }[];
+  lowerCurve: { x: number, y: number }[];
+  upperCurve: { x: number, y: number }[];
+  calculation: {
+    medianAtT: number | null;
+    lowerAtT: number | null;
+    upperAtT: number | null;
+  } | null;
+  error?: string;
 }
 
-export type FisherBoundsData = {
-    points: { x: number, y: number, time: number, prob: number }[];
-    line: { x: number, y: number }[];
-    lower: { time: number, y: number }[];
-    upper: { time: number, y: number }[];
-    rSquared: number;
-    angle?: number;
-    beta: number;
-    eta: number;
-    confidenceLevel: number;
-    calculation?: CalculationResult;
-}
+
+export type FisherBoundsData = LRBoundsResult;
 
 export type ContourData = {
   center: { beta: number; eta: number };

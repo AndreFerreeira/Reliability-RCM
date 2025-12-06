@@ -1,6 +1,7 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, CalculationResult, ContourData, DistributionAnalysisResult } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, ContourData, DistributionAnalysisResult, CensoredData, LRBoundsResult } from '@/lib/types';
+
 
 // --- Statistical Helpers ---
 
@@ -95,6 +96,12 @@ const weibullSurvival = (t: number, beta: number, eta: number) => {
     return Math.exp(-Math.pow(t / eta, beta));
 };
 
+function weibullCDF(t: number, beta: number, eta: number) {
+  if (t < 0 || beta <= 0 || eta <= 0) return 0;
+  return 1 - Math.exp(-Math.pow(t / eta, beta));
+}
+
+
 export const generateWeibullFailureTime = (beta: number, eta: number): number => {
   const u = Math.random();
   return eta * Math.pow(-Math.log(1 - u), 1 / beta);
@@ -157,43 +164,49 @@ type AnalysisResult = {
 }
 
 function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[]): { time: number; prob: number; }[] {
-    const allEvents = [
-        ...failureTimes.map(t => ({ time: t, isFailure: true })),
-        ...suspensionTimes.map(t => ({ time: t, isFailure: false }))
+    const allEvents: CensoredData[] = [
+        ...failureTimes.map(t => ({ time: t, event: 1 as const })),
+        ...suspensionTimes.map(t => ({ time: t, event: 0 as const }))
     ].sort((a, b) => a.time - b.time);
 
-    const n = allEvents.length;
+    let n = allEvents.length;
+    if (n === 0) return [];
+    
+    const failurePoints: { time: number, prob: number }[] = [];
+    
+    // Kaplan-Meier estimation
     let reliability = 1.0;
     let itemsAtRisk = n;
-
-    const reliabilityAtTime: { [time: number]: number } = {};
-
-    for (let i = 0; i < allEvents.length; i++) {
-        const event = allEvents[i];
-        const failuresAtThisTime = allEvents.filter(e => e.time === event.time && e.isFailure).length;
-        const totalAtThisTime = allEvents.filter(e => e.time === event.time).length;
-
-        if (failuresAtThisTime > 0) {
-             reliability *= (1 - failuresAtThisTime / itemsAtRisk);
+    
+    for (let i = 0; i < n; ) {
+        const t = allEvents[i].time;
+        let failuresAtT = 0;
+        let totalAtT = 0;
+        
+        // Count failures and total events at time t
+        let j = i;
+        while(j < n && allEvents[j].time === t) {
+            totalAtT++;
+            if (allEvents[j].event === 1) {
+                failuresAtT++;
+            }
+            j++;
         }
-        reliabilityAtTime[event.time] = reliability;
-        itemsAtRisk -= totalAtThisTime;
-        i += totalAtThisTime - 1;
+        
+        if (failuresAtT > 0) {
+            reliability = reliability * (1 - failuresAtT / itemsAtRisk);
+            // Use the reliability *before* the current failure for the unreliability F(t)
+            const unreliability = 1 - reliability;
+            failurePoints.push({ time: t, prob: unreliability });
+        }
+        
+        itemsAtRisk -= totalAtT;
+        i += totalAtT;
     }
     
-    const failurePoints = failureTimes.map(t => ({ time: t, prob: 1 - reliabilityAtTime[t] }));
-    
-    // Remove duplicates for regression plotting, keeping the one with highest probability
-    const uniqueFailurePoints = Array.from(
-        failurePoints.reduce((map, point) => {
-            if (!map.has(point.time) || point.prob > (map.get(point.time) as {prob: number}).prob) {
-                map.set(point.time, point);
-            }
-            return map;
-        }, new Map()).values()
-    );
-
-    return uniqueFailurePoints.sort((a, b) => a.time - b.time);
+    // Ensure unique points for regression, although Kaplan-Meier should handle this.
+    // If multiple failures happen at same time, K-M produces one point.
+    return failurePoints.sort((a, b) => a.time - b.time);
 }
 
 
@@ -292,21 +305,63 @@ export function estimateParametersByRankRegression(
     };
 }
 
-//--- Nelder-Mead Optimizer ---
-type NMPoint = { x: number[]; fx: number };
 
 function isFiniteNumber(x: any): x is number {
     return typeof x === "number" && isFinite(x);
 }
 
+//--- MLE Functions with Censoring ---
+function negLogLikLognormal(params: number[], data: CensoredData[]): number {
+    const mu = params[0];
+    const sigma = Math.exp(params[1]); // Enforce positivity
+    if (!isFiniteNumber(mu) || !isFiniteNumber(sigma) || sigma <= 0) return 1e300;
+
+    let nll = 0;
+    for (const d of data) {
+        if (d.event === 1) { // Failure
+            const pdf = lognormalPdf(d.time, mu, sigma);
+            if (!isFinite(pdf) || pdf <= 0) return 1e300;
+            nll -= Math.log(pdf);
+        } else { // Censored
+            const S = lognormalSurvival(d.time, mu, sigma);
+            if (!isFinite(S) || S <= 0) return 1e300;
+            nll -= Math.log(S);
+        }
+    }
+    return nll;
+}
+
+function negLogLikWeibull(params: number[], data: CensoredData[]): number {
+    const beta = Math.exp(params[0]); // shape
+    const eta = Math.exp(params[1]); // scale
+    if (!isFiniteNumber(beta) || !isFiniteNumber(eta) || beta <= 0 || eta <= 0) return 1e300;
+    
+    let nll = 0;
+    for (const d of data) {
+        if (d.event === 1) { // Failure
+            const pdf = weibullPdf(d.time, beta, eta);
+            if (!isFinite(pdf) || pdf <= 0) return 1e300;
+            nll -= Math.log(pdf);
+        } else { // Censored
+            const S = weibullSurvival(d.time, beta, eta);
+            if (!isFinite(S) || S <= 0) return 1e300;
+            nll -= Math.log(S);
+        }
+    }
+    return nll;
+}
+
+//--- Nelder-Mead Optimizer ---
+type NMPoint = { x: number[]; fx: number };
+
 function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxIter?: number; tol?: number; scale?: number } = {}) {
-    const maxIter = options.maxIter || 1000;
-    const tol = options.tol || 1e-8;
+    const maxIter = options.maxIter || 2000;
+    const tol = options.tol || 1e-9;
     const alpha = 1, gamma = 2, rho = 0.5, sigma = 0.5;
     const n = x0.length;
     const scale = options.scale || 0.1;
 
-    const simplex: NMPoint[] = [];
+    let simplex: NMPoint[] = [];
     simplex.push({ x: x0.slice(), fx: func(x0) });
     for (let i = 0; i < n; i++) {
         const xi = x0.slice();
@@ -314,147 +369,152 @@ function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxI
         simplex.push({ x: xi, fx: func(xi) });
     }
 
-    let iter = 0;
-    while (iter < maxIter) {
+    for (let iter = 0; iter < maxIter; iter++) {
         simplex.sort((a, b) => a.fx - b.fx);
-        const best = simplex[0];
-        const worst = simplex[simplex.length - 1];
-        const secondWorst = simplex[simplex.length - 2];
-
+        
         const fmean = simplex.reduce((s, v) => s + v.fx, 0) / simplex.length;
-        let fvar = simplex.reduce((s, v) => s + (v.fx - fmean) ** 2, 0) / simplex.length;
+        const fvar = simplex.reduce((s, v) => s + (v.fx - fmean) ** 2, 0) / simplex.length;
         if (Math.sqrt(fvar) < tol) break;
 
         const centroid = new Array(n).fill(0);
-        for (let i = 0; i < simplex.length - 1; i++) {
-            for (let j = 0; j < n; j++) centroid[j] += simplex[i].x[j];
+        for (let i = 0; i < n; i++) { // Centroid of all but the worst point
+            for (let j = 0; j < n; j++) {
+                centroid[j] += simplex[i].x[j];
+            }
         }
-        centroid.forEach((_, j) => centroid[j] /= (simplex.length - 1));
+        centroid.forEach((_, j) => centroid[j] /= n);
 
+        const worst = simplex[n];
+
+        // Reflection
         const xr = centroid.map((c, j) => c + alpha * (c - worst.x[j]));
         const fxr = func(xr);
-        if (fxr < secondWorst.fx && fxr >= best.fx) {
-            simplex[simplex.length - 1] = { x: xr, fx: fxr };
-            iter++;
+
+        if (fxr < simplex[n-1].fx && fxr >= simplex[0].fx) {
+            simplex[n] = { x: xr, fx: fxr };
             continue;
         }
-
-        if (fxr < best.fx) {
+        // Expansion
+        if (fxr < simplex[0].fx) {
             const xe = centroid.map((c, j) => c + gamma * (xr[j] - c));
             const fxe = func(xe);
-            simplex[simplex.length - 1] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
-            iter++;
+            simplex[n] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
             continue;
         }
-
+        // Contraction
         const xc = centroid.map((c, j) => c + rho * (worst.x[j] - c));
         const fxc = func(xc);
         if (fxc < worst.fx) {
-            simplex[simplex.length - 1] = { x: xc, fx: fxc };
-            iter++;
+            simplex[n] = { x: xc, fx: fxc };
             continue;
         }
-
-        for (let i = 1; i < simplex.length; i++) {
+        // Reduction
+        for (let i = 1; i <= n; i++) {
             simplex[i].x = simplex[0].x.map((b, j) => b + sigma * (simplex[i].x[j] - b));
             simplex[i].fx = func(simplex[i].x);
         }
-        iter++;
     }
 
     simplex.sort((a, b) => a.fx - b.fx);
-    return { x: simplex[0].x, fx: simplex[0].fx, iter };
-}
-
-//--- MLE Functions with Censoring ---
-type CensoredData = { time: number; event: 1 | 0 };
-
-function negLogLikLognormal(x: number[], data: CensoredData[]): number {
-    const mu = x[0];
-    const sigma = Math.exp(x[1]); // Ensure sigma > 0
-    if (!isFiniteNumber(mu) || !isFiniteNumber(sigma) || sigma <= 0) return 1e300;
-
-    let nll = 0;
-    for (const d of data) {
-        if (d.event === 1) { // Failure
-            const pdf = lognormalPdf(d.time, mu, sigma);
-            if (pdf <= 0) return 1e300;
-            nll -= Math.log(pdf);
-        } else { // Censored
-            const S = lognormalSurvival(d.time, mu, sigma);
-            nll -= Math.log(Math.max(S, 1e-300));
-        }
-    }
-    return nll;
-}
-
-function negLogLikWeibull(x: number[], data: CensoredData[]): number {
-    const beta = Math.exp(x[0]); // k (shape)
-    const eta = Math.exp(x[1]); // lambda (scale)
-    if (!isFiniteNumber(beta) || !isFiniteNumber(eta) || beta <= 0 || eta <= 0) return 1e300;
-
-    let nll = 0;
-    for (const d of data) {
-        if (d.event === 1) { // Failure
-            const pdf = weibullPdf(d.time, beta, eta);
-            if (pdf <= 0) return 1e300;
-            nll -= Math.log(pdf);
-        } else { // Censored
-            const S = weibullSurvival(d.time, beta, eta);
-            nll -= Math.log(Math.max(S, 1e-300));
-        }
-    }
-    return nll;
+    return { x: simplex[0].x, fx: simplex[0].fx };
 }
 
 function fitLognormalMLE(data: CensoredData[]): Parameters {
-    const failures = data.filter(d => d.event === 1).map(d => d.time);
+    const failures = data.filter(d => d.event === 1).map(d => Math.log(d.time));
     if (failures.length === 0) return { lkv: -Infinity };
-    const logs = failures.map(t => Math.log(t));
-    const mu0 = logs.reduce((s, v) => s + v, 0) / logs.length;
-    const sd0 = Math.sqrt(logs.reduce((s, v) => s + (v - mu0) ** 2, 0) / (logs.length - 1 || 1));
-    const x0 = [mu0, Math.log(sd0 || 1)];
-
-    const res = nelderMead(x => negLogLikLognormal(x, data), x0, { maxIter: 2000, tol: 1e-9, scale: 0.5 });
-    const mu = res.x[0];
-    const sigma = Math.exp(res.x[1]);
-    return { mean: mu, stdDev: sigma, lkv: -res.fx };
+    
+    const mu0 = failures.reduce((s, v) => s + v, 0) / failures.length;
+    const sd0 = Math.sqrt(failures.reduce((s, v) => s + (v - mu0) ** 2, 0) / (failures.length > 1 ? failures.length - 1 : 1));
+    const x0 = [mu0, Math.log(sd0 > 0 ? sd0 : 1)];
+    
+    const res = nelderMead(params => negLogLikLognormal(params, data), x0);
+    const [mu, logSigma] = res.x;
+    return { mean: mu, stdDev: Math.exp(logSigma), lkv: -res.fx };
 }
 
-function fitWeibullMLE(data: CensoredData[]): Parameters {
-    const failures = data.filter(d => d.event === 1).map(d => d.time);
-    if (failures.length === 0) return { lkv: -Infinity };
-    const median = failures.sort((a,b) => a-b)[Math.floor(failures.length/2)] || 1;
-    const x0 = [Math.log(1.0), Math.log(median)];
+function estimateWeibullMLE(times: number[], maxIter = 100, tol = 1e-7): { beta: number; eta: number; ll: number } | undefined {
+  const n = times.length;
+  if (n === 0) return undefined;
+  for (const t of times) if (!isFinite(t) || t <= 0) return undefined;
 
-    const res = nelderMead(x => negLogLikWeibull(x, data), x0, { maxIter: 2000, tol: 1e-9, scale: 0.5 });
-    const beta = Math.exp(res.x[0]);
-    const eta = Math.exp(res.x[1]);
-    return { beta, eta, lkv: -res.fx };
+  const lnTs = times.map((t) => Math.log(t));
+  const sumLnT = lnTs.reduce((a, b) => a + b, 0);
+
+  // Initial guess for beta using method of moments for log-Weibull
+  const meanLnT = sumLnT / n;
+  const s2 = lnTs.reduce((acc, x) => acc + (x - meanLnT) ** 2, 0) / n;
+  let beta = 1.2 / Math.sqrt(s2);
+  
+  for (let iter = 0; iter < maxIter; iter++) {
+    let sumPow = 0, sumPowLn = 0, sumPowLn2 = 0;
+    for (const t of times) {
+      const xp = Math.pow(t, beta);
+      if (!isFinite(xp)) return undefined;
+      sumPow += xp;
+      sumPowLn += xp * Math.log(t);
+      sumPowLn2 += xp * Math.pow(Math.log(t), 2);
+    }
+    
+    if (sumPow <= 0) return undefined;
+    const A = sumPow;
+    const B = sumPowLn;
+
+    const score = n / beta + sumLnT - (n * B) / A;
+    const deriv = -n / (beta * beta) - n * (sumPowLn2 / A - (B / A) * (B / A));
+
+    if (!isFinite(score) || !isFinite(deriv) || Math.abs(deriv) < 1e-16) break;
+    const delta = score / deriv;
+    const betaNew = beta - delta;
+    
+    beta = (isFinite(betaNew) && betaNew > 0) ? betaNew : Math.max(0.01, beta + delta * 0.1);
+    if (Math.abs(delta) < tol * Math.max(1, Math.abs(beta))) break;
+  }
+  
+  if (!isFinite(beta) || beta <= 0) return undefined;
+  let sumPowFinal = 0;
+  for (const t of times) {
+    const xp = Math.pow(t, beta);
+    if (!isFinite(xp)) return undefined;
+    sumPowFinal += xp;
+  }
+  
+  const eta = Math.pow(sumPowFinal / n, 1 / beta);
+  if (!isFinite(eta) || eta <= 0) return undefined;
+  
+  let ll = 0;
+  let sumPower = 0;
+  for (const t of times) sumPower += Math.pow(t / eta, beta);
+  ll = n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
+  
+  if (!isFinite(ll)) return undefined;
+  return { beta, eta, ll };
 }
 
 function estimateNormalMLE(data: CensoredData[]): Parameters {
     const failures = data.filter(d => d.event === 1).map(d => d.time);
     if (failures.length === 0) return { lkv: -Infinity };
     const mean = failures.reduce((a, b) => a + b, 0) / failures.length;
-    const stdDev = Math.sqrt(failures.reduce((a, b) => a + (b - mean) ** 2, 0) / failures.length);
+    const stdDev = Math.sqrt(failures.reduce((a, b) => a + (b - mean) ** 2, 0) / (failures.length > 1 ? failures.length - 1 : 1));
     let lkv = 0;
     for (const d of data) {
         if (d.event === 1) {
-            lkv += Math.log(normalPdf(d.time, mean, stdDev));
+            const pdf = normalPdf(d.time, mean, stdDev);
+            if (pdf > 0) lkv += Math.log(pdf); else return { lkv: -Infinity };
         } else {
-            lkv += Math.log(1 - normalCdf(d.time, mean, stdDev));
+            const S = 1 - normalCdf(d.time, mean, stdDev);
+            if (S > 0) lkv += Math.log(S); else return { lkv: -Infinity };
         }
     }
     return { mean, stdDev, lkv: isFinite(lkv) ? lkv : -Infinity };
 }
+
 
 function estimateExponentialMLE(failures: number[], suspensions: number[] = []): Parameters {
     const allTimes = [...failures, ...suspensions];
     if (failures.length === 0) return { lambda: undefined, lkv: -Infinity };
     
     const sumOfTimes = allTimes.reduce((a, b) => a + b, 0);
-    const lambda = failures.length / sumOfTimes; // MLE for lambda
+    const lambda = failures.length / sumOfTimes;
     
     const lkv = failures.length * Math.log(lambda) - lambda * sumOfTimes;
     
@@ -477,7 +537,10 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
 
     let params: Parameters = {};
     if (dist === 'Weibull' && method === 'MLE') {
-        params = fitWeibullMLE(censoredData);
+      const mleResult = estimateWeibullMLE(failureTimes); // Using simplified version for now
+      if (mleResult) {
+        params = { beta: mleResult.beta, eta: mleResult.eta, lkv: mleResult.ll };
+      }
     } else if (dist === 'Lognormal' && method === 'MLE') {
         params = fitLognormalMLE(censoredData);
     } else if (dist === 'Normal' && method === 'MLE') {
@@ -492,85 +555,116 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
     return { params, plotData: plotResult?.plotData };
 }
 
-export function calculateFisherConfidenceBounds(
-    failureTimes: number[], 
-    confidenceLevel: number,
-    timeForCalc?: number
-): FisherBoundsData | undefined {
-    const analysis = estimateParametersByRankRegression('Weibull', failureTimes, [], 'SRM');
-    if (!analysis || !analysis.params.beta || !analysis.params.eta || !analysis.plotData) return undefined;
+function generateTimeGrid(min = 1, max = 10000, points = 80) {
+  const out: number[] = [];
+  const logMin = Math.log10(min);
+  const logMax = Math.log10(max);
+  for (let i = 0; i < points; i++) {
+    out.push(Math.pow(10, logMin + (logMax - logMin) * (i / (points - 1))));
+  }
+  return out;
+}
 
-    const { beta, eta } = analysis.params;
-    const n = failureTimes.length;
-    const z = invNormalCdf(1 - (1 - confidenceLevel / 100) / 2);
 
-    // Fisher Matrix variance-covariance approximations for SRM
-    const var_beta_hat = (0.608 * beta * beta) / n;
-    const var_eta_hat = (0.370 * eta * eta) / (n * beta * beta);
-    const cov_beta_eta_hat = (0.255 * beta * eta) / n;
-
-    const lowerBounds: { x: number; y: number; time: number }[] = [];
-    const upperBounds: { x: number; y: number; time: number }[] = [];
-
-    const plotPointsCount = 100;
-    const allTimes = [...analysis.plotData.points.map(p => p.time), timeForCalc].filter(t => t !== undefined && t > 0) as number[];
-    const minTime = Math.min(...allTimes);
-    const maxTime = Math.max(...allTimes);
+export function calculateLikelihoodRatioBounds(
+    { times, confidenceLevel = 0.9, tValue = null }: { times: number[], confidenceLevel: number, tValue: number | null }
+): LRBoundsResult | undefined {
     
-    for (let i = 0; i <= plotPointsCount; i++) {
-        const currentTime = minTime + (i / plotPointsCount) * (maxTime - minTime);
-        if (currentTime <=0) continue;
-
-        const currentLogTime = Math.log(currentTime);
-        const y_hat = beta * currentLogTime - beta * Math.log(eta);
-
-        const var_Y = (Math.pow(currentLogTime - Math.log(eta), 2) * var_beta_hat) +
-                      (Math.pow(beta / eta, 2) * var_eta_hat) -
-                      (2 * (currentLogTime - Math.log(eta)) * (beta / eta) * cov_beta_eta_hat);
-        
-        if (var_Y < 0) continue;
-
-        const std_Y = Math.sqrt(var_Y);
-
-        const y_lower = y_hat - z * std_Y;
-        const y_upper = y_hat + z * std_Y;
-
-        lowerBounds.push({ x: currentLogTime, y: y_lower, time: currentTime });
-        upperBounds.push({ x: currentLogTime, y: y_upper, time: currentTime });
-    }
+    const mle = estimateWeibullMLE(times);
+    if (!mle) return { error: "Falha na estimação MLE. Verifique os dados." };
+    const { beta: betaMLE, eta: etaMLE, ll: llMLE } = mle;
     
-    let calculation: CalculationResult | undefined = undefined;
-    if (timeForCalc !== undefined && timeForCalc > 0) {
-        const logTimeCalc = Math.log(timeForCalc);
-        const y_median = beta * logTimeCalc - beta * Math.log(eta);
-        const var_Y_calc = (Math.pow(logTimeCalc - Math.log(eta), 2) * var_beta_hat) +
-                      (Math.pow(beta / eta, 2) * var_eta_hat) -
-                      (2 * (logTimeCalc - Math.log(eta)) * (beta / eta) * cov_beta_eta_hat);
-        
-        if(var_Y_calc >= 0) {
-            const std_Y_calc = Math.sqrt(var_Y_calc);
-            const y_lower_calc = y_median - z * std_Y_calc;
-            const y_upper_calc = y_median + z * std_Y_calc;
+    const betaLow = Math.max(0.01, betaMLE * 0.25);
+    const betaHigh = Math.max(betaLow + 0.01, betaMLE * 4 + 0.01);
+    const etaLow = Math.max(Number.EPSILON, etaMLE * 0.2);
+    const etaHigh = Math.max(etaLow + 1e-6, etaMLE * 6 + 1e-6);
 
-            const prob_median = 1 - Math.exp(-Math.exp(y_median));
-            const prob_lower = 1 - Math.exp(-Math.exp(y_lower_calc));
-            const prob_upper = 1 - Math.exp(-Math.exp(y_upper_calc));
+    const GRID_B = 140;
+    const GRID_E = 140;
+    const betaStep = (betaHigh - betaLow) / (GRID_B - 1);
+    const etaStep = (etaHigh - etaLow) / (GRID_E - 1);
 
-            calculation = {
-                failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
-                reliability: { median: 1 - prob_median, upper: 1 - prob_upper, lower: 1 - prob_lower }
+    const thresholdLL = llMLE + Math.log(1 - confidenceLevel);
+
+    const mask: boolean[][] = Array.from({ length: GRID_E }, () => Array(GRID_B).fill(false));
+    let anyValid = false;
+
+    for (let i = 0; i < GRID_E; i++) {
+        const eta = etaLow + i * etaStep;
+        for (let j = 0; j < GRID_B; j++) {
+            const beta = betaLow + j * betaStep;
+            if (!isFinite(beta) || beta <= 0 || !isFinite(eta) || eta <= 0) continue;
+            const ll = weibullLogLikelihood(times, beta, eta);
+            if (isFinite(ll) && ll >= thresholdLL) {
+                mask[i][j] = true;
+                anyValid = true;
             }
         }
     }
 
+    if (!anyValid) {
+        return { error: "Não foi possível encontrar contorno com a grade atual." };
+    }
+
+    const timesGrid = generateTimeGrid(Math.max(1, Math.min(...times) * 0.5), Math.max(...times) * 2, 120);
+
+    const bandLower: number[] = [];
+    const bandUpper: number[] = [];
+    for (const t of timesGrid) {
+        let minF = Infinity, maxF = -Infinity;
+        for (let i = 0; i < GRID_E; i++) {
+            for (let j = 0; j < GRID_B; j++) {
+                if (mask[i][j]) {
+                    const beta = betaLow + j * betaStep;
+                    const eta = etaLow + i * etaStep;
+                    const f = weibullCDF(t, beta, eta);
+                    if (isFinite(f)) {
+                        minF = Math.min(minF, f);
+                        maxF = Math.max(maxF, f);
+                    }
+                }
+            }
+        }
+        bandLower.push(isFinite(minF) ? minF * 100 : 0);
+        bandUpper.push(isFinite(maxF) ? maxF * 100 : 0);
+    }
+    
+    let calculation = null;
+    if (tValue && isFinite(tValue) && tValue > 0) {
+      let minF = Infinity, maxF = -Infinity;
+      for (let i = 0; i < GRID_E; i++) {
+        for (let j = 0; j < GRID_B; j++) {
+          if (mask[i][j]) {
+            const beta = betaLow + j * betaStep;
+            const eta = etaLow + i * etaStep;
+            const f = weibullCDF(tValue, beta, eta);
+            if (isFinite(f)) {
+                minF = Math.min(minF, f);
+                maxF = Math.max(maxF, f);
+            }
+          }
+        }
+      }
+      calculation = {
+        medianAtT: weibullCDF(tValue, betaMLE, etaMLE) * 100,
+        lowerAtT: isFinite(minF) ? minF * 100 : null,
+        upperAtT: isFinite(maxF) ? maxF * 100 : null,
+      };
+    }
+    
+    const { plotData } = estimateParameters({ dist: 'Weibull', failureTimes: times });
+
     return {
-        ...analysis.plotData,
-        lower: lowerBounds,
-        upper: upperBounds,
-        beta,
-        eta,
-        confidenceLevel,
-        calculation
+      betaMLE,
+      etaMLE,
+      llMLE,
+      confidenceLevel: confidenceLevel * 100,
+      points: plotData?.points ?? [],
+      rSquared: plotData?.rSquared ?? 0,
+      medianCurve: timesGrid.map(t => ({ x: t, y: weibullCDF(t, betaMLE, etaMLE) * 100 })),
+      lowerCurve: timesGrid.map((t, idx) => ({ x: t, y: bandLower[idx] })),
+      upperCurve: timesGrid.map((t, idx) => ({ x: t, y: bandUpper[idx] })),
+      calculation
     };
 }
 
@@ -597,25 +691,20 @@ export function calculateLikelihoodRatioContour(
     const ll_max = mle_params.lkv;
     
     const chi2_val = invChi2(confidenceLevel / 100, 2);
+    if (!isFinite(chi2_val) || chi2_val <= 0) return undefined;
     const target_ll = ll_max - chi2_val / 2.0;
 
     const gridSize = 50;
     const rangeFactor = 4;
     
-    // Heuristic range finding
-    const beta_rr_params = estimateParametersByRankRegression('Weibull', failureTimes, suspensionTimes, 'SRM')?.params;
-    const initialBeta = beta_rr_params?.beta ?? beta_mle;
-    const beta_sd_approx = 0.8 / Math.sqrt(failureTimes.length) * initialBeta;
-
+    const beta_sd_approx = 0.8 / Math.sqrt(failureTimes.length) * beta_mle;
     const beta_min = Math.max(0.1, beta_mle - rangeFactor * beta_sd_approx);
     const beta_max = beta_mle + rangeFactor * beta_sd_approx;
 
-    const eta_min_log = Math.log(eta_mle) - rangeFactor * (1 / (beta_mle * Math.sqrt(failureTimes.length)));
-    const eta_max_log = Math.log(eta_mle) + rangeFactor * (1 / (beta_mle * Math.sqrt(failureTimes.length)));
-
-    const eta_min = Math.max(1, Math.exp(eta_min_log));
-    const eta_max = Math.exp(eta_max_log);
-
+    const eta_sd_approx = (eta_mle / (beta_mle * Math.sqrt(failureTimes.length)));
+    const eta_min = Math.max(1, eta_mle - rangeFactor * eta_sd_approx);
+    const eta_max = eta_mle + rangeFactor * eta_sd_approx;
+    
     const beta_step = (beta_max - beta_min) / gridSize;
     const eta_step = (eta_max - eta_min) / gridSize;
     
@@ -631,15 +720,12 @@ export function calculateLikelihoodRatioContour(
         grid.push(row);
     }
     
-    // Marching squares algorithm to find the contour
-    const contourPaths = [];
+    const contourPaths: [number, number][][] = [];
     const targetIsovalue = target_ll;
 
     for (let i = 0; i < gridSize; i++) {
         for (let j = 0; j < gridSize; j++) {
-            const cell_values = [
-                grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]
-            ];
+            const cell_values = [ grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1] ];
             let case_index = 0;
             if (cell_values[0] > targetIsovalue) case_index |= 1;
             if (cell_values[1] > targetIsovalue) case_index |= 2;
@@ -663,36 +749,22 @@ export function calculateLikelihoodRatioContour(
                  const t = (targetIsovalue - v1) / (v2 - v1);
                  return [c1[0] * (1 - t) + c2[0] * t, c1[1] * (1-t) + c2[1] * t];
             };
-
-            const add_segment = (p1: number, p2: number, q1:number, q2:number) => {
-                const seg1 = interp(p1,p2);
-                const seg2 = interp(q1,q2);
-                contourPaths.push([seg1, seg2]);
-            };
-
-            // This is a simplified version of marching squares
-            switch (case_index) {
-                case 1: add_segment(0,3,0,1); break;
-                case 2: add_segment(0,1,1,2); break;
-                case 3: add_segment(0,3,1,2); break;
-                case 4: add_segment(1,2,2,3); break;
-                case 5: add_segment(0,1,2,3); add_segment(0,3,1,2); break;
-                case 6: add_segment(0,1,2,3); break;
-                case 7: add_segment(0,3,2,3); break;
-                case 8: add_segment(0,3,2,3); break;
-                case 9: add_segment(0,1,2,3); break;
-                case 10: add_segment(0,3,1,2); add_segment(0,1,2,3); break;
-                case 11: add_segment(1,2,2,3); break;
-                case 12: add_segment(0,3,1,2); break;
-                case 13: add_segment(0,1,1,2); break;
-                case 14: add_segment(0,1,0,3); break;
-            }
+            
+            const segments = [];
+            if (case_index === 1 || case_index === 14) segments.push([interp(0,3), interp(0,1)]);
+            if (case_index === 2 || case_index === 13) segments.push([interp(0,1), interp(1,2)]);
+            if (case_index === 3 || case_index === 12) segments.push([interp(0,3), interp(1,2)]);
+            if (case_index === 4 || case_index === 11) segments.push([interp(1,2), interp(2,3)]);
+            if (case_index === 5) { segments.push([interp(0,1),interp(1,2)]); segments.push([interp(0,3),interp(2,3)])};
+            if (case_index === 6 || case_index === 9) segments.push([interp(0,1), interp(2,3)]);
+            if (case_index === 7 || case_index === 8) segments.push([interp(0,3), interp(2,3)]);
+            if (case_index === 10) { segments.push([interp(0,3),interp(1,2)]); segments.push([interp(0,1),interp(2,3)])};
+            contourPaths.push(...segments);
         }
     }
     
     if (contourPaths.length === 0) return undefined;
     
-    // Stitch paths - simple approach: find closest points
     const stitched = contourPaths.shift() || [];
     while (contourPaths.length > 0) {
         const last_point = stitched[stitched.length - 1];
@@ -706,17 +778,10 @@ export function calculateLikelihoodRatioContour(
             if (dist1 < min_dist) { min_dist = dist1; best_match_idx = i; reverse_order = false; }
             if (dist2 < min_dist) { min_dist = dist2; best_match_idx = i; reverse_order = true; }
         }
-
         if (best_match_idx !== -1) {
             const match = contourPaths.splice(best_match_idx, 1)[0];
-            if (reverse_order) {
-                stitched.push(match[0]);
-            } else {
-                stitched.push(match[1]);
-            }
-        } else {
-            break; // No more paths can be stitched
-        }
+            stitched.push(reverse_order ? match[0] : match[1]);
+        } else { break; }
     }
     
     const ellipsePoints = stitched.map(p => [p[1], p[0]]); // swap to [eta, beta]
@@ -774,10 +839,9 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
       switch (distribution) {
         case 'Weibull':
           if (params.eta && params.eta > 0 && params.beta && params.beta > 0) {
-            const tOverEta = time / params.eta;
-            R_t = Math.exp(-Math.pow(tOverEta, params.beta));
+            R_t = weibullSurvival(time, params.beta, params.eta);
             F_t = 1 - R_t;
-            f_t = (params.beta / params.eta) * Math.pow(tOverEta, params.beta - 1) * Math.exp(-Math.pow(tOverEta, params.beta));
+            f_t = weibullPdf(time, params.beta, params.eta);
             lambda_t = (R_t > 1e-9) ? f_t / R_t: f_t / 1e-9;
           }
           break;
@@ -791,10 +855,9 @@ export function calculateReliabilityData(suppliers: Supplier[]): ReliabilityData
           break;
         case 'Lognormal':
           if (params.mean !== undefined && params.stdDev && params.stdDev > 0 && time > 0) {
-            const logTime = Math.log(time);
-            F_t = normalCdf(logTime, params.mean, params.stdDev);
+            F_t = lognormalCdf(time, params.mean, params.stdDev);
             R_t = 1 - F_t;
-            f_t = normalPdf(logTime, params.mean, params.stdDev) / time;
+            f_t = lognormalPdf(time, params.mean, params.stdDev);
             lambda_t = (R_t > 1e-9) ? f_t / R_t : 0;
           }
           break;
@@ -862,7 +925,8 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
     for (const dist of distributionsToTest) {
         let params: Parameters = {};
         if (dist === 'Weibull') {
-            params = fitWeibullMLE(censoredData);
+            const mleResult = estimateWeibullMLE(failureTimes); // Only failures for this simple MLE
+            if(mleResult) params = { beta: mleResult.beta, eta: mleResult.eta, lkv: mleResult.ll };
         } else if (dist === 'Lognormal') {
             params = fitLognormalMLE(censoredData);
         } else if (dist === 'Normal') {
@@ -892,4 +956,20 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
     const bestDistribution = analysisResults[0].distribution;
 
     return { results: analysisResults, best: bestDistribution };
+}
+
+function weibullLogLikelihood(times: number[], beta: number, eta: number): number {
+  const n = times.length;
+  if (!(isFinite(beta) && beta > 0 && isFinite(eta) && eta > 0)) return -Infinity;
+  let sumLnT = 0;
+  let sumPower = 0;
+  for (const t of times) {
+    if (!isFinite(t) || t <= 0) return -Infinity;
+    sumLnT += Math.log(t);
+    const ratio = t / eta;
+    const p = Math.pow(ratio, beta);
+    if (!isFinite(p)) return -Infinity;
+    sumPower += p;
+  }
+  return n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
 }

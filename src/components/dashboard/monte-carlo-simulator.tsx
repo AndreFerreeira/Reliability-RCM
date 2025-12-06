@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateFisherConfidenceBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour } from '@/lib/reliability';
+import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour } from '@/lib/reliability';
 import type { Supplier, FisherBoundsData, PlotData, ContourData, DistributionAnalysisResult } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -37,121 +37,115 @@ const formSchema = z.object({
 
 
 type FormData = z.infer<typeof formSchema>;
-type BoundType = 'bilateral' | 'unilateral' | 'none';
-
-interface CalculationResult {
-    reliability: { median: number; lower: number; upper: number };
-    failureProb: { median: number; lower: number; upper: number };
-}
 
 interface SimulationResult {
   boundsData?: FisherBoundsData;
   dispersionData?: PlotData[];
   originalPlot?: PlotData;
   contourData?: ContourData;
-  calculation?: CalculationResult;
 }
 
-const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: FisherBoundsData, showLower: boolean, showUpper: boolean, timeForCalc?: number }) => {
+const FisherMatrixPlot = ({ data, timeForCalc }: { data?: FisherBoundsData, timeForCalc?: number }) => {
     if (!data) return null;
 
-    const { points, line, lower, upper, rSquared, beta, eta, confidenceLevel, calculation } = data;
+    const {
+        medianCurve,
+        lowerCurve,
+        upperCurve,
+        points,
+        betaMLE,
+        etaMLE,
+        rSquared,
+        calculation
+    } = data;
     
-    // Helper function to transform probability to the Weibull Y-axis scale
-    const probToY = (prob: number) => {
-        if (prob <= 0 || prob >= 1) return NaN;
-        return Math.log(Math.log(1 / (1 - prob)));
-    };
-    
-    // Helper function to transform time to the Weibull X-axis scale
-    const timeToX = (time: number) => Math.log(time);
-    
-    // Series for the data points
-    const pointsSeries = {
-        name: 'Dados Originais',
-        type: 'scatter',
-        data: points.map(p => [timeToX(p.time), p.y]),
-        symbolSize: 6,
-        itemStyle: { color: 'rgba(200,200,200,0.8)' }
-    };
-    
-    const medianLineSeries = {
+    // --- Series ---
+    const medianSeries = {
         name: `Ajuste Mediano`,
         type: 'line',
-        data: line.map(p => [p.x, p.y]),
+        data: medianCurve,
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 3, color: '#a88cff' },
     };
 
-    const lowerBoundSeries = {
-        name: `Limite Inferior ${confidenceLevel}%`,
+    const lowerSeries = {
+        name: `Limite Inferior ${data.confidenceLevel}%`,
         type: 'line',
-        data: lower.map(p => [timeToX(p.time), p.y]),
+        data: lowerCurve,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 2, color: '#88ff88' },
+        lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
     };
-    
-    const upperBoundSeries = {
-        name: `Limite Superior ${confidenceLevel}%`,
+
+    const upperSeries = {
+        name: `Limite Superior ${data.confidenceLevel}%`,
         type: 'line',
-        data: upper.map(p => [timeToX(p.time), p.y]),
+        data: upperCurve,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 2, color: '#ffd766' },
+        lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
     };
-    
-    const confidenceBandSeries = {
+
+    // For filled band
+    const bandSeries = {
         name: 'Faixa de Confiança',
         type: 'line',
-        data: upper.map(p => [timeToX(p.time), p.y]),
+        data: upperCurve.map((p:any) => [p.x, p.y]),
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 0 },
         areaStyle: {
-            origin: 'auto', // Fills area to the corresponding point on the 'stack' series
+            origin: 'auto',
             color: 'rgba(255,215,102,0.08)'
         },
-        stack: 'confidence-band', // Stacks with lower bound to create the band
+        stack: 'confidence-band',
     };
-    
-    const confidenceBandLowerSeries = {
-        name: 'LowerStack', // Not shown in legend
+
+    const bandLowerSeries = {
+        name: 'LowerStack',
         type: 'line',
-        data: lower.map(p => [timeToX(p.time), p.y]),
+        data: lowerCurve.map((p:any) => [p.x, p.y]),
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 0 },
         stack: 'confidence-band'
     };
 
-    let series: any[] = [pointsSeries, medianLineSeries];
-    if (showLower) series.push(lowerBoundSeries);
-    if (showUpper) series.push(upperBoundSeries);
-    if (showLower && showUpper) {
-        series.push(confidenceBandSeries);
-        series.push(confidenceBandLowerSeries);
-    }
+    const scatterSeries = {
+        name: 'Dados Originais',
+        type: 'scatter',
+        data: points.map(p => [p.time, p.prob * 100]),
+        symbolSize: 6,
+        itemStyle: { color: 'rgba(200,200,200,0.8)' }
+    };
     
-    if (timeForCalc && calculation) {
-        const { failureProb } = calculation;
-        const logTimeForCalc = timeToX(timeForCalc);
+    let series: any[] = [
+        scatterSeries,
+        lowerSeries,
+        upperSeries,
+        medianSeries,
+        bandLowerSeries,
+        bandSeries
+    ];
 
-        medianLineSeries.markLine = {
+    if (timeForCalc && calculation) {
+        const { medianAtT, lowerAtT, upperAtT } = calculation;
+
+        medianSeries.markLine = {
             silent: true,
             symbol: 'none',
             lineStyle: { color: 'rgba(255,215,102,0.9)', type: 'dashed', width: 2 },
-            data: [{ xAxis: logTimeForCalc, name: 'Tempo t' }]
+            data: [{ xAxis: timeForCalc, name: 'Tempo t' }]
         };
-
-        const calculatedPointsSeries = {
-            type: "scatter",
+        
+         const calculatedPointsSeries = {
             name: "Valor no t",
+            type: "scatter",
             data: [
-              [logTimeForCalc, probToY(failureProb.median)],
-              [logTimeForCalc, probToY(failureProb.lower)],
-              [logTimeForCalc, probToY(failureProb.upper)],
+                [timeForCalc, medianAtT],
+                [timeForCalc, lowerAtT],
+                [timeForCalc, upperAtT]
             ],
             symbolSize: 8,
             itemStyle: {
@@ -169,28 +163,27 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
         backgroundColor: "transparent",
         grid: { left: 65, right: 40, top: 70, bottom: 60 },
         title: {
-            text: 'Limites de Confiança (Matriz de Fisher)',
-            subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | R²: ${rSquared.toFixed(3)} | N: ${points.length}`,
+            text: 'Limites de Confiança (Razão de Verossimilhança)',
+            subtext: `β: ${betaMLE.toFixed(2)} | η: ${etaMLE.toFixed(0)} | N: ${points.length}`,
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))', fontSize: 16 },
             subtextStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
         },
         tooltip: { 
             trigger: 'axis',
-             axisPointer: {
-                label: {
-                     formatter: ({ axisDimension, value }: { axisDimension: string, value: number }) => {
-                        if (axisDimension === 'y') {
-                            const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                            return `${prob.toFixed(2)}%`;
-                        }
-                        return `Tempo: ${Math.round(Math.exp(value))}`;
-                     }
-                }
-            },
+            formatter: (params: any[]) => {
+              const axisValue = params[0].axisValue;
+              let tooltip = `<strong>Tempo:</strong> ${Number(axisValue).toLocaleString()}<br/>`;
+              params.forEach(p => {
+                  if (p.seriesName && p.seriesName !== 'LowerStack' && p.seriesName !== 'Faixa de Confiança') {
+                      tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${p.value[1].toFixed(2)}%<br/>`;
+                  }
+              });
+              return tooltip;
+            }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && name !== 'LowerStack'),
+            data: series.map(s => s.name).filter(name => name && name !== 'LowerStack' && name !== 'Faixa de Confiança' && name !== 'Dados Originais' && name !== 'Valor no t'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -210,14 +203,7 @@ const FisherMatrixPlot = ({ data, showLower, showUpper, timeForCalc }: { data?: 
             nameLocation: 'middle',
             nameGap: 50,
             axisLabel: {
-                formatter: (value: number) => {
-                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
-                    const closestTick = probabilityTicks.reduce((prev, curr) => (Math.abs(curr - prob) < Math.abs(prev - prob) ? curr : prev));
-                    if (Math.abs(closestTick - prob) < 0.1) {
-                       return (closestTick < 1 ? closestTick.toFixed(1) : Math.round(closestTick).toString()) + "%";
-                    }
-                    return '';
-                },
+                formatter: (value: number) => `${value}%`,
                 color: "#aaa",
             },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: 'rgba(255,255,255,0.05)', opacity: 0.5 } },
@@ -447,7 +433,7 @@ const SliderWrapper = React.forwardRef<HTMLDivElement, any>(({ className, ...pro
 });
 SliderWrapper.displayName = 'SliderWrapper';
 
-const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundType, showUpper, setShowUpper, showLower, setShowLower }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void, boundType: BoundType, setBoundType: (t: BoundType) => void, showUpper: boolean, setShowUpper: (b: boolean) => void, showLower: boolean, setShowLower: (b: boolean) => void }) => (
+const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
     <Card>
         <CardHeader>
             <CardTitle>Limites de Confiança</CardTitle>
@@ -516,40 +502,6 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit, boundType, setBoundT
                     </Button>
                 </form>
             </Form>
-
-            <div className="space-y-4 rounded-md border p-4 mt-6">
-                <Label className="font-semibold">Lados</Label>
-                <RadioGroup value={boundType} onValueChange={(v) => setBoundType(v as BoundType)} className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="none" id="none" />
-                        <Label htmlFor="none">Nenhum</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="bilateral" id="bilateral" />
-                        <Label htmlFor="bilateral">Bilateral</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="unilateral" id="unilateral" />
-                        <Label htmlFor="unilateral">Unilateral</Label>
-                    </div>
-                </RadioGroup>
-                {boundType === 'unilateral' && (
-                    <div className="pl-6 space-y-3 pt-2">
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="showUpper" checked={showUpper} onCheckedChange={(checked) => setShowUpper(checked as boolean)} />
-                            <label htmlFor="showUpper" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Mostrar Superior
-                            </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="showLower" checked={showLower} onCheckedChange={(checked) => setShowLower(checked as boolean)} />
-                            <label htmlFor="showLower" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Mostrar Inferior
-                            </label>
-                        </div>
-                    </div>
-                )}
-            </div>
         </CardContent>
     </Card>
 )
@@ -635,9 +587,9 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
 );
 
 const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, timeForCalc?: number }) => {
-    if (!result.calculation || timeForCalc === undefined) return null;
+    if (!result?.boundsData?.calculation || timeForCalc === undefined) return null;
     
-    const { reliability, failureProb } = result.calculation;
+    const { calculation, confidenceLevel } = result.boundsData;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -653,23 +605,23 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Métrica</TableHead>
-                                <TableHead className="text-right">Valor</TableHead>
-                                <TableHead className="text-right">Lim. Inferior</TableHead>
-                                <TableHead className="text-right">Lim. Superior</TableHead>
+                                <TableHead className="text-right">Inferior</TableHead>
+                                <TableHead className="text-right">Mediana</TableHead>
+                                <TableHead className="text-right">Superior</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow>
-                                <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
-                                <TableCell className="text-right font-mono">{(reliability.median * 100).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono">{(reliability.lower * 100).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono">{(reliability.upper * 100).toFixed(2)}%</TableCell>
+                                <TableCell className="font-medium">Prob. Falha (F(t))</TableCell>
+                                <TableCell className="text-right font-mono text-green-400">{(calculation.lowerAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-purple-400">{(calculation.medianAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-yellow-400">{(calculation.upperAtT ?? 0).toFixed(2)}%</TableCell>
                             </TableRow>
                              <TableRow>
-                                <TableCell className="font-medium">Prob. de Falha (F(t))</TableCell>
-                                <TableCell className="text-right font-mono">{(failureProb.median * 100).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono">{(failureProb.lower * 100).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono">{(failureProb.upper * 100).toFixed(2)}%</TableCell>
+                                <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
+                                <TableCell className="text-right font-mono text-green-400">{(100 - (calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-purple-400">{(100 - (calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-yellow-400">{(100 - (calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
@@ -680,13 +632,13 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                     <CardTitle>Interpretando os Resultados</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground space-y-4">
-                     {isFinite(reliability.median) && timeForCalc ? (
+                     {isFinite(calculation.medianAtT ?? NaN) && timeForCalc ? (
                         <>
                             <p>
-                                Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a confiabilidade estimada (melhor palpite) é de <strong className="text-primary">{(reliability.median * 100).toFixed(2)}%</strong>.
+                                Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a probabilidade de falha estimada (melhor palpite) é de <strong className="text-primary">{(calculation.medianAtT ?? 0).toFixed(2)}%</strong>.
                             </p>
                             <p>
-                                O intervalo de confiança de <strong className="text-foreground">{result.boundsData?.confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira confiabilidade</strong> do equipamento está entre <strong className="text-primary">{(reliability.lower * 100).toFixed(2)}%</strong> (pior cenário) e <strong className="text-primary">{(reliability.upper * 100).toFixed(2)}%</strong> (melhor cenário).
+                                O intervalo de confiança de <strong className="text-foreground">{confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira probabilidade de falha</strong> do equipamento está entre <strong className="text-primary">{(calculation.lowerAtT ?? 0).toFixed(2)}%</strong> (cenário otimista) e <strong className="text-primary">{(calculation.upperAtT ?? 0).toFixed(2)}%</strong> (cenário pessimista).
                             </p>
                              <p>
                                 Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.
@@ -751,10 +703,6 @@ export default function MonteCarloSimulator() {
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   
-  // State for confidence bound visibility
-  const [boundType, setBoundType] = useState<BoundType>('bilateral');
-  const [showUpper, setShowUpper] = useState(true);
-  const [showLower, setShowLower] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -789,16 +737,6 @@ export default function MonteCarloSimulator() {
     });
   }
 
-  // Update showUpper/showLower based on boundType
-  useEffect(() => {
-    if (boundType === 'bilateral') {
-      setShowUpper(true);
-      setShowLower(true);
-    } else if (boundType === 'none') {
-      setShowUpper(false);
-      setShowLower(false);
-    }
-  }, [boundType]);
 
   const runConfidenceSimulation = (data: FormData) => {
     const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
@@ -813,12 +751,16 @@ export default function MonteCarloSimulator() {
         return;
     }
 
-    const boundsData = calculateFisherConfidenceBounds(failureTimes, data.confidenceLevel, data.timeForCalc);
+    const boundsData = calculateLikelihoodRatioBounds({
+        times: failureTimes,
+        confidenceLevel: data.confidenceLevel / 100,
+        tValue: data.timeForCalc
+    });
     
-    if (!boundsData) {
-        throw new Error("Não foi possível calcular os limites de confiança.");
+    if (!boundsData || boundsData.error) {
+        throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança pelo método da razão de verossimilhança.");
     }
-    setResult({ boundsData, calculation: boundsData.calculation });
+    setResult({ boundsData });
   }
 
   const runDispersionSimulation = (data: FormData) => {
@@ -829,7 +771,6 @@ export default function MonteCarloSimulator() {
           return;
       }
       
-      // 1. Calcular a linha "verdadeira"
       const trueIntercept = -beta * Math.log(eta);
       const timesForPlot = Array.from({length: 100}, (_, i) => (i + 1) * (eta * 3 / 100));
       const logTimesForPlot = timesForPlot.map(t => Math.log(t));
@@ -841,7 +782,6 @@ export default function MonteCarloSimulator() {
       ];
       const originalPlot: PlotData = { points: [], line: trueLine, rSquared: 1 };
 
-      // 2. Executar simulações
       const dispersionData = Array.from({ length: simulationCount }, () => {
           const sample = Array.from({ length: sampleSize }, () =>
               generateWeibullFailureTime(beta, eta)
@@ -875,7 +815,6 @@ export default function MonteCarloSimulator() {
     setIsSimulating(true);
     setResult(null);
 
-    // Usar um pequeno timeout para permitir a atualização da UI antes do processamento pesado
     setTimeout(() => {
         try {
             if (simulationType === 'confidence') {
@@ -897,63 +836,12 @@ export default function MonteCarloSimulator() {
     }, 50);
   }
 
-  // Function to perform linear interpolation
-  const interpolateY = (points: { time: number; y: number }[], targetTime: number): number => {
-    if (points.length < 2) return NaN;
-
-    // Find the two points to interpolate between
-    let p1 = null, p2 = null;
-    for (let i = 0; i < points.length - 1; i++) {
-        if (points[i].time <= targetTime && points[i+1].time >= targetTime) {
-            p1 = points[i];
-            p2 = points[i+1];
-            break;
-        }
-    }
-    // Handle edge cases where targetTime is outside the range
-    if (!p1 || !p2) {
-      if (targetTime < points[0].time) {
-        p1 = points[0];
-        p2 = points[1];
-      } else {
-        p1 = points[points.length - 2];
-        p2 = points[points.length - 1];
-      }
-    }
-    
-    if (p2.time === p1.time) return p1.y; // Avoid division by zero
-
-    const t = (targetTime - p1.time) / (p2.time - p1.time);
-    return p1.y + t * (p2.y - p1.y);
-  };
-
-
-  // Recalculate table when timeForCalc changes, if data is available
   useEffect(() => {
-    if (result?.boundsData && timeForCalc && simulationType === 'confidence') {
-       const { beta, eta, lower: lowerBounds, upper: upperBounds } = result.boundsData;
-       if (!beta || !eta) return;
-       
-       const logTimeCalc = Math.log(timeForCalc);
-       const y_median = beta * logTimeCalc - beta * Math.log(eta);
-       const prob_median = 1 - Math.exp(-Math.exp(y_median));
-
-       const y_lower = interpolateY(lowerBounds, timeForCalc);
-       const y_upper = interpolateY(upperBounds, timeForCalc);
-        
-       const prob_lower = 1 - Math.exp(-Math.exp(y_lower));
-       const prob_upper = 1 - Math.exp(-Math.exp(y_upper));
-
-        if (!isNaN(prob_median) && !isNaN(prob_lower) && !isNaN(prob_upper)) {
-          const calculation: CalculationResult = {
-              failureProb: { median: prob_median, lower: prob_lower, upper: prob_upper },
-              reliability: { median: 1 - prob_median, upper: 1 - prob_upper, lower: 1 - prob_lower }
-          };
-          setResult(prev => prev ? ({ ...prev, calculation, boundsData: { ...prev.boundsData!, calculation } }) : null);
-        }
+    if (simulationType === 'confidence') {
+       form.handleSubmit(onSubmit)();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeForCalc, result?.boundsData?.beta, result?.boundsData?.eta]);
+  }, [timeForCalc]);
 
 
   if (!isClient) {
@@ -996,7 +884,7 @@ export default function MonteCarloSimulator() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
                 {simulationType === 'confidence' &&
-                    <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} boundType={boundType} setBoundType={setBoundType} showUpper={showUpper} setShowUpper={setShowUpper} showLower={showLower} setShowLower={setShowLower} />
+                    <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
                 }
                 {simulationType === 'dispersion' &&
                     <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
@@ -1022,7 +910,7 @@ export default function MonteCarloSimulator() {
                 )}
 
                 {result?.boundsData && simulationType === 'confidence' && (
-                    <FisherMatrixPlot data={result.boundsData} showLower={showLower} showUpper={showUpper} timeForCalc={timeForCalc} />
+                    <FisherMatrixPlot data={result.boundsData} timeForCalc={timeForCalc} />
                 )}
 
                 {result?.dispersionData && simulationType === 'dispersion' && (
