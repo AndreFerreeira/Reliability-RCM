@@ -71,6 +71,37 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const upperData = upperCurve.map(p => [p.x, p.y]);
     const scatterData = points.map(p => [p.time, p.prob]);
 
+    const confidenceBand = {
+        name: "Faixa de Confiança",
+        type: "custom",
+        renderItem: (params:any, api:any) => {
+            const pointsForBand = medianData.map((d,i) => {
+                const x = api.coord([d[0], 0])[0];
+                const yLow = api.coord([0, lowerData[i][1]])[1];
+                const yHigh = api.coord([0, upperData[i][1]])[1];
+                return {x, yLow, yHigh};
+            });
+            
+            const bandPoints = pointsForBand.map(p => [p.x, p.yHigh])
+              .concat(pointsForBand.map(p => [p.x, p.yLow]).reverse());
+
+            return {
+                type: 'polygon',
+                shape: {
+                    points: bandPoints,
+                },
+                style: {
+                    fill: 'rgba(255,215,102,0.12)',
+                    stroke: 'rgba(255,215,102,0)'
+                }
+            };
+        },
+        data: [0], // Only need one data item to trigger one render
+        z: 1,
+        silent: true
+    };
+
+
     // --- Series ---
     const medianSeries = {
         name: `Ajuste Mediano`,
@@ -102,35 +133,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         z: 9,
     };
 
-    const bandUpper = {
-        name: 'Faixa de Confiança',
-        type: 'line',
-        data: upperData,
-        smooth: 0.35,
-        showSymbol: false,
-        lineStyle: { width: 0 },
-        stack: 'confidence-band',
-        areaStyle: { 
-            color: 'rgba(255,215,102,0.15)',
-            origin: 'auto'
-        },
-        z: 1
-    };
-    
-    const bandLower = {
-        name: 'Faixa de Confiança Base',
-        type: 'line',
-        data: lowerData.map((p,i) => [p[0], upperData[i][1] - p[1]]),
-        smooth: 0.35,
-        showSymbol: false,
-        lineStyle: { width: 0 },
-        stack: 'confidence-band',
-        areaStyle: { 
-             color: 'rgba(255,215,102,0.15)' 
-        },
-        z: 1
-    };
-
     const scatterSeries = {
         name: 'Dados Originais',
         type: 'scatter',
@@ -140,8 +142,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     let series: any[] = [
-        bandUpper,
-        bandLower,
+        confidenceBand,
         lowerSeries,
         upperSeries,
         medianSeries,
@@ -779,7 +780,9 @@ export default function MonteCarloSimulator() {
         tValue: data.timeForCalc
     });
     
-    console.log("DEBUG_BOUNDS", JSON.stringify(boundsData, null, 2));
+    if (process.env.NODE_ENV === 'development') {
+      console.log("DEBUG_BOUNDS", JSON.stringify(boundsData, null, 2));
+    }
 
     if (!boundsData || boundsData.error) {
         throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança pelo método da razão de verossimilhança.");
