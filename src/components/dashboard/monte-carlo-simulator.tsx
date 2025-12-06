@@ -308,18 +308,18 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
 
   const thinSimSeries = [];
   for (let s = 0; s < simulations.length; s += step) {
-    const sim = simulations[s];
-    const xs = sim.line.map(p => Math.exp(p.x));
-    const ys = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
-    const pairs = xs.map((x,i) => [x, ys[i]]);
-    thinSimSeries.push({
-      name: `Simulação (${simulationCount})`,
-      type: 'line',
-      data: pairs,
-      showSymbol: false,
-      lineStyle: { width: 1, color: `rgba(120, 150, 255, ${opacity})` },
-      z: 1
-    });
+      const sim = simulations[s];
+      const xs = sim.line.map(p => Math.exp(p.x));
+      const ys = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
+      const pairs = xs.map((x,i) => [x, ys[i]]);
+      thinSimSeries.push({
+          name: `Simulação (${simulationCount})`,
+          type: 'line',
+          data: pairs,
+          showSymbol: false,
+          lineStyle: { width: 1, color: `rgba(120, 150, 255, ${opacity})` },
+          z: 1
+      });
   }
 
   const bandUpper = p95Curve;
@@ -372,7 +372,12 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
       }
     },
     legend: {
-      data: [{name: `Simulação (${simulationCount})`}, 'Curva Original','Média das Simulações','P5','P95'],
+      data: [
+        {name: `Simulação (${simulationCount})`}, 
+        'Curva Original',
+        'Média das Simulações',
+        ...(simulations.length > 0 ? ['P5', 'P95'] : [])
+      ],
       bottom: 0,
       textStyle: { color: 'hsl(var(--muted-foreground))' },
       selected: { [`Simulação (${simulationCount})`]: false }
@@ -944,7 +949,7 @@ export default function MonteCarloSimulator() {
               generateWeibullFailureTime(beta, eta)
           );
           return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
-      }).filter((d): d is PlotData => !!d);
+      }).filter((d): d is PlotData => d !== null && !!d && d.line.length > 0);
       
       setResult({ originalPlot, dispersionData, simulationCount });
   }
