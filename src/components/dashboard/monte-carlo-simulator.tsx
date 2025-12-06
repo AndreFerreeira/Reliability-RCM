@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -96,7 +96,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         name: 'Faixa de Confiança Base',
         type: 'line',
         data: lowerData,
-        smooth: 0.35,
         showSymbol: false,
         lineStyle: { width: 0 },
         stack: 'confidence',
@@ -106,14 +105,10 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const bandFillSeries = {
         name: 'Faixa de Confiança',
         type: 'line',
-        data: upperData.map((p, i) => {
-            const lowerY = lowerData[i] ? lowerData[i][1] : 0;
-            return [p[0], Math.max(0, p[1] - lowerY)];
-        }),
-        smooth: 0.35,
+        data: upperData.map((p, i) => [p[0], Math.max(0, p[1] - (lowerData[i]?.[1] ?? 0))]),
         showSymbol: false,
         lineStyle: { width: 0 },
-        areaStyle: { color: 'rgba(255,215,102,0.1)' },
+        areaStyle: { color: 'rgba(255, 215, 102, 0.15)' },
         stack: 'confidence',
         z: 1,
     };
@@ -318,7 +313,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     const ys = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
     const pairs = xs.map((x,i) => [x, ys[i]]);
     thinSimSeries.push({
-      name: 'Simulação',
+      name: `Simulação (${simulationCount})`,
       type: 'line',
       data: pairs,
       showSymbol: false,
@@ -369,7 +364,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
         let out = `<b>Tempo:</b> ${Number(axisValue).toLocaleString()}<br/>`;
         params.forEach(p => {
           if (p.seriesName && p.seriesName.includes('Faixa')) return;
-          if (p.seriesName === 'Simulação' && params.length > 5) return;
+          if (p.seriesName.includes('Simulação') && params.length > 5) return;
           const val = (p.value && p.value[1] !== undefined) ? p.value[1] : p.value;
           if (isFinite(val)) out += `<span style="color:${p.color}">●</span> ${p.seriesName}: ${Number(val).toFixed(2)}%<br/>`;
         });
@@ -629,10 +624,54 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
         <CardContent>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField control={form.control} name="beta" render={({ field }) => ( <FormItem> <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel> <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
-                    <FormField control={form.control} name="eta" render={({ field }) => ( <FormItem> <FormLabel>Eta (η - Vida Característica)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
-                    <FormField control={form.control} name="sampleSize" render={({ field }) => ( <FormItem> <FormLabel>Tamanho da Amostra (N)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
-                    <FormField control={form.control} name="simulationCount" render={({ field }) => ( <FormItem> <FormLabel>Número de Simulações</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem>)} />
+                    <FormField
+                        control={form.control}
+                        name="beta"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
+                                <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormDescription>Define o modo de falha. &lt;1: prematuras; ≈1: aleatórias; &gt;1: por desgaste.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="eta"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Eta (η - Vida Característica)</FormLabel>
+                                <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormDescription>O tempo em que 63.2% da população terá falhado. Indica a vida útil.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="sampleSize"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tamanho da Amostra (N)</FormLabel>
+                                <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormDescription>Nº de pontos de dados em cada teste. Amostras maiores geram estimativas mais estáveis.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="simulationCount"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Número de Simulações</FormLabel>
+                                <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormDescription>Nº de vezes que a simulação é executada. Aumentar reduz a incerteza do resultado.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
                     <Button type="submit" disabled={isSimulating} className="w-full">
                         {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Simulando...</> : 'Iniciar Simulação'}
