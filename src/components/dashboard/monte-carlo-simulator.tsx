@@ -237,180 +237,230 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     )
 };
 
+function linspaceLog(min: number, max: number, n: number) {
+  const out: number[] = [];
+  const logMin = Math.log10(min);
+  const logMax = Math.log10(max);
+  for (let i = 0; i < n; i++) {
+    out.push(Math.pow(10, logMin + (logMax - logMin) * (i / (n - 1))));
+  }
+  return out;
+}
 
-const DispersionPlot = ({ original, simulations }: { original?: PlotData; simulations?: PlotData[] }) => {
-    if (!original || !simulations) return null;
+// linear interpolation: x must be sorted ascending
+function interp1(xArr: number[], yArr: number[], x: number) {
+  if (x <= xArr[0]) return yArr[0];
+  if (x >= xArr[xArr.length - 1]) return yArr[yArr.length - 1];
+  // find bracketing indices
+  let i = 0;
+  while (i < xArr.length - 1 && x > xArr[i + 1]) i++;
+  const x0 = xArr[i], x1 = xArr[i + 1];
+  const y0 = yArr[i], y1 = yArr[i + 1];
+  const t = (x - x0) / (x1 - x0);
+  return y0 + t * (y1 - y0);
+}
 
-    const convertRegressionLineToProbCurve = (line: { x: number; y: number }[]): [number, number][] => {
-        return line.map(p => {
-            const time = Math.exp(p.x);
-            const prob = (1 - Math.exp(-Math.exp(p.y))) * 100;
-            return [time, prob];
-        }).sort((a,b) => a[0] - b[0]);
-    };
+function percentile(values: number[], p: number) {
+  if (values.length === 0) return NaN;
+  const arr = values.slice().sort((a,b) => a-b);
+  const idx = (arr.length - 1) * (p/100);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return arr[lo];
+  const t = idx - lo;
+  return arr[lo] * (1-t) + arr[hi] * t;
+}
 
-    const convertedSimulations = simulations.map(sim => convertRegressionLineToProbCurve(sim.line));
-    const originalProbCurve = convertRegressionLineToProbCurve(original.line);
+const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: PlotData; simulations?: PlotData[]; maxLines?: number }) => {
+  if (!original || !simulations || simulations.length === 0) return null;
 
-    const timePoints = originalProbCurve.map(p => p[0]);
+  // 1) Choose time grid in real time (not log-x). original.line uses x = log(time) (per your code),
+  //    so convert back to real time for the grid boundaries.
+  const allTimes = original.line.map(p => Math.exp(p.x));
+  const minT = Math.max(1, Math.min(...allTimes) * 0.6);
+  const maxT = Math.max(...allTimes) * 1.4;
+  const TIME_POINTS = 150;
+  const timeGrid = linspaceLog(minT, maxT, TIME_POINTS);
 
-    const aggregatedProbs: number[][] = Array.from({ length: timePoints.length }, () => []);
-    
-    convertedSimulations.forEach(simCurve => {
-        simCurve.forEach((point, idx) => {
-            if (aggregatedProbs[idx]) {
-                aggregatedProbs[idx].push(point[1]);
-            }
+  // 2) For each simulation, build arrays (x in real time, y in percentage)
+  //    If a simulation has line[] with x = log(time), convert back with exp.
+  const simYsByGrid: number[][] = [];
+
+  for (let s = 0; s < simulations.length; s++) {
+    const sim = simulations[s];
+    // map sim.line: convert x (log time) back to real time
+    const simXs = sim.line.map(p => Math.exp(p.x));
+    const simYs = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
+    // ensure sorted by x
+    const pairs = simXs.map((x,i) => ({x, y: simYs[i]})).sort((a,b) => a.x - b.x);
+    const xs = pairs.map(p => p.x), ys = pairs.map(p => p.y);
+
+    // interpolate onto timeGrid
+    const yOnGrid = timeGrid.map(t => interp1(xs, ys, t));
+    simYsByGrid.push(yOnGrid);
+  }
+
+  // 3) compute statistics: mean, median, p5, p95 per time point
+  const meanCurve: [number, number][] = [];
+  const medianCurve: [number, number][] = [];
+  const p5Curve: [number, number][] = [];
+  const p95Curve: [number, number][] = [];
+
+  for (let i = 0; i < timeGrid.length; i++) {
+    const vals = simYsByGrid.map(arr => arr[i]).filter(v => isFinite(v));
+    const mean = vals.reduce((a,b) => a+b, 0) / Math.max(1, vals.length);
+    const med = percentile(vals, 50);
+    const p5 = percentile(vals, 5);
+    const p95 = percentile(vals, 95);
+    meanCurve.push([timeGrid[i], mean]);
+    medianCurve.push([timeGrid[i], med]);
+    p5Curve.push([timeGrid[i], p5]);
+    p95Curve.push([timeGrid[i], p95]);
+  }
+
+  // 4) Build ECharts series:
+  //    - thin semi-transparent lines for a SUBSET of simulations (limit for performance)
+  const linesToDraw = Math.min(simulations.length, maxLines);
+  const step = Math.max(1, Math.floor(simulations.length / linesToDraw));
+  const thinSimSeries = [];
+  for (let s = 0; s < simulations.length; s += step) {
+    const sim = simulations[s];
+    const xs = sim.line.map(p => Math.exp(p.x));
+    const ys = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
+    const pairs = xs.map((x,i) => [x, ys[i]]);
+    thinSimSeries.push({
+      name: 'Simulação',
+      type: 'line',
+      data: pairs,
+      showSymbol: false,
+      lineStyle: { width: 1, opacity: 0.06 },
+      z: 1
+    });
+  }
+
+  // percentile band as area (p5 -> p95)
+  const bandUpper = p95Curve;
+  const bandLower = p5Curve;
+  
+  const originalProbCurve = original.line.map(p => {
+    const time = Math.exp(p.x);
+    const prob = (1 - Math.exp(-Math.exp(p.y))) * 100;
+    return [time, prob];
+  }).sort((a,b) => a[0] - b[0]);
+
+  const option = {
+    backgroundColor: 'transparent',
+    grid: { left: 80, right: 40, top: 70, bottom: 80 },
+    title: {
+      text: 'Dispersão de Parâmetros — Simulações',
+      left: 'center',
+      textStyle: { color: 'hsl(var(--foreground))' }
+    },
+    xAxis: {
+      type: 'log',
+      name: 'Tempo',
+      axisLabel: { color: 'hsl(var(--muted-foreground))' },
+      splitLine: { show: true, lineStyle: { type: 'dashed', color: 'rgba(255,255,255,0.04)' } }
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Probabilidade de Falha, F(t)%',
+      axisLabel: { color: 'hsl(var(--muted-foreground))', formatter: (v: number) => `${v.toFixed(0)}%` },
+      min: 0,
+      max: 100,
+      splitLine: { show: true, lineStyle: { type: 'dashed', color: 'rgba(255,255,255,0.04)' } }
+    },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: any[]) => {
+        const axisValue = params[0]?.value?.[0] ?? params[0]?.axisValue;
+        let out = `<b>Tempo:</b> ${Number(axisValue).toLocaleString()}<br/>`;
+        params.forEach(p => {
+          if (p.seriesName && p.seriesName.includes('Faixa')) return;
+          if (p.seriesName === 'Simulação' && params.length > 5) return;
+          const val = (p.value && p.value[1] !== undefined) ? p.value[1] : p.value;
+          if (isFinite(val)) out += `<span style="color:${p.color}">●</span> ${p.seriesName}: ${Number(val).toFixed(2)}%<br/>`;
         });
-    });
+        return out;
+      }
+    },
+    legend: {
+      data: ['Curva Original','Média das Simulações','P5','P95', 'Simulação'],
+      bottom: 0,
+      textStyle: { color: 'hsl(var(--muted-foreground))' },
+      selected: { 'Simulação': false }
+    },
+    series: [
+      // thin sim lines
+      ...thinSimSeries,
 
-    const getPercentile = (arr: number[], percentile: number) => {
-        if (!arr || arr.length === 0) return 0;
-        arr.sort((a, b) => a - b);
-        const index = (percentile / 100) * arr.length;
-        if (index === Math.floor(index)) {
-            return (arr[index - 1] + arr[index]) / 2;
-        }
-        return arr[Math.floor(index)];
-    };
-
-    const meanCurve = timePoints.map((time, idx) => {
-        const probs = aggregatedProbs[idx];
-        const mean = probs.reduce((a, b) => a + b, 0) / probs.length;
-        return [time, mean];
-    });
-
-    const p05Curve = timePoints.map((time, idx) => [time, getPercentile(aggregatedProbs[idx], 5)]);
-    const p95Curve = timePoints.map((time, idx) => [time, getPercentile(aggregatedProbs[idx], 95)]);
-
-
-    const simulationSeries = simulations.map(sim => ({
-        name: "Simulação",
-        type: "line",
-        data: convertRegressionLineToProbCurve(sim.line),
+      // percentile band (area between P5 and P95)
+      {
+        name: 'Faixa P5–P95',
+        type: 'line',
+        data: bandUpper.map((p,i) => [p[0], p[1]-(bandLower[i] ? bandLower[i][1] : 0)]),
+        lineStyle: { width: 0 },
         showSymbol: false,
-        lineStyle: { width: 1, color: "rgba(180,180,255,0.15)" },
+        stack: 'percentile_band',
+        areaStyle: {
+          color: 'rgba(80, 220, 80, 0.15)'
+        },
+        z: 2,
+      },
+      {
+        name: 'Faixa P5–P95 (base)',
+        type: 'line',
+        data: bandLower,
+        lineStyle: { width: 0 },
+        showSymbol: false,
+        stack: 'percentile_band',
+        areaStyle: { color: 'rgba(80, 220, 80, 0.15)' },
         z: 1,
-    }));
+        silent: true
+      },
 
-    const originalSeries = {
-        name: "Curva Original",
-        type: "line",
-        data: originalProbCurve,
-        showSymbol: false,
-        lineStyle: { width: 3, color: "hsl(var(--accent))" },
-        z: 20,
-    };
-    
-    const meanSeries = {
+      // mean line
+      {
         name: 'Média das Simulações',
         type: 'line',
         data: meanCurve,
-        smooth: 0.35,
         showSymbol: false,
-        lineStyle: { color: 'hsl(var(--chart-4))', width: 2.5 },
-        z: 30,
-    }
+        lineStyle: { width: 3, color: 'hsl(var(--accent))' },
+        z: 10
+      },
 
-    const bandLowerSeries = {
-        name: 'Percentil 5%',
+      // median / P5/P95 dashed lines for reference
+      {
+        name: 'P5',
         type: 'line',
-        data: p05Curve,
-        smooth: 0.35,
+        data: p5Curve,
         showSymbol: false,
-        lineStyle: { width: 0 },
-        stack: 'percentile_band',
-    }
-
-    const bandUpperSeries = {
-        name: 'Percentil 95%',
-        type: 'line',
-        data: p95Curve.map((p, i) => [p[0], p[1] - (p05Curve[i] ? p05Curve[i][1] : 0)]),
-        smooth: 0.35,
-        showSymbol: false,
-        areaStyle: { color: 'rgba(80, 220, 80, 0.15)' },
-        lineStyle: { width: 0 },
-        stack: 'percentile_band',
-    }
-    
-    const p05Line = {
-        name: "P5",
-        type: 'line',
-        data: p05Curve,
-        smooth: 0.35,
-        showSymbol: false,
-        lineStyle: { width: 1.5, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
-    }
-    const p95Line = {
-        name: "P95",
+        lineStyle: { width: 2, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
+        z: 5
+      },
+      {
+        name: 'P95',
         type: 'line',
         data: p95Curve,
-        smooth: 0.35,
         showSymbol: false,
-        lineStyle: { width: 1.5, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
-    }
+        lineStyle: { width: 2, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
+        z: 5
+      },
 
-    const option = {
-        backgroundColor: "transparent",
-        grid: { left: 80, right: 40, top: 70, bottom: 60 },
-        title: {
-            text: "Dispersão dos Parâmetros",
-            subtext: "Simulações Monte Carlo sobre β e η",
-            left: "center",
-            textStyle: { color: "hsl(var(--foreground))" },
-            subtextStyle: { color: "hsl(var(--muted-foreground))" },
-        },
-        tooltip: {
-            trigger: "axis",
-            formatter: (params: any) => {
-                let t = params[0].value[0];
-                let html = `<b>Tempo: </b>${Math.round(t)} h<br/>`;
-                params.forEach((p:any) => {
-                    if (p.seriesName !== 'Percentil 5%' && p.seriesName !== 'Simulação' && p.value && typeof p.value[1] !== 'undefined') {
-                       const F = p.seriesName === 'Percentil 95%' ? p.value[1] + p05Curve.find(item => item[0] === p.value[0])![1] : p.value[1];
-                       html += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${F.toFixed(2)}%<br/>`;
-                    }
-                });
-                return html;
-            },
-        },
-        legend: {
-            data: ["Curva Original", "Simulação", "Média das Simulações", "P5", "P95"],
-            bottom: 0,
-            textStyle: { color: "hsl(var(--muted-foreground))" },
-            selected: {
-                'Simulação': false,
-            }
-        },
-        xAxis: {
-            type: "log",
-            name: "Tempo (t)",
-            nameLocation: "middle",
-            nameGap: 30,
-            axisLabel: { color: "hsl(var(--muted-foreground))" },
-            splitLine: { show: false },
-        },
-        yAxis: {
-            type: "value",
-            name: "Probabilidade de Falha F(t)%",
-            nameLocation: "middle",
-            nameGap: 50,
-            min: 0,
-            max: 100,
-            axisLabel: { color: "hsl(var(--muted-foreground))", formatter: (v: number) => `${v.toFixed(0)}%` },
-            splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } },
-        },
-        series: [...simulationSeries, bandLowerSeries, bandUpperSeries, originalSeries, meanSeries, p05Line, p95Line],
-    };
+      // original (in white thin)
+      {
+        name: 'Curva Original',
+        type: 'line',
+        data: originalProbCurve,
+        showSymbol: false,
+        lineStyle: { width: 2.5, color: 'hsl(var(--foreground))' },
+        z: 12
+      }
+    ]
+  };
 
-    return (
-        <Card>
-            <CardContent className="pt-6">
-                <ReactECharts option={option} style={{ height: "450px", width: "100%" }} notMerge />
-            </CardContent>
-        </Card>
-    );
+  return <Card><CardContent className="pt-6"><ReactECharts option={option} style={{ height: '450px', width: '100%' }} notMerge={true} /></CardContent></Card>;
 };
+
 
 const ContourPlot = ({ data }: { data?: ContourData }) => {
     if (!data) return null;
