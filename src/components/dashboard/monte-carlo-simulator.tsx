@@ -71,37 +71,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const upperData = upperCurve.map(p => [p.x, p.y]);
     const scatterData = points.map(p => [p.time, p.prob]);
 
-    const confidenceBand = {
-        name: "Faixa de Confiança",
-        type: "custom",
-        renderItem: (params:any, api:any) => {
-            const pointsForBand = medianData.map((d,i) => {
-                const x = api.coord([d[0], 0])[0];
-                const yLow = api.coord([0, lowerData[i][1]])[1];
-                const yHigh = api.coord([0, upperData[i][1]])[1];
-                return {x, yLow, yHigh};
-            });
-            
-            const bandPoints = pointsForBand.map(p => [p.x, p.yHigh])
-              .concat(pointsForBand.map(p => [p.x, p.yLow]).reverse());
-
-            return {
-                type: 'polygon',
-                shape: {
-                    points: bandPoints,
-                },
-                style: {
-                    fill: 'rgba(255,215,102,0.12)',
-                    stroke: 'rgba(255,215,102,0)'
-                }
-            };
-        },
-        data: [0], // Only need one data item to trigger one render
-        z: 1,
-        silent: true
-    };
-
-
     // --- Series ---
     const medianSeries = {
         name: `Ajuste Mediano`,
@@ -109,7 +78,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: medianData,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 3, color: 'hsl(var(--chart-1))' },
+        lineStyle: { width: 3, color: '#a88cff' },
         z: 10,
     };
 
@@ -119,7 +88,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: lowerData,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 2, type: 'dashed', color: 'hsl(var(--chart-2))' },
+        lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
         z: 9,
     };
 
@@ -129,9 +98,29 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: upperData,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 2, type: 'dashed', color: 'hsl(var(--chart-4))' },
+        lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
+        areaStyle: {
+            color: 'rgba(255,215,102,0.08)',
+            origin: 'auto'
+        },
+        stack: 'confidence-band',
         z: 9,
     };
+    
+    const bandBaseSeries = {
+        name: 'BandBase',
+        type: 'line',
+        data: lowerData,
+        smooth: 0.35,
+        showSymbol: false,
+        lineStyle: { width: 0 },
+        areaStyle: {
+            color: 'rgba(255,215,102,0.08)'
+        },
+        stack: 'confidence-band',
+        z: 1,
+    };
+
 
     const scatterSeries = {
         name: 'Dados Originais',
@@ -142,9 +131,9 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     let series: any[] = [
-        confidenceBand,
-        lowerSeries,
+        bandBaseSeries,
         upperSeries,
+        lowerSeries,
         medianSeries,
         scatterSeries,
     ];
@@ -153,7 +142,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         medianSeries.markLine = {
             silent: true,
             symbol: 'none',
-            lineStyle: { color: 'hsl(var(--chart-5))', type: 'dashed', width: 2 },
+            lineStyle: { color: 'rgba(255,215,102,0.9)', type: 'dashed', width: 2 },
             data: [{ xAxis: timeForCalc, name: 'Tempo t' }]
         };
         
@@ -167,7 +156,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             ],
             symbolSize: 8,
             itemStyle: {
-                color: (params: any) => ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))'][params.dataIndex],
+                color: (params: any) => ['#a88cff', '#88ff88', '#ffd766'][params.dataIndex],
                 borderColor: '#fff',
                 borderWidth: 1.5,
             },
