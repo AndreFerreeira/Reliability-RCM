@@ -26,7 +26,7 @@ const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }).optional(),
   sampleSize: z.coerce.number().int().min(2, { message: 'Mínimo de 2 amostras.' }).max(100, { message: 'Máximo de 100 amostras.'}).optional(),
-  simulationCount: z.coerce.number().int().min(10, { message: "Mínimo de 10 simulações." }).max(1000, { message: "Máximo de 1000 simulações." }).optional(),
+  simulationCount: z.coerce.number().int().min(10, { message: "Mínimo de 10 simulações." }).max(2000, { message: "Máximo de 2000 simulações." }).optional(),
   confidenceLevel: z.coerce.number().min(1).max(99.9),
   manualData: z.string().optional(),
   timeForCalc: z.coerce.number().gt(0, "O tempo deve ser positivo").optional(),
@@ -43,6 +43,7 @@ interface SimulationResult {
   dispersionData?: PlotData[];
   originalPlot?: PlotData;
   contourData?: ContourData;
+  simulationCount?: number;
 }
 
 const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeForCalc?: number }) => {
@@ -92,7 +93,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     const bandBaseSeries = {
-        name: 'Lower Confidence Band',
+        name: 'Faixa de Confiança Base',
         type: 'line',
         data: lowerData,
         smooth: 0.35,
@@ -103,11 +104,11 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     const bandFillSeries = {
-        name: 'Upper Confidence Band',
+        name: 'Faixa de Confiança',
         type: 'line',
         data: upperData.map((p, i) => {
             const lowerY = lowerData[i] ? lowerData[i][1] : 0;
-            return [p[0], p[1] - lowerY];
+            return [p[0], Math.max(0, p[1] - lowerY)];
         }),
         smooth: 0.35,
         showSymbol: false,
@@ -189,7 +190,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
               const axisValue = params[0].axisValue;
               let tooltip = `<strong>Tempo:</strong> ${Number(axisValue).toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Band') && p.seriesName !== 'Dados Originais' && p.seriesName !== 'Valor no t' && !p.seriesName.includes('Base') ) {
+                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Band') && !p.seriesName.includes('Base') && p.seriesName !== 'Dados Originais' && p.seriesName !== 'Valor no t') {
                       const value = p.value[1];
                       if(typeof value === 'number') {
                          tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${value.toFixed(2)}%<br/>`;
@@ -200,7 +201,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t' && name !== 'Faixa de Confiança' && !name.includes('Base')),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Base') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -270,57 +271,46 @@ function percentile(values: number[], p: number) {
   return arr[lo] * (1-t) + arr[hi] * t;
 }
 
-const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: PlotData; simulations?: PlotData[]; maxLines?: number }) => {
+const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300 }: { original?: PlotData; simulations?: PlotData[]; simulationCount: number; maxLines?: number }) => {
   if (!original || !simulations || simulations.length === 0) return null;
 
-  // 1) Choose time grid in real time (not log-x). original.line uses x = log(time) (per your code),
-  //    so convert back to real time for the grid boundaries.
+  // 1) Choose time grid in real time
   const allTimes = original.line.map(p => Math.exp(p.x));
   const minT = Math.max(1, Math.min(...allTimes) * 0.6);
   const maxT = Math.max(...allTimes) * 1.4;
   const TIME_POINTS = 150;
   const timeGrid = linspaceLog(minT, maxT, TIME_POINTS);
 
-  // 2) For each simulation, build arrays (x in real time, y in percentage)
-  //    If a simulation has line[] with x = log(time), convert back with exp.
+  // 2) For each simulation, interpolate its REAL probability curve onto the timeGrid
   const simYsByGrid: number[][] = [];
-
   for (let s = 0; s < simulations.length; s++) {
     const sim = simulations[s];
-    // map sim.line: convert x (log time) back to real time
     const simXs = sim.line.map(p => Math.exp(p.x));
     const simYs = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
-    // ensure sorted by x
     const pairs = simXs.map((x,i) => ({x, y: simYs[i]})).sort((a,b) => a.x - b.x);
     const xs = pairs.map(p => p.x), ys = pairs.map(p => p.y);
 
-    // interpolate onto timeGrid
     const yOnGrid = timeGrid.map(t => interp1(xs, ys, t));
     simYsByGrid.push(yOnGrid);
   }
 
-  // 3) compute statistics: mean, median, p5, p95 per time point
+  // 3) Compute statistics per time point
   const meanCurve: [number, number][] = [];
-  const medianCurve: [number, number][] = [];
   const p5Curve: [number, number][] = [];
   const p95Curve: [number, number][] = [];
 
   for (let i = 0; i < timeGrid.length; i++) {
     const vals = simYsByGrid.map(arr => arr[i]).filter(v => isFinite(v));
-    const mean = vals.reduce((a,b) => a+b, 0) / Math.max(1, vals.length);
-    const med = percentile(vals, 50);
-    const p5 = percentile(vals, 5);
-    const p95 = percentile(vals, 95);
-    meanCurve.push([timeGrid[i], mean]);
-    medianCurve.push([timeGrid[i], med]);
-    p5Curve.push([timeGrid[i], p5]);
-    p95Curve.push([timeGrid[i], p95]);
+    meanCurve.push([timeGrid[i], vals.reduce((a,b) => a+b, 0) / Math.max(1, vals.length)]);
+    p5Curve.push([timeGrid[i], percentile(vals, 5)]);
+    p95Curve.push([timeGrid[i], percentile(vals, 95)]);
   }
 
-  // 4) Build ECharts series:
-  //    - thin semi-transparent lines for a SUBSET of simulations (limit for performance)
+  // 4) Build ECharts series
+  const opacity = Math.max(0.05, Math.min(0.3, 1 / Math.sqrt(simulationCount)));
   const linesToDraw = Math.min(simulations.length, maxLines);
   const step = Math.max(1, Math.floor(simulations.length / linesToDraw));
+
   const thinSimSeries = [];
   for (let s = 0; s < simulations.length; s += step) {
     const sim = simulations[s];
@@ -332,12 +322,11 @@ const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: 
       type: 'line',
       data: pairs,
       showSymbol: false,
-      lineStyle: { width: 1, opacity: 0.06 },
+      lineStyle: { width: 1, color: `rgba(120, 150, 255, ${opacity})` },
       z: 1
     });
   }
 
-  // percentile band as area (p5 -> p95)
   const bandUpper = p95Curve;
   const bandLower = p5Curve;
   
@@ -351,9 +340,13 @@ const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: 
     backgroundColor: 'transparent',
     grid: { left: 80, right: 40, top: 70, bottom: 80 },
     title: {
-      text: 'Dispersão de Parâmetros — Simulações',
+      text: `Dispersão de Parâmetros — ${simulationCount} Simulações`,
       left: 'center',
-      textStyle: { color: 'hsl(var(--foreground))' }
+      textStyle: { 
+        color: 'hsl(var(--foreground))',
+        fontSize: 16,
+        fontWeight: simulationCount > 500 ? 'bold' : 'normal'
+       }
     },
     xAxis: {
       type: 'log',
@@ -384,26 +377,21 @@ const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: 
       }
     },
     legend: {
-      data: ['Curva Original','Média das Simulações','P5','P95', 'Simulação'],
+      data: [{name: `Simulação (${simulationCount})`}, 'Curva Original','Média das Simulações','P5','P95'],
       bottom: 0,
       textStyle: { color: 'hsl(var(--muted-foreground))' },
-      selected: { 'Simulação': false }
+      selected: { [`Simulação (${simulationCount})`]: false }
     },
     series: [
-      // thin sim lines
       ...thinSimSeries,
-
-      // percentile band (area between P5 and P95)
       {
         name: 'Faixa P5–P95',
         type: 'line',
-        data: bandUpper.map((p,i) => [p[0], p[1]-(bandLower[i] ? bandLower[i][1] : 0)]),
+        data: bandUpper.map((p,i) => [p[0], Math.max(0, p[1]-(bandLower[i] ? bandLower[i][1] : 0))]),
         lineStyle: { width: 0 },
         showSymbol: false,
         stack: 'percentile_band',
-        areaStyle: {
-          color: 'rgba(80, 220, 80, 0.15)'
-        },
+        areaStyle: { color: `rgba(80, 220, 80, ${Math.max(0.05, opacity * 0.8)})` },
         z: 2,
       },
       {
@@ -413,12 +401,9 @@ const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: 
         lineStyle: { width: 0 },
         showSymbol: false,
         stack: 'percentile_band',
-        areaStyle: { color: 'rgba(80, 220, 80, 0.15)' },
         z: 1,
         silent: true
       },
-
-      // mean line
       {
         name: 'Média das Simulações',
         type: 'line',
@@ -427,8 +412,6 @@ const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: 
         lineStyle: { width: 3, color: 'hsl(var(--accent))' },
         z: 10
       },
-
-      // median / P5/P95 dashed lines for reference
       {
         name: 'P5',
         type: 'line',
@@ -445,8 +428,6 @@ const DispersionPlot = ({ original, simulations, maxLines = 300 }: { original?: 
         lineStyle: { width: 2, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
         z: 5
       },
-
-      // original (in white thin)
       {
         name: 'Curva Original',
         type: 'line',
@@ -926,7 +907,7 @@ export default function MonteCarloSimulator() {
           return estimateParametersByRankRegression('Weibull', sample, [], 'SRM')?.plotData;
       }).filter((d): d is PlotData => !!d);
       
-      setResult({ originalPlot, dispersionData });
+      setResult({ originalPlot, dispersionData, simulationCount });
   }
 
   const runContourSimulation = (data: FormData) => {
@@ -1050,8 +1031,8 @@ export default function MonteCarloSimulator() {
                     <FisherMatrixPlot data={result.boundsData} timeForCalc={form.getValues('timeForCalc')} />
                 )}
 
-                {result?.dispersionData && simulationType === 'dispersion' && (
-                    <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} />
+                {result?.dispersionData && result.simulationCount && simulationType === 'dispersion' && (
+                    <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} simulationCount={result.simulationCount} />
                 )}
 
                 {result?.contourData && simulationType === 'contour' && (
