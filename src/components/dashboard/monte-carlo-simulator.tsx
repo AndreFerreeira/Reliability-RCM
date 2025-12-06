@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
 import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour } from '@/lib/reliability';
-import type { Supplier, FisherBoundsData, PlotData, ContourData, DistributionAnalysisResult } from '@/lib/types';
+import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -39,59 +39,74 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 interface SimulationResult {
-  boundsData?: FisherBoundsData;
+  boundsData?: LRBoundsResult;
   dispersionData?: PlotData[];
   originalPlot?: PlotData;
   contourData?: ContourData;
 }
 
-const FisherMatrixPlot = ({ data, timeForCalc }: { data?: FisherBoundsData, timeForCalc?: number }) => {
+const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeForCalc?: number }) => {
     if (!data) return null;
 
     const {
-        medianCurve,
-        lowerCurve,
-        upperCurve,
-        points,
+        medianCurve: rawMedian,
+        lowerCurve: rawLower,
+        upperCurve: rawUpper,
+        points: rawPoints,
         betaMLE,
         etaMLE,
         rSquared,
         calculation
     } = data;
     
+    // PASSO 1: Garantir que todos os dados são números e ordenados
+    const sortFn = (a: { x: number }, b: { x: number }) => a.x - b.x;
+    const medianCurve = rawMedian.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
+    const lowerCurve = rawLower.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
+    const upperCurve = rawUpper.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
+    const points = rawPoints.map(p => ({ time: Number(p.time), prob: Number(p.prob) * 100, x: Number(p.x), y: Number(p.y) }));
+
+    const medianData = medianCurve.map(p => [p.x, p.y]);
+    const lowerData = lowerCurve.map(p => [p.x, p.y]);
+    const upperData = upperCurve.map(p => [p.x, p.y]);
+    const scatterData = points.map(p => [p.time, p.prob]);
+
     // --- Series ---
     const medianSeries = {
         name: `Ajuste Mediano`,
         type: 'line',
-        data: medianCurve,
+        data: medianData,
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 3, color: '#a88cff' },
+        z: 10,
     };
 
     const lowerSeries = {
         name: `Limite Inferior ${data.confidenceLevel}%`,
         type: 'line',
-        data: lowerCurve,
+        data: lowerData,
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
+        z: 9,
     };
 
     const upperSeries = {
         name: `Limite Superior ${data.confidenceLevel}%`,
         type: 'line',
-        data: upperCurve,
+        data: upperData,
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
+        z: 9,
     };
 
-    // For filled band
+    // PASSO 2: Banda de confiança preenchida
     const bandSeries = {
         name: 'Faixa de Confiança',
         type: 'line',
-        data: upperCurve.map((p:any) => [p.x, p.y]),
+        data: upperData,
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 0 },
@@ -100,38 +115,42 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: FisherBoundsData, time
             color: 'rgba(255,215,102,0.08)'
         },
         stack: 'confidence-band',
+        z: 1
     };
 
     const bandLowerSeries = {
         name: 'LowerStack',
         type: 'line',
-        data: lowerCurve.map((p:any) => [p.x, p.y]),
+        data: lowerData.map((p, i) => [p[0], upperData[i][1] - p[1]]),
         showSymbol: false,
         smooth: 0.35,
         lineStyle: { width: 0 },
-        stack: 'confidence-band'
+        areaStyle: {
+            origin: 'start',
+            color: 'rgba(255,215,102,0.08)'
+        },
+        stack: 'confidence-band',
+        z: 1,
     };
 
     const scatterSeries = {
         name: 'Dados Originais',
         type: 'scatter',
-        data: points.map(p => [p.time, p.prob * 100]),
+        data: scatterData,
         symbolSize: 6,
         itemStyle: { color: 'rgba(200,200,200,0.8)' }
     };
     
     let series: any[] = [
-        scatterSeries,
         lowerSeries,
         upperSeries,
         medianSeries,
+        bandSeries, 
         bandLowerSeries,
-        bandSeries
+        scatterSeries,
     ];
 
-    if (timeForCalc && calculation) {
-        const { medianAtT, lowerAtT, upperAtT } = calculation;
-
+    if (timeForCalc && calculation && calculation.medianAtT !== null && calculation.lowerAtT !== null && calculation.upperAtT !== null) {
         medianSeries.markLine = {
             silent: true,
             symbol: 'none',
@@ -143,9 +162,9 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: FisherBoundsData, time
             name: "Valor no t",
             type: "scatter",
             data: [
-                [timeForCalc, medianAtT],
-                [timeForCalc, lowerAtT],
-                [timeForCalc, upperAtT]
+                [timeForCalc, calculation.medianAtT],
+                [timeForCalc, calculation.lowerAtT],
+                [timeForCalc, calculation.upperAtT]
             ],
             symbolSize: 8,
             itemStyle: {
@@ -153,12 +172,14 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: FisherBoundsData, time
                 borderColor: '#fff',
                 borderWidth: 1.5,
             },
-            z: 10,
+            z: 20,
         };
         series.push(calculatedPointsSeries);
     }
     
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
+    
+    // PASSO 3: Eixos Logarítmicos
     const option = {
         backgroundColor: "transparent",
         grid: { left: 65, right: 40, top: 70, bottom: 60 },
@@ -175,15 +196,18 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: FisherBoundsData, time
               const axisValue = params[0].axisValue;
               let tooltip = `<strong>Tempo:</strong> ${Number(axisValue).toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && p.seriesName !== 'LowerStack' && p.seriesName !== 'Faixa de Confiança') {
-                      tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${p.value[1].toFixed(2)}%<br/>`;
+                  if (p.seriesName && !p.seriesName.includes('Stack') && p.seriesName !== 'Faixa de Confiança' ) {
+                      const value = p.value[1];
+                      if(typeof value === 'number') {
+                         tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${value.toFixed(2)}%<br/>`;
+                      }
                   }
               });
               return tooltip;
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && name !== 'LowerStack' && name !== 'Faixa de Confiança' && name !== 'Dados Originais' && name !== 'Valor no t'),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && name !== 'Faixa de Confiança' && name !== 'Dados Originais' && name !== 'Valor no t'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -841,7 +865,7 @@ export default function MonteCarloSimulator() {
        form.handleSubmit(onSubmit)();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeForCalc]);
+  }, []); // Run on initial mount for confidence
 
 
   if (!isClient) {
@@ -910,7 +934,7 @@ export default function MonteCarloSimulator() {
                 )}
 
                 {result?.boundsData && simulationType === 'confidence' && (
-                    <FisherMatrixPlot data={result.boundsData} timeForCalc={timeForCalc} />
+                    <FisherMatrixPlot data={result.boundsData} timeForCalc={form.getValues('timeForCalc')} />
                 )}
 
                 {result?.dispersionData && simulationType === 'dispersion' && (
@@ -922,7 +946,7 @@ export default function MonteCarloSimulator() {
                 )}
 
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
-                    <ResultsDisplay result={result} timeForCalc={timeForCalc} />
+                    <ResultsDisplay result={result} timeForCalc={form.getValues('timeForCalc')} />
                 )}
 
                 {!isSimulating && result?.contourData && simulationType === 'contour' && (

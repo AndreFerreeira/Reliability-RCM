@@ -81,8 +81,6 @@ export type LRBoundsResult = {
 }
 
 
-export type FisherBoundsData = LRBoundsResult;
-
 export type ContourData = {
   center: { beta: number; eta: number };
   ellipse: number[][];

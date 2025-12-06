@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, FisherBoundsData, ContourData, DistributionAnalysisResult, CensoredData, LRBoundsResult } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData } from '@/lib/types';
 
 
 // --- Statistical Helpers ---
@@ -80,11 +80,16 @@ const lognormalPdf = (t: number, mu: number, sigma: number) => {
     return Math.exp(-0.5 * z * z) / denom;
 };
 
-const lognormalSurvival = (t: number, mu: number, sigma: number) => {
-    if (t <= 0) return 1;
+const lognormalCdf = (t: number, mu: number, sigma: number) => {
+    if (t <= 0) return 0;
     const z = (Math.log(t) - mu) / sigma;
-    return 1 - normalCdf(z);
+    return normalCdf(z);
 };
+
+const lognormalSurvival = (t: number, mu: number, sigma: number) => {
+    return 1 - lognormalCdf(t, mu, sigma);
+};
+
 
 const weibullPdf = (t: number, beta: number, eta: number) => {
     if (t < 0 || beta <= 0 || eta <= 0) return 0;
@@ -173,41 +178,41 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
     if (n === 0) return [];
     
     const failurePoints: { time: number, prob: number }[] = [];
-    
-    // Kaplan-Meier estimation
-    let reliability = 1.0;
+    let cumulativeReliability = 1.0;
     let itemsAtRisk = n;
-    
+    let lastTime = -1;
+
     for (let i = 0; i < n; ) {
         const t = allEvents[i].time;
         let failuresAtT = 0;
-        let totalAtT = 0;
+        let suspensionsAtT = 0;
         
-        // Count failures and total events at time t
         let j = i;
         while(j < n && allEvents[j].time === t) {
-            totalAtT++;
-            if (allEvents[j].event === 1) {
-                failuresAtT++;
-            }
+            if (allEvents[j].event === 1) failuresAtT++;
+            else suspensionsAtT++;
             j++;
         }
         
+        const totalAtT = failuresAtT + suspensionsAtT;
+        
         if (failuresAtT > 0) {
-            reliability = reliability * (1 - failuresAtT / itemsAtRisk);
-            // Use the reliability *before* the current failure for the unreliability F(t)
-            const unreliability = 1 - reliability;
-            failurePoints.push({ time: t, prob: unreliability });
+            const reliabilityAtT = (itemsAtRisk - failuresAtT) / itemsAtRisk;
+            cumulativeReliability *= reliabilityAtT;
+            failurePoints.push({ time: t, prob: 1 - cumulativeReliability });
         }
         
         itemsAtRisk -= totalAtT;
         i += totalAtT;
+        lastTime = t;
     }
+
+    // De-duplicate points at the same time, which can happen with K-M method if not handled carefully
+    const uniqueFailurePoints = Array.from(new Map(failurePoints.map(item => [item.time, item])).values());
     
-    // Ensure unique points for regression, although Kaplan-Meier should handle this.
-    // If multiple failures happen at same time, K-M produces one point.
-    return failurePoints.sort((a, b) => a.time - b.time);
+    return uniqueFailurePoints.sort((a, b) => a.time - b.time);
 }
+
 
 
 export function estimateParametersByRankRegression(
@@ -310,7 +315,76 @@ function isFiniteNumber(x: any): x is number {
     return typeof x === "number" && isFinite(x);
 }
 
-//--- MLE Functions with Censoring ---
+/* -----------------------
+   Nelder-Mead implementation (simple)
+   ----------------------- */
+function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxIter?: number; tol?: number; scale?: number } = {}) {
+    const maxIter = options.maxIter || 2000;
+    const tol = options.tol || 1e-9;
+    const alpha = 1, gamma = 2, rho = 0.5, sigma = 0.5;
+
+    const n = x0.length;
+    const scale = options.scale || 0.5;
+    const simplex: { x: number[], fx: number }[] = [];
+    simplex.push({ x: x0.slice(), fx: func(x0) });
+    for (let i = 0; i < n; i++) {
+        const xi = x0.slice();
+        xi[i] = xi[i] + scale * (Math.abs(xi[i]) + 1);
+        simplex.push({ x: xi, fx: func(xi) });
+    }
+
+    for (let iter = 0; iter < maxIter; iter++) {
+        simplex.sort((a, b) => a.fx - b.fx);
+
+        const fmean = simplex.reduce((s, v) => s + v.fx, 0) / simplex.length;
+        let fvar = 0;
+        for (const v of simplex) fvar += (v.fx - fmean) * (v.fx - fmean);
+        fvar = fvar / simplex.length;
+        if (Math.sqrt(fvar) < tol) break;
+
+        const centroid = new Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) centroid[j] += simplex[i].x[j];
+        }
+        for (let j = 0; j < n; j++) centroid[j] /= n;
+
+        const worst = simplex[n];
+
+        const xr = centroid.map((c, j) => c + alpha * (c - worst.x[j]));
+        const fxr = func(xr);
+
+        if (fxr < simplex[n - 1].fx && fxr >= simplex[0].fx) {
+            simplex[n] = { x: xr, fx: fxr };
+            continue;
+        }
+
+        if (fxr < simplex[0].fx) {
+            const xe = centroid.map((c, j) => c + gamma * (xr[j] - c));
+            const fxe = func(xe);
+            simplex[n] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
+            continue;
+        }
+
+        const xc = centroid.map((c, j) => c + rho * (worst.x[j] - c));
+        const fxc = func(xc);
+        if (fxc < worst.fx) {
+            simplex[n] = { x: xc, fx: fxc };
+            continue;
+        }
+
+        for (let i = 1; i <= n; i++) {
+            simplex[i].x = simplex[0].x.map((b, j) => b + sigma * (simplex[i].x[j] - b));
+            simplex[i].fx = func(simplex[i].x);
+        }
+    }
+
+    simplex.sort((a, b) => a.fx - b.fx);
+    return { x: simplex[0].x, fx: simplex[0].fx };
+}
+
+/* -----------------------
+   NLL Functions with Censoring
+   ----------------------- */
 function negLogLikLognormal(params: number[], data: CensoredData[]): number {
     const mu = params[0];
     const sigma = Math.exp(params[1]); // Enforce positivity
@@ -351,73 +425,9 @@ function negLogLikWeibull(params: number[], data: CensoredData[]): number {
     return nll;
 }
 
-//--- Nelder-Mead Optimizer ---
-type NMPoint = { x: number[]; fx: number };
-
-function nelderMead(func: (x: number[]) => number, x0: number[], options: { maxIter?: number; tol?: number; scale?: number } = {}) {
-    const maxIter = options.maxIter || 2000;
-    const tol = options.tol || 1e-9;
-    const alpha = 1, gamma = 2, rho = 0.5, sigma = 0.5;
-    const n = x0.length;
-    const scale = options.scale || 0.1;
-
-    let simplex: NMPoint[] = [];
-    simplex.push({ x: x0.slice(), fx: func(x0) });
-    for (let i = 0; i < n; i++) {
-        const xi = x0.slice();
-        xi[i] = xi[i] + scale * (Math.abs(xi[i]) + 1);
-        simplex.push({ x: xi, fx: func(xi) });
-    }
-
-    for (let iter = 0; iter < maxIter; iter++) {
-        simplex.sort((a, b) => a.fx - b.fx);
-        
-        const fmean = simplex.reduce((s, v) => s + v.fx, 0) / simplex.length;
-        const fvar = simplex.reduce((s, v) => s + (v.fx - fmean) ** 2, 0) / simplex.length;
-        if (Math.sqrt(fvar) < tol) break;
-
-        const centroid = new Array(n).fill(0);
-        for (let i = 0; i < n; i++) { // Centroid of all but the worst point
-            for (let j = 0; j < n; j++) {
-                centroid[j] += simplex[i].x[j];
-            }
-        }
-        centroid.forEach((_, j) => centroid[j] /= n);
-
-        const worst = simplex[n];
-
-        // Reflection
-        const xr = centroid.map((c, j) => c + alpha * (c - worst.x[j]));
-        const fxr = func(xr);
-
-        if (fxr < simplex[n-1].fx && fxr >= simplex[0].fx) {
-            simplex[n] = { x: xr, fx: fxr };
-            continue;
-        }
-        // Expansion
-        if (fxr < simplex[0].fx) {
-            const xe = centroid.map((c, j) => c + gamma * (xr[j] - c));
-            const fxe = func(xe);
-            simplex[n] = (fxe < fxr) ? { x: xe, fx: fxe } : { x: xr, fx: fxr };
-            continue;
-        }
-        // Contraction
-        const xc = centroid.map((c, j) => c + rho * (worst.x[j] - c));
-        const fxc = func(xc);
-        if (fxc < worst.fx) {
-            simplex[n] = { x: xc, fx: fxc };
-            continue;
-        }
-        // Reduction
-        for (let i = 1; i <= n; i++) {
-            simplex[i].x = simplex[0].x.map((b, j) => b + sigma * (simplex[i].x[j] - b));
-            simplex[i].fx = func(simplex[i].x);
-        }
-    }
-
-    simplex.sort((a, b) => a.fx - b.fx);
-    return { x: simplex[0].x, fx: simplex[0].fx };
-}
+/* -----------------------
+   Fit Functions using MLE
+   ----------------------- */
 
 function fitLognormalMLE(data: CensoredData[]): Parameters {
     const failures = data.filter(d => d.event === 1).map(d => Math.log(d.time));
@@ -427,67 +437,21 @@ function fitLognormalMLE(data: CensoredData[]): Parameters {
     const sd0 = Math.sqrt(failures.reduce((s, v) => s + (v - mu0) ** 2, 0) / (failures.length > 1 ? failures.length - 1 : 1));
     const x0 = [mu0, Math.log(sd0 > 0 ? sd0 : 1)];
     
-    const res = nelderMead(params => negLogLikLognormal(params, data), x0);
+    const res = nelderMead(params => negLogLikLognormal(params, data), x0, { maxIter: 2000, tol: 1e-9 });
     const [mu, logSigma] = res.x;
     return { mean: mu, stdDev: Math.exp(logSigma), lkv: -res.fx };
 }
 
-function estimateWeibullMLE(times: number[], maxIter = 100, tol = 1e-7): { beta: number; eta: number; ll: number } | undefined {
-  const n = times.length;
-  if (n === 0) return undefined;
-  for (const t of times) if (!isFinite(t) || t <= 0) return undefined;
+function fitWeibullMLE(data: CensoredData[]): Parameters {
+    const failures = data.filter(d => d.event === 1).map(d => d.time);
+    if (failures.length === 0) return { lkv: -Infinity };
+    const median = failures.sort((a,b) => a-b)[Math.floor(failures.length/2)] || 1;
+    const x0 = [Math.log(1.0), Math.log(median || 1)];
 
-  const lnTs = times.map((t) => Math.log(t));
-  const sumLnT = lnTs.reduce((a, b) => a + b, 0);
-
-  // Initial guess for beta using method of moments for log-Weibull
-  const meanLnT = sumLnT / n;
-  const s2 = lnTs.reduce((acc, x) => acc + (x - meanLnT) ** 2, 0) / n;
-  let beta = 1.2 / Math.sqrt(s2);
-  
-  for (let iter = 0; iter < maxIter; iter++) {
-    let sumPow = 0, sumPowLn = 0, sumPowLn2 = 0;
-    for (const t of times) {
-      const xp = Math.pow(t, beta);
-      if (!isFinite(xp)) return undefined;
-      sumPow += xp;
-      sumPowLn += xp * Math.log(t);
-      sumPowLn2 += xp * Math.pow(Math.log(t), 2);
-    }
-    
-    if (sumPow <= 0) return undefined;
-    const A = sumPow;
-    const B = sumPowLn;
-
-    const score = n / beta + sumLnT - (n * B) / A;
-    const deriv = -n / (beta * beta) - n * (sumPowLn2 / A - (B / A) * (B / A));
-
-    if (!isFinite(score) || !isFinite(deriv) || Math.abs(deriv) < 1e-16) break;
-    const delta = score / deriv;
-    const betaNew = beta - delta;
-    
-    beta = (isFinite(betaNew) && betaNew > 0) ? betaNew : Math.max(0.01, beta + delta * 0.1);
-    if (Math.abs(delta) < tol * Math.max(1, Math.abs(beta))) break;
-  }
-  
-  if (!isFinite(beta) || beta <= 0) return undefined;
-  let sumPowFinal = 0;
-  for (const t of times) {
-    const xp = Math.pow(t, beta);
-    if (!isFinite(xp)) return undefined;
-    sumPowFinal += xp;
-  }
-  
-  const eta = Math.pow(sumPowFinal / n, 1 / beta);
-  if (!isFinite(eta) || eta <= 0) return undefined;
-  
-  let ll = 0;
-  let sumPower = 0;
-  for (const t of times) sumPower += Math.pow(t / eta, beta);
-  ll = n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
-  
-  if (!isFinite(ll)) return undefined;
-  return { beta, eta, ll };
+    const res = nelderMead(x => negLogLikWeibull(x, data), x0, { maxIter: 2000, tol: 1e-9 });
+    const k = Math.exp(res.x[0]);
+    const lambda = Math.exp(res.x[1]);
+    return { beta: k, eta: lambda, lkv: -res.fx };
 }
 
 function estimateNormalMLE(data: CensoredData[]): Parameters {
@@ -537,10 +501,7 @@ export function estimateParameters({ dist, failureTimes, suspensionTimes = [], m
 
     let params: Parameters = {};
     if (dist === 'Weibull' && method === 'MLE') {
-      const mleResult = estimateWeibullMLE(failureTimes); // Using simplified version for now
-      if (mleResult) {
-        params = { beta: mleResult.beta, eta: mleResult.eta, lkv: mleResult.ll };
-      }
+        params = fitWeibullMLE(censoredData);
     } else if (dist === 'Lognormal' && method === 'MLE') {
         params = fitLognormalMLE(censoredData);
     } else if (dist === 'Normal' && method === 'MLE') {
@@ -563,6 +524,67 @@ function generateTimeGrid(min = 1, max = 10000, points = 80) {
     out.push(Math.pow(10, logMin + (logMax - logMin) * (i / (points - 1))));
   }
   return out;
+}
+
+function estimateWeibullMLE(times: number[], maxIter = 200, tol = 1e-7): { beta: number; eta: number; ll: number } | undefined {
+  const n = times.length;
+  if (n === 0) return undefined;
+  for (const t of times) if (!isFinite(t) || t <= 0) return undefined;
+
+  const lnTs = times.map((t) => Math.log(t));
+  const sumLnT = lnTs.reduce((a, b) => a + b, 0);
+  const meanLnT = sumLnT / n;
+  const s2 = lnTs.reduce((acc, x) => acc + (x - meanLnT) ** 2, 0) / n;
+  let beta = 1.2;
+   if (s2 > 1e-12) {
+    const cvln = Math.sqrt(s2);
+    const guess = 1.2 / Math.max(0.5, Math.min(5, cvln * 1.0));
+    if (isFinite(guess) && guess > 0) beta = guess;
+  }
+  
+  for (let iter = 0; iter < maxIter; iter++) {
+    let sumPow = 0, sumPowLn = 0, sumPowLn2 = 0;
+    for (const t of times) {
+      const xp = Math.pow(t, beta);
+      if (!isFinite(xp)) return undefined;
+      sumPow += xp;
+      sumPowLn += xp * Math.log(t);
+      sumPowLn2 += xp * Math.pow(Math.log(t), 2);
+    }
+    
+    if (sumPow <= 0) return undefined;
+    const A = sumPow;
+    const B = sumPowLn;
+
+    const score = n / beta + sumLnT - (n * B) / A;
+    const deriv = -n / (beta * beta) - n * (sumPowLn2 / A - (B / A) * (B / A));
+
+    if (!isFinite(score) || !isFinite(deriv) || Math.abs(deriv) < 1e-16) break;
+    const delta = score / deriv;
+    const betaNew = beta - delta;
+    
+    beta = (isFinite(betaNew) && betaNew > 0) ? betaNew : Math.max(0.01, beta + delta * 0.1);
+    if (Math.abs(delta) < tol * Math.max(1, Math.abs(beta))) break;
+  }
+  
+  if (!isFinite(beta) || beta <= 0) return undefined;
+  let sumPowFinal = 0;
+  for (const t of times) {
+    const xp = Math.pow(t, beta);
+    if (!isFinite(xp)) return undefined;
+    sumPowFinal += xp;
+  }
+  
+  const eta = Math.pow(sumPowFinal / n, 1 / beta);
+  if (!isFinite(eta) || eta <= 0) return undefined;
+  
+  let ll = 0;
+  let sumPower = 0;
+  for (const t of times) sumPower += Math.pow(t / eta, beta);
+  ll = n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
+  
+  if (!isFinite(ll)) return undefined;
+  return { beta, eta, ll };
 }
 
 
@@ -652,7 +674,7 @@ export function calculateLikelihoodRatioBounds(
       };
     }
     
-    const { plotData } = estimateParameters({ dist: 'Weibull', failureTimes: times });
+    const { plotData } = estimateParameters({ dist: 'Weibull', failureTimes: times, method: 'SRM' });
 
     return {
       betaMLE,
@@ -925,8 +947,7 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
     for (const dist of distributionsToTest) {
         let params: Parameters = {};
         if (dist === 'Weibull') {
-            const mleResult = estimateWeibullMLE(failureTimes); // Only failures for this simple MLE
-            if(mleResult) params = { beta: mleResult.beta, eta: mleResult.eta, lkv: mleResult.ll };
+            params = fitWeibullMLE(censoredData);
         } else if (dist === 'Lognormal') {
             params = fitLognormalMLE(censoredData);
         } else if (dist === 'Normal') {
