@@ -269,14 +269,12 @@ function percentile(values: number[], p: number) {
 const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300 }: { original?: PlotData; simulations?: PlotData[]; simulationCount: number; maxLines?: number }) => {
   if (!original || !simulations || simulations.length === 0) return null;
 
-  // 1) Choose time grid in real time
   const allTimes = original.line.map(p => Math.exp(p.x));
   const minT = Math.max(1, Math.min(...allTimes) * 0.6);
   const maxT = Math.max(...allTimes) * 1.4;
   const TIME_POINTS = 150;
   const timeGrid = linspaceLog(minT, maxT, TIME_POINTS);
 
-  // 2) For each simulation, interpolate its REAL probability curve onto the timeGrid
   const simYsByGrid: number[][] = [];
   for (let s = 0; s < simulations.length; s++) {
     const sim = simulations[s];
@@ -289,7 +287,6 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     simYsByGrid.push(yOnGrid);
   }
 
-  // 3) Compute statistics per time point
   const meanCurve: [number, number][] = [];
   const p5Curve: [number, number][] = [];
   const p95Curve: [number, number][] = [];
@@ -301,7 +298,6 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     p95Curve.push([timeGrid[i], percentile(vals, 95)]);
   }
 
-  // 4) Build ECharts series
   const opacity = Math.max(0.05, Math.min(0.3, 1 / Math.sqrt(simulationCount)));
   const linesToDraw = Math.min(simulations.length, maxLines);
   const step = Math.max(1, Math.floor(simulations.length / linesToDraw));
