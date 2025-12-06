@@ -78,7 +78,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: medianData,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 3, color: '#a88cff' },
+        lineStyle: { width: 3, color: 'hsl(var(--chart-1))' },
         z: 10,
     };
 
@@ -88,7 +88,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: lowerData,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
+        lineStyle: { width: 2, type: 'dashed', color: 'hsl(var(--chart-2))' },
         z: 9,
     };
 
@@ -98,35 +98,36 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: upperData,
         showSymbol: false,
         smooth: 0.35,
-        lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
+        lineStyle: { width: 2, type: 'dashed', color: 'hsl(var(--chart-4))' },
         z: 9,
     };
 
-    const bandSeriesLower = {
-      name: 'Lower Confidence Band',
-      type: 'line',
-      data: lowerData,
-      smooth: 0.35,
-      showSymbol: false,
-      lineStyle: { width: 0 },
-      stack: 'confidence',
-      areaStyle: {
-          color: 'rgba(255,215,102,0.10)'
-      },
-      z: 1
-    };
-    
-    const bandSeriesUpper = {
-        name: 'Upper Confidence Band',
-        type: 'line',
-        data: upperData.map((p, i) => [p[0], p[1] - (lowerData[i]?.[1] ?? 0)]),
-        smooth: 0.35,
-        showSymbol: false,
-        lineStyle: { width: 0 },
-        stack: 'confidence',
-        areaStyle: {
-            color: 'rgba(255,215,102,0.10)'
+    const confidenceBand = {
+        name: "Faixa de Confiança",
+        type: "custom",
+        renderItem: (params: any, api: any) => {
+            const idx = api.value(0);
+            if (idx >= medianData.length) return;
+
+            const x = api.coord([medianData[idx][0], 0])[0];
+            const yLow = api.coord([0, lowerData[idx][1]])[1];
+            const yHigh = api.coord([0, upperData[idx][1]])[1];
+
+            return {
+                type: "rect",
+                shape: {
+                    x: x,
+                    y: yHigh,
+                    width: 2, // A largura pode ser ajustada para melhor visualização
+                    height: yLow - yHigh
+                },
+                style: {
+                    fill: "rgba(255,215,102,0.12)"
+                }
+            };
         },
+        data: medianData.map((d: any, idx: number) => [idx]),
+        silent: true,
         z: 1
     };
 
@@ -139,8 +140,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     let series: any[] = [
-        bandSeriesLower,
-        bandSeriesUpper,
+        confidenceBand,
         lowerSeries,
         upperSeries,
         medianSeries,
@@ -151,7 +151,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         medianSeries.markLine = {
             silent: true,
             symbol: 'none',
-            lineStyle: { color: 'rgba(255,215,102,0.9)', type: 'dashed', width: 2 },
+            lineStyle: { color: 'hsl(var(--chart-5))', type: 'dashed', width: 2 },
             data: [{ xAxis: timeForCalc, name: 'Tempo t' }]
         };
         
@@ -165,7 +165,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             ],
             symbolSize: 8,
             itemStyle: {
-                color: (params: any) => ['#a88cff', '#88ff88', '#ffd766'][params.dataIndex],
+                color: (params: any) => ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))'][params.dataIndex],
                 borderColor: '#fff',
                 borderWidth: 1.5,
             },
@@ -204,7 +204,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t'),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t' && name !== 'Faixa de Confiança'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -858,11 +858,11 @@ export default function MonteCarloSimulator() {
   }
 
   useEffect(() => {
-    if (simulationType === 'confidence') {
-       form.handleSubmit(onSubmit)();
+    if (isClient && simulationType === 'confidence') {
+        form.handleSubmit(onSubmit)();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run on initial mount for confidence
+  }, [isClient]); 
 
 
   if (!isClient) {
@@ -954,3 +954,6 @@ export default function MonteCarloSimulator() {
     </div>
   );
 }
+
+
+    
