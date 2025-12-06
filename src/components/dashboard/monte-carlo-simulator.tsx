@@ -102,35 +102,32 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         z: 9,
     };
 
-    // PASSO 2: Banda de confiança preenchida
-    const bandSeries = {
-        name: 'Faixa de Confiança',
-        type: 'line',
-        data: upperData,
-        showSymbol: false,
-        smooth: 0.35,
-        lineStyle: { width: 0 },
-        areaStyle: {
-            origin: 'auto',
-            color: 'rgba(255,215,102,0.08)'
-        },
-        stack: 'confidence-band',
-        z: 1
+    const bandSeriesLower = {
+      name: 'Lower Confidence Band',
+      type: 'line',
+      data: lowerData,
+      smooth: 0.35,
+      showSymbol: false,
+      lineStyle: { width: 0 },
+      stack: 'confidence',
+      areaStyle: {
+          color: 'rgba(255,215,102,0.10)'
+      },
+      z: 1
     };
-
-    const bandLowerSeries = {
-        name: 'LowerStack',
+    
+    const bandSeriesUpper = {
+        name: 'Upper Confidence Band',
         type: 'line',
-        data: lowerData.map((p, i) => [p[0], upperData[i][1] - p[1]]),
-        showSymbol: false,
+        data: upperData.map((p, i) => [p[0], p[1] - (lowerData[i]?.[1] ?? 0)]),
         smooth: 0.35,
+        showSymbol: false,
         lineStyle: { width: 0 },
+        stack: 'confidence',
         areaStyle: {
-            origin: 'start',
-            color: 'rgba(255,215,102,0.08)'
+            color: 'rgba(255,215,102,0.10)'
         },
-        stack: 'confidence-band',
-        z: 1,
+        z: 1
     };
 
     const scatterSeries = {
@@ -142,11 +139,11 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
     
     let series: any[] = [
+        bandSeriesLower,
+        bandSeriesUpper,
         lowerSeries,
         upperSeries,
         medianSeries,
-        bandSeries, 
-        bandLowerSeries,
         scatterSeries,
     ];
 
@@ -196,7 +193,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
               const axisValue = params[0].axisValue;
               let tooltip = `<strong>Tempo:</strong> ${Number(axisValue).toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && !p.seriesName.includes('Stack') && p.seriesName !== 'Faixa de Confiança' ) {
+                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Band') && p.seriesName !== 'Dados Originais' && p.seriesName !== 'Valor no t' ) {
                       const value = p.value[1];
                       if(typeof value === 'number') {
                          tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${value.toFixed(2)}%<br/>`;
@@ -207,7 +204,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && name !== 'Faixa de Confiança' && name !== 'Dados Originais' && name !== 'Valor no t'),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t'),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -643,9 +640,9 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                             </TableRow>
                              <TableRow>
                                 <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
-                                <TableCell className="text-right font-mono text-green-400">{(100 - (calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-green-400">{(100 - (calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right font-mono text-purple-400">{(100 - (calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-yellow-400">{(100 - (calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-yellow-400">{(100 - (calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
