@@ -241,62 +241,53 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
 const DispersionPlot = ({ original, simulations }: { original?: PlotData; simulations?: PlotData[] }) => {
     if (!original || !simulations) return null;
 
-    const convertCurve = (line: { x: number; y: number }[]) =>
-        line.map(p => {
-            const t = Math.exp(p.x);
-            const F = (1 - Math.exp(-Math.exp(p.y))) * 100;
-            return [t, F];
-        });
+    const convertRegressionLineToProbCurve = (line: { x: number; y: number }[]): [number, number][] => {
+        return line.map(p => {
+            const time = Math.exp(p.x);
+            const prob = (1 - Math.exp(-Math.exp(p.y))) * 100;
+            return [time, prob];
+        }).sort((a,b) => a[0] - b[0]);
+    };
 
-    const aggregated: Record<string, number[]> = {};
-    simulations.forEach(sim => {
-        sim.line.forEach((p, idx) => {
-            if (!aggregated[idx]) aggregated[idx] = [];
-            const fValue = (1 - Math.exp(-Math.exp(p.y))) * 100;
-            if(isFinite(fValue)) {
-              aggregated[idx].push(fValue);
+    const convertedSimulations = simulations.map(sim => convertRegressionLineToProbCurve(sim.line));
+    const originalProbCurve = convertRegressionLineToProbCurve(original.line);
+
+    const timePoints = originalProbCurve.map(p => p[0]);
+
+    const aggregatedProbs: number[][] = Array.from({ length: timePoints.length }, () => []);
+    
+    convertedSimulations.forEach(simCurve => {
+        simCurve.forEach((point, idx) => {
+            if (aggregatedProbs[idx]) {
+                aggregatedProbs[idx].push(point[1]);
             }
         });
     });
 
     const getPercentile = (arr: number[], percentile: number) => {
-      if (!arr || arr.length === 0) return 0;
-      arr.sort((a,b) => a-b);
-      const index = (percentile / 100) * arr.length;
-      if (index === Math.floor(index)) {
-        return (arr[index - 1] + arr[index]) / 2;
-      }
-      return arr[Math.floor(index)];
-    }
+        if (!arr || arr.length === 0) return 0;
+        arr.sort((a, b) => a - b);
+        const index = (percentile / 100) * arr.length;
+        if (index === Math.floor(index)) {
+            return (arr[index - 1] + arr[index]) / 2;
+        }
+        return arr[Math.floor(index)];
+    };
 
-    const meanCurve = Object.keys(aggregated).map(k => {
-        const idx = parseInt(k, 10);
-        const arr = aggregated[idx];
-        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-        const x = Math.exp(simulations[0].line[idx].x);
-        return [x, mean];
+    const meanCurve = timePoints.map((time, idx) => {
+        const probs = aggregatedProbs[idx];
+        const mean = probs.reduce((a, b) => a + b, 0) / probs.length;
+        return [time, mean];
     });
 
-    const p05Curve = Object.keys(aggregated).map(k => {
-      const idx = parseInt(k, 10);
-      const arr = aggregated[idx];
-      const p = getPercentile(arr, 5);
-      const x = Math.exp(simulations[0].line[idx].x);
-      return [x,p];
-    });
-    
-    const p95Curve = Object.keys(aggregated).map(k => {
-      const idx = parseInt(k, 10);
-      const arr = aggregated[idx];
-      const p = getPercentile(arr, 95);
-      const x = Math.exp(simulations[0].line[idx].x);
-      return [x,p];
-    });
+    const p05Curve = timePoints.map((time, idx) => [time, getPercentile(aggregatedProbs[idx], 5)]);
+    const p95Curve = timePoints.map((time, idx) => [time, getPercentile(aggregatedProbs[idx], 95)]);
+
 
     const simulationSeries = simulations.map(sim => ({
         name: "Simulação",
         type: "line",
-        data: convertCurve(sim.line),
+        data: convertRegressionLineToProbCurve(sim.line),
         showSymbol: false,
         lineStyle: { width: 1, color: "rgba(180,180,255,0.15)" },
         z: 1,
@@ -305,7 +296,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     const originalSeries = {
         name: "Curva Original",
         type: "line",
-        data: convertCurve(original.line),
+        data: originalProbCurve,
         showSymbol: false,
         lineStyle: { width: 3, color: "hsl(var(--accent))" },
         z: 20,
@@ -334,7 +325,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
     const bandUpperSeries = {
         name: 'Percentil 95%',
         type: 'line',
-        data: p95Curve.map((p, i) => [p[0], p[1] - p05Curve[i][1]]),
+        data: p95Curve.map((p, i) => [p[0], p[1] - (p05Curve[i] ? p05Curve[i][1] : 0)]),
         smooth: 0.35,
         showSymbol: false,
         areaStyle: { color: 'rgba(80, 220, 80, 0.15)' },
@@ -359,8 +350,6 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
         lineStyle: { width: 1.5, type: 'dashed', color: 'rgba(80, 220, 80, 0.7)' },
     }
 
-    const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 95, 99, 99.9];
-
     const option = {
         backgroundColor: "transparent",
         grid: { left: 80, right: 40, top: 70, bottom: 60 },
@@ -377,7 +366,7 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
                 let t = params[0].value[0];
                 let html = `<b>Tempo: </b>${Math.round(t)} h<br/>`;
                 params.forEach((p:any) => {
-                    if (p.seriesName !== 'Percentil 5%' && p.value && typeof p.value[1] !== 'undefined') {
+                    if (p.seriesName !== 'Percentil 5%' && p.seriesName !== 'Simulação' && p.value && typeof p.value[1] !== 'undefined') {
                        const F = p.seriesName === 'Percentil 95%' ? p.value[1] + p05Curve.find(item => item[0] === p.value[0])![1] : p.value[1];
                        html += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${F.toFixed(2)}%<br/>`;
                     }
@@ -389,6 +378,9 @@ const DispersionPlot = ({ original, simulations }: { original?: PlotData; simula
             data: ["Curva Original", "Simulação", "Média das Simulações", "P5", "P95"],
             bottom: 0,
             textStyle: { color: "hsl(var(--muted-foreground))" },
+            selected: {
+                'Simulação': false,
+            }
         },
         xAxis: {
             type: "log",
