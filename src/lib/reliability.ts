@@ -609,16 +609,18 @@ export function calculateLikelihoodRatioBounds(
 ): LRBoundsResult | undefined {
     
     const mle = estimateWeibullMLE(times);
-    if (!mle) return { error: "Falha na estimação MLE. Verifique os dados." };
+    if (!mle) {
+        return { error: "Falha na estimação MLE. Verifique os dados." };
+    }
     const { beta: betaMLE, eta: etaMLE, ll: llMLE } = mle;
 
     const beta_sd_approx = 0.8 / Math.sqrt(times.length) * betaMLE;
-    const betaLow = Math.max(0.1, betaMLE - 4 * beta_sd_approx);
-    const betaHigh = betaMLE + 4 * beta_sd_approx;
+    const betaLow = Math.max(0.1, betaMLE - 5 * beta_sd_approx);
+    const betaHigh = betaMLE + 5 * beta_sd_approx;
 
     const eta_sd_approx = (etaMLE / (betaMLE * Math.sqrt(times.length)));
-    const etaLow = Math.max(1, etaMLE - 4 * eta_sd_approx);
-    const etaHigh = etaMLE + 4 * eta_sd_approx;
+    const etaLow = Math.max(1, etaMLE - 5 * eta_sd_approx);
+    const etaHigh = etaMLE + 5 * eta_sd_approx;
 
 
     const GRID_B = 140;
@@ -1006,31 +1008,28 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
     const { beta, eta, items, period } = input;
     const confidence = input.confidenceLevel ?? 0.90; // Default 90%
+    const alpha = 1 - confidence;
 
     const details = items.map(item => {
         const { age, quantity } = item;
-        const R_t = weibullSurvival(age, beta, eta);
-        const R_t_plus_T = weibullSurvival(age + period, beta, eta);
+        const H_t = Math.pow(age / eta, beta);
+        const H_t_plus_T = Math.pow((age + period) / eta, beta);
+        
+        const medianFailures = quantity * (H_t_plus_T - H_t);
+        
+        // Using Poisson confidence intervals based on Chi-Squared distribution
+        const li_df = 2 * medianFailures;
+        const ls_df = 2 * (medianFailures + 1);
 
-        // Conditional probability of failure in [t, t+T] given survival up to t
-        const probFailureInInterval = (R_t > 0) ? (R_t - R_t_plus_T) / R_t : 0;
-        
-        const medianFailures = quantity * probFailureInInterval;
-        
-        // Approximations for LI/LS based on normal approximation of a binomial
-        const variance = quantity * probFailureInInterval * (1 - probFailureInInterval);
-        const stdev = Math.sqrt(variance);
-        const z = invNormalCdf(1 - (1 - confidence) / 2);
-        
-        const li = Math.max(0, medianFailures - z * stdev);
-        const ls = medianFailures + z * stdev;
+        const li = invChi2(alpha / 2, li_df) / 2;
+        const ls = invChi2(1 - alpha / 2, ls_df) / 2;
 
         return {
             age,
             quantity,
-            li,
+            li: isNaN(li) || li < 0 ? 0 : li,
             median: medianFailures,
-            ls,
+            ls: isNaN(ls) ? medianFailures : ls,
         };
     });
 
