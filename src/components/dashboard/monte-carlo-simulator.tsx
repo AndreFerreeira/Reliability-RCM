@@ -379,7 +379,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     },
     legend: {
       data: [
-        {name: `Simulação (${simulationCount})`}, 
+        `Simulação (${simulationCount})`,
         'Curva Original',
         'Média das Simulações',
         ...(simulations.length > 0 ? ['P5', 'P95'] : [])
@@ -815,6 +815,28 @@ const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulat
                             )}
                         />
                     </div>
+                    <FormField
+                        control={form.control}
+                        name="confidenceLevel"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Nível de confiança (%)</FormLabel>
+                                <FormControl>
+                                  <Slider
+                                      value={[field.value ?? 90]}
+                                      onValueChange={(value: number[]) => field.onChange(value[0])}
+                                      max={99.9}
+                                      min={80}
+                                      step={0.1}
+                                  />
+                                </FormControl>
+                                <div className="text-center text-sm text-muted-foreground pt-1">
+                                    {(Number(field.value) || 0).toFixed(1)}%
+                                </div>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <Button type="submit" disabled={isSimulating} className="w-full">
                         {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Orçamento'}
                     </Button>
@@ -1154,7 +1176,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   };
   
   const runBudgetSimulation = (data: FormData) => {
-    const { beta, eta, budgetPeriod, budgetItems } = data;
+    const { beta, eta, budgetPeriod, budgetItems, confidenceLevel } = data;
      if (!beta || !eta || !budgetPeriod || !budgetItems) {
           toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
           return;
@@ -1177,7 +1199,13 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
           return;
       }
 
-      const budgetInput: BudgetInput = { beta, eta, items, period: budgetPeriod };
+      const budgetInput: BudgetInput = { 
+        beta, 
+        eta, 
+        items, 
+        period: budgetPeriod,
+        confidenceLevel: confidenceLevel / 100
+      };
       const budgetResult = calculateExpectedFailures(budgetInput);
       setResult({ budgetResult });
   };

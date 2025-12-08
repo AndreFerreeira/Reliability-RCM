@@ -587,23 +587,6 @@ function estimateWeibullMLE(times: number[], maxIter = 200, tol = 1e-7): { beta:
   return { beta, eta, ll };
 }
 
-function weibullLogLikelihood(times: number[], beta: number, eta: number): number {
-  if (!isFinite(beta) || beta <= 0 || !isFinite(eta) || eta <= 0) return -Infinity;
-  const n = times.length;
-  let sumLnT = 0;
-  let sumPower = 0;
-  for (const t of times) {
-    if (!isFinite(t) || t <= 0) return -Infinity;
-    sumLnT += Math.log(t);
-    const p = Math.pow(t / eta, beta);
-    if (!isFinite(p)) return -Infinity;
-    sumPower += p;
-  }
-  const ll = n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
-  return isFinite(ll) ? ll : -Infinity;
-}
-
-
 export function calculateLikelihoodRatioBounds(
     { times, confidenceLevel = 0.9, tValue = null }: { times: number[], confidenceLevel: number, tValue: number | null }
 ): LRBoundsResult | undefined {
@@ -612,15 +595,16 @@ export function calculateLikelihoodRatioBounds(
     if (!mle) {
         return { error: "Falha na estimação MLE. Verifique os dados." };
     }
-    const { beta: betaMLE, eta: etaMLE, ll: llMLE } = mle;
+    const { beta: betaMLE, eta: etaMLE } = mle;
+    const llMLE = -negLogLikWeibull([Math.log(betaMLE), Math.log(etaMLE)], times.map(t => ({time:t, event: 1})));
 
-    const beta_sd_approx = 0.8 / Math.sqrt(times.length) * betaMLE;
-    const betaLow = Math.max(0.1, betaMLE - 5 * beta_sd_approx);
-    const betaHigh = betaMLE + 5 * beta_sd_approx;
+    const beta_sd_approx = 1.2 / Math.sqrt(times.length) * betaMLE;
+    const betaLow = Math.max(0.1, betaMLE - 6 * beta_sd_approx);
+    const betaHigh = betaMLE + 6 * beta_sd_approx;
 
-    const eta_sd_approx = (etaMLE / (betaMLE * Math.sqrt(times.length)));
-    const etaLow = Math.max(1, etaMLE - 5 * eta_sd_approx);
-    const etaHigh = etaMLE + 5 * eta_sd_approx;
+    const eta_sd_approx = (etaMLE / (betaMLE * Math.sqrt(times.length))) * 2.5;
+    const etaLow = Math.max(1, etaMLE - 6 * eta_sd_approx);
+    const etaHigh = etaMLE + 6 * eta_sd_approx;
 
 
     const GRID_B = 140;
@@ -628,8 +612,10 @@ export function calculateLikelihoodRatioBounds(
     const betaStep = (betaHigh - betaLow) / (GRID_B - 1);
     const etaStep = (etaHigh - etaLow) / (GRID_E - 1);
     
-    const ll = -negLogLikWeibull([Math.log(betaMLE), Math.log(etaMLE)], times.map(t => ({time:t, event: 1})));
-    const thresholdLL = ll + Math.log(1 - confidenceLevel);
+    const chi2_val = invChi2(confidenceLevel, 2);
+    if (!isFinite(chi2_val)) return { error: "Não foi possível calcular o valor de Qui-quadrado." };
+    
+    const thresholdLL = llMLE - (chi2_val / 2.0);
 
     const mask: boolean[][] = Array.from({ length: GRID_E }, () => Array(GRID_B).fill(false));
     let anyValid = false;
@@ -1006,8 +992,8 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
 }
 
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
-    const { beta, eta, items, period } = input;
-    const confidence = input.confidenceLevel ?? 0.90; // Default 90%
+    const { beta, eta, items, period, confidenceLevel } = input;
+    const confidence = confidenceLevel ?? 0.90; // Default 90%
     const alpha = 1 - confidence;
 
     const details = items.map(item => {
