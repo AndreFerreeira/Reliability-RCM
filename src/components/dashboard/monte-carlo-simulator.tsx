@@ -386,7 +386,6 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
       ],
       bottom: 0,
       textStyle: { color: 'hsl(var(--muted-foreground))' },
-      // selected: { [`Simulação (${simulationCount})`]: false }
     },
     series: [
       ...thinSimSeries,
@@ -1010,7 +1009,11 @@ const BudgetResultsDisplay = ({ result, itemCost }: { result: SimulationResult, 
     );
 };
 
-export default function MonteCarloSimulator() {
+interface MonteCarloSimulatorProps {
+  suppliers: Supplier[];
+}
+
+export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorProps) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget'>('confidence');
@@ -1044,9 +1047,12 @@ export default function MonteCarloSimulator() {
   const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget') => {
       setSimulationType(type);
       setResult(null);
+      // Reset form with potentially new auto-filled data
+      const firstWeibullSupplier = suppliers.find(s => s.distribution === 'Weibull' && s.params.beta && s.params.eta);
+
       form.reset({
-        beta: 1.85,
-        eta: 1500,
+        beta: firstWeibullSupplier?.params.beta ?? 1.85,
+        eta: firstWeibullSupplier?.params.eta ?? 1500,
         sampleSize: 20,
         simulationCount: 200,
         confidenceLevel: 90,
@@ -1057,6 +1063,17 @@ export default function MonteCarloSimulator() {
         budgetItemCost: 2500,
     });
   }
+
+  // Effect to auto-fill budget params from the main supplier list
+  useEffect(() => {
+    if (simulationType === 'budget' && suppliers.length > 0) {
+      const firstWeibullSupplier = suppliers.find(s => s.distribution === 'Weibull' && s.params.beta && s.params.eta);
+      if (firstWeibullSupplier) {
+        form.setValue('beta', firstWeibullSupplier.params.beta);
+        form.setValue('eta', firstWeibullSupplier.params.eta);
+      }
+    }
+  }, [simulationType, suppliers, form]);
 
 
   const runConfidenceSimulation = (data: FormData) => {

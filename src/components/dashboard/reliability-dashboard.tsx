@@ -155,7 +155,7 @@ export default function ReliabilityDashboard() {
           <ProbabilityPaper />
         </TabsContent>
         <TabsContent value="monte_carlo" className="space-y-4">
-          <MonteCarloSimulator />
+          <MonteCarloSimulator suppliers={suppliers} />
         </TabsContent>
       </Tabs>
     </div>
