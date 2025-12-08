@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult } from '@/lib/types';
 
 
 // --- Statistical Helpers ---
@@ -587,6 +587,22 @@ function estimateWeibullMLE(times: number[], maxIter = 200, tol = 1e-7): { beta:
   return { beta, eta, ll };
 }
 
+function weibullLogLikelihood(times: number[], beta: number, eta: number): number {
+  if (!isFinite(beta) || beta <= 0 || !isFinite(eta) || eta <= 0) return -Infinity;
+  const n = times.length;
+  let sumLnT = 0;
+  let sumPower = 0;
+  for (const t of times) {
+    if (!isFinite(t) || t <= 0) return -Infinity;
+    sumLnT += Math.log(t);
+    const p = Math.pow(t / eta, beta);
+    if (!isFinite(p)) return -Infinity;
+    sumPower += p;
+  }
+  const ll = n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
+  return isFinite(ll) ? ll : -Infinity;
+}
+
 
 export function calculateLikelihoodRatioBounds(
     { times, confidenceLevel = 0.9, tValue = null }: { times: number[], confidenceLevel: number, tValue: number | null }
@@ -595,18 +611,23 @@ export function calculateLikelihoodRatioBounds(
     const mle = estimateWeibullMLE(times);
     if (!mle) return { error: "Falha na estimação MLE. Verifique os dados." };
     const { beta: betaMLE, eta: etaMLE, ll: llMLE } = mle;
-    
-    const betaLow = Math.max(0.01, betaMLE * 0.25);
-    const betaHigh = Math.max(betaLow + 0.01, betaMLE * 4 + 0.01);
-    const etaLow = Math.max(Number.EPSILON, etaMLE * 0.2);
-    const etaHigh = Math.max(etaLow + 1e-6, etaMLE * 6 + 1e-6);
+
+    const beta_sd_approx = 0.8 / Math.sqrt(times.length) * betaMLE;
+    const betaLow = Math.max(0.1, betaMLE - 4 * beta_sd_approx);
+    const betaHigh = betaMLE + 4 * beta_sd_approx;
+
+    const eta_sd_approx = (etaMLE / (betaMLE * Math.sqrt(times.length)));
+    const etaLow = Math.max(1, etaMLE - 4 * eta_sd_approx);
+    const etaHigh = etaMLE + 4 * eta_sd_approx;
+
 
     const GRID_B = 140;
     const GRID_E = 140;
     const betaStep = (betaHigh - betaLow) / (GRID_B - 1);
     const etaStep = (etaHigh - etaLow) / (GRID_E - 1);
-
-    const thresholdLL = llMLE + Math.log(1 - confidenceLevel);
+    
+    const ll = -negLogLikWeibull([Math.log(betaMLE), Math.log(etaMLE)], times.map(t => ({time:t, event: 1})));
+    const thresholdLL = ll + Math.log(1 - confidenceLevel);
 
     const mask: boolean[][] = Array.from({ length: GRID_E }, () => Array(GRID_B).fill(false));
     let anyValid = false;
@@ -616,8 +637,8 @@ export function calculateLikelihoodRatioBounds(
         for (let j = 0; j < GRID_B; j++) {
             const beta = betaLow + j * betaStep;
             if (!isFinite(beta) || beta <= 0 || !isFinite(eta) || eta <= 0) continue;
-            const ll = weibullLogLikelihood(times, beta, eta);
-            if (isFinite(ll) && ll >= thresholdLL) {
+            const currentLL = -negLogLikWeibull([Math.log(beta), Math.log(eta)], times.map(t => ({time: t, event: 1})));
+            if (isFinite(currentLL) && currentLL >= thresholdLL) {
                 mask[i][j] = true;
                 anyValid = true;
             }
@@ -674,15 +695,18 @@ export function calculateLikelihoodRatioBounds(
       };
     }
     
-    const { plotData } = estimateParameters({ dist: 'Weibull', failureTimes: times, method: 'SRM' });
+    const plotResult = estimateParameters({ dist: 'Weibull', failureTimes: times, method: 'SRM' });
+    if (!plotResult || !plotResult.plotData) {
+        return { error: 'Falha ao gerar dados de plotagem para a regressão.' };
+    }
 
     return {
       betaMLE,
       etaMLE,
       llMLE,
       confidenceLevel: confidenceLevel * 100,
-      points: plotData?.points ?? [],
-      rSquared: plotData?.rSquared ?? 0,
+      points: plotResult.plotData.points,
+      rSquared: plotResult.plotData.rSquared,
       medianCurve: timesGrid.map(t => ({ x: t, y: weibullCDF(t, betaMLE, etaMLE) * 100 })),
       lowerCurve: timesGrid.map((t, idx) => ({ x: t, y: bandLower[idx] })),
       upperCurve: timesGrid.map((t, idx) => ({ x: t, y: bandUpper[idx] })),
@@ -979,18 +1003,43 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
     return { results: analysisResults, best: bestDistribution };
 }
 
-function weibullLogLikelihood(times: number[], beta: number, eta: number): number {
-  const n = times.length;
-  if (!(isFinite(beta) && beta > 0 && isFinite(eta) && eta > 0)) return -Infinity;
-  let sumLnT = 0;
-  let sumPower = 0;
-  for (const t of times) {
-    if (!isFinite(t) || t <= 0) return -Infinity;
-    sumLnT += Math.log(t);
-    const ratio = t / eta;
-    const p = Math.pow(ratio, beta);
-    if (!isFinite(p)) return -Infinity;
-    sumPower += p;
-  }
-  return n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
+export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
+    const { beta, eta, items, period } = input;
+    const confidence = input.confidenceLevel ?? 0.90; // Default 90%
+
+    const details = items.map(item => {
+        const { age, quantity } = item;
+        const R_t = weibullSurvival(age, beta, eta);
+        const R_t_plus_T = weibullSurvival(age + period, beta, eta);
+
+        // Conditional probability of failure in [t, t+T] given survival up to t
+        const probFailureInInterval = (R_t > 0) ? (R_t - R_t_plus_T) / R_t : 0;
+        
+        const medianFailures = quantity * probFailureInInterval;
+        
+        // Approximations for LI/LS based on normal approximation of a binomial
+        const variance = quantity * probFailureInInterval * (1 - probFailureInInterval);
+        const stdev = Math.sqrt(variance);
+        const z = invNormalCdf(1 - (1 - confidence) / 2);
+        
+        const li = Math.max(0, medianFailures - z * stdev);
+        const ls = medianFailures + z * stdev;
+
+        return {
+            age,
+            quantity,
+            li,
+            median: medianFailures,
+            ls,
+        };
+    });
+
+    const totals = details.reduce((acc, current) => {
+        acc.li += current.li;
+        acc.median += current.median;
+        acc.ls += current.ls;
+        return acc;
+    }, { li: 0, median: 0, ls: 0 });
+
+    return { details, totals };
 }

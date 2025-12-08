@@ -9,18 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour } from '@/lib/reliability';
-import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult } from '@/lib/types';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures } from '@/lib/reliability';
+import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput } from '@/lib/types';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '../ui/textarea';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
@@ -30,8 +30,10 @@ const formSchema = z.object({
   confidenceLevel: z.coerce.number().min(1).max(99.9),
   manualData: z.string().optional(),
   timeForCalc: z.coerce.number().gt(0, "O tempo deve ser positivo").optional(),
+  budgetItems: z.string().optional(),
+  budgetPeriod: z.coerce.number().gt(0, "O período deve ser positivo").optional(),
+  budgetItemCost: z.coerce.number().gt(0, "O custo deve ser positivo").optional(),
 }).refine(data => {
-    // Validação complexa baseada no tipo de simulação será tratada no momento do envio
     return true;
 });
 
@@ -43,6 +45,7 @@ interface SimulationResult {
   dispersionData?: PlotData[];
   originalPlot?: PlotData;
   contourData?: ContourData;
+  budgetResult?: ExpectedFailuresResult;
   simulationCount?: number;
 }
 
@@ -258,7 +261,8 @@ function interp1(xArr: number[], yArr: number[], x: number) {
 
 function percentile(values: number[], p: number) {
   if (values.length === 0) return NaN;
-  const arr = values.slice().sort((a,b) => a-b);
+  const arr = values.slice().sort((a,b) => a-b).filter(v => isFinite(v));
+  if (arr.length === 0) return NaN;
   const idx = (arr.length - 1) * (p/100);
   const lo = Math.floor(idx), hi = Math.ceil(idx);
   if (lo === hi) return arr[lo];
@@ -267,7 +271,9 @@ function percentile(values: number[], p: number) {
 }
 
 const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300 }: { original?: PlotData; simulations?: PlotData[]; simulationCount: number; maxLines?: number }) => {
-  if (!original || !simulations || simulations.length === 0) return null;
+  if (!original || !simulations || simulations.length === 0) {
+    return <Card className="flex items-center justify-center min-h-[450px]"><p className="text-muted-foreground">Aguardando dados da simulação...</p></Card>;
+  }
 
   const allTimes = original.line.map(p => Math.exp(p.x));
   const minT = Math.max(1, Math.min(...allTimes) * 0.6);
@@ -278,6 +284,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
   const simYsByGrid: number[][] = [];
   for (let s = 0; s < simulations.length; s++) {
     const sim = simulations[s];
+    if (!sim || !sim.line || sim.line.length < 2) continue;
     const simXs = sim.line.map(p => Math.exp(p.x));
     const simYs = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
     const pairs = simXs.map((x,i) => ({x, y: simYs[i]})).sort((a,b) => a.x - b.x);
@@ -293,9 +300,11 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
 
   for (let i = 0; i < timeGrid.length; i++) {
     const vals = simYsByGrid.map(arr => arr[i]).filter(v => isFinite(v));
-    meanCurve.push([timeGrid[i], vals.reduce((a,b) => a+b, 0) / Math.max(1, vals.length)]);
-    p5Curve.push([timeGrid[i], percentile(vals, 5)]);
-    p95Curve.push([timeGrid[i], percentile(vals, 95)]);
+    if (vals.length > 0) {
+      meanCurve.push([timeGrid[i], vals.reduce((a,b) => a+b, 0) / vals.length]);
+      p5Curve.push([timeGrid[i], percentile(vals, 5)]);
+      p95Curve.push([timeGrid[i], percentile(vals, 95)]);
+    }
   }
 
   const opacity = Math.max(0.05, Math.min(0.3, 1 / Math.sqrt(simulationCount)));
@@ -305,6 +314,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
   const thinSimSeries = [];
   for (let s = 0; s < simulations.length; s += step) {
       const sim = simulations[s];
+      if (!sim || !sim.line || sim.line.length < 2) continue;
       const xs = sim.line.map(p => Math.exp(p.x));
       const ys = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
       const pairs = xs.map((x,i) => [x, ys[i]]);
@@ -318,8 +328,8 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
       });
   }
 
-  const bandUpper = p95Curve;
-  const bandLower = p5Curve;
+  const bandUpper = p95Curve.filter(p => isFinite(p[1]));
+  const bandLower = p5Curve.filter(p => isFinite(p[1]));
   
   const originalProbCurve = original.line.map(p => {
     const time = Math.exp(p.x);
@@ -376,7 +386,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
       ],
       bottom: 0,
       textStyle: { color: 'hsl(var(--muted-foreground))' },
-      selected: { [`Simulação (${simulationCount})`]: false }
+      // selected: { [`Simulação (${simulationCount})`]: false }
     },
     series: [
       ...thinSimSeries,
@@ -534,15 +544,6 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
     );
 };
 
-const SliderWrapper = React.forwardRef<HTMLDivElement, any>(({ className, ...props }, ref) => {
-  return (
-    <div ref={ref} className={className}>
-      <Slider {...props} />
-    </div>
-  );
-});
-SliderWrapper.displayName = 'SliderWrapper';
-
 const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
     <Card>
         <CardHeader>
@@ -577,7 +578,7 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                             <FormItem>
                                 <FormLabel>Nível de confiança (%)</FormLabel>
                                 <FormControl>
-                                  <SliderWrapper
+                                  <Slider
                                       value={[field.value ?? 90]}
                                       onValueChange={(value: number[]) => field.onChange(value[0])}
                                       max={99.9}
@@ -716,7 +717,7 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
                             <FormItem>
                                 <FormLabel>Nível de confiança (%)</FormLabel>
                                 <FormControl>
-                                    <SliderWrapper
+                                    <Slider
                                         value={[field.value ?? 90]}
                                         onValueChange={(value: number[]) => field.onChange(value[0])}
                                         max={99.9}
@@ -733,6 +734,90 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
                     />
                     <Button type="submit" disabled={isSimulating} className="w-full">
                         {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Contorno'}
+                    </Button>
+                </form>
+            </Form>
+        </CardContent>
+    </Card>
+);
+
+const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => (
+    <Card>
+        <CardHeader>
+            <CardTitle>Orçamento de Sobressalentes</CardTitle>
+            <CardDescription>Estime a quantidade de falhas e os custos para um período.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="beta"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Beta (β)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="eta"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Eta (η)</FormLabel>
+                                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                     <FormField
+                        control={form.control}
+                        name="budgetItems"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Idade e Quantidade dos Itens</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder={"Ex:\n[Idade] [Quantidade]\n0 133\n5 1"}
+                                        rows={5}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormDescription>Insira a idade atual e a quantidade de itens em cada linha.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                         <FormField
+                            control={form.control}
+                            name="budgetPeriod"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Período (dias)</FormLabel>
+                                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="budgetItemCost"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Custo Unitário (R$)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <Button type="submit" disabled={isSimulating} className="w-full">
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Orçamento'}
                     </Button>
                 </form>
             </Form>
@@ -849,11 +934,86 @@ const ContourResultsDisplay = ({ result }: { result: SimulationResult }) => {
     );
 };
 
+const BudgetResultsDisplay = ({ result, itemCost }: { result: SimulationResult, itemCost: number }) => {
+    if (!result.budgetResult) return null;
+    const { totals } = result.budgetResult;
+    const formatCurrency = (value: number) => {
+        return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Resultados do Orçamento</CardTitle>
+                    <CardDescription>
+                        Quantidade de falhas esperadas e custos associados para o período.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Métrica</TableHead>
+                                <TableHead className="text-right">Inferior (LI)</TableHead>
+                                <TableHead className="text-right">Mediana</TableHead>
+                                <TableHead className="text-right">Superior (LS)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow>
+                                <TableCell className="font-medium">Falhas Esperadas</TableCell>
+                                <TableCell className="text-right font-mono">{totals.li.toFixed(2)}</TableCell>
+                                <TableCell className="text-right font-mono">{totals.median.toFixed(2)}</TableCell>
+                                <TableCell className="text-right font-mono">{totals.ls.toFixed(2)}</TableCell>
+                            </TableRow>
+                             <TableRow>
+                                <TableCell className="font-medium">Custo do Orçamento</TableCell>
+                                <TableCell className="text-right font-mono text-green-400">{formatCurrency(totals.li * itemCost)}</TableCell>
+                                <TableCell className="text-right font-mono text-purple-400">{formatCurrency(totals.median * itemCost)}</TableCell>
+                                <TableCell className="text-right font-mono text-yellow-400">{formatCurrency(totals.ls * itemCost)}</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Tabela Detalhada de Falhas</CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-80 overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                           <TableRow>
+                                <TableHead>Idade Atual</TableHead>
+                                <TableHead>Qtd.</TableHead>
+                                <TableHead className="text-right">LI</TableHead>
+                                <TableHead className="text-right">Mediana</TableHead>
+                                <TableHead className="text-right">LS</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {result.budgetResult.details.map((item, index) => (
+                                <TableRow key={index}>
+                                    <TableCell>{item.age}</TableCell>
+                                    <TableCell>{item.quantity}</TableCell>
+                                    <TableCell className="text-right font-mono">{item.li.toFixed(5)}</TableCell>
+                                    <TableCell className="text-right font-mono">{item.median.toFixed(5)}</TableCell>
+                                    <TableCell className="text-right font-mono">{item.ls.toFixed(5)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    );
+};
 
 export default function MonteCarloSimulator() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour'>('confidence');
+  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget'>('confidence');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   
@@ -868,6 +1028,9 @@ export default function MonteCarloSimulator() {
       confidenceLevel: 90,
       manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
       timeForCalc: 700,
+      budgetItems: "0 133\n5 1\n33 1\n60 1\n78 1",
+      budgetPeriod: 365,
+      budgetItemCost: 2500,
     },
   });
 
@@ -876,11 +1039,12 @@ export default function MonteCarloSimulator() {
   }, []);
 
   const timeForCalc = form.watch('timeForCalc');
+  const budgetItemCost = form.watch('budgetItemCost');
   
-  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour') => {
+  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget') => {
       setSimulationType(type);
-      setResult(null); // Limpa os resultados ao trocar de modo
-      form.reset({ // Reseta o formulário para os valores padrão do modo selecionado
+      setResult(null);
+      form.reset({
         beta: 1.85,
         eta: 1500,
         sampleSize: 20,
@@ -888,6 +1052,9 @@ export default function MonteCarloSimulator() {
         confidenceLevel: 90,
         manualData: type === 'confidence' || type === 'contour' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
         timeForCalc: 700,
+        budgetItems: "0 133\n5 1\n33 1\n60 1\n78 1",
+        budgetPeriod: 365,
+        budgetItemCost: 2500,
     });
   }
 
@@ -968,6 +1135,35 @@ export default function MonteCarloSimulator() {
     }
     setResult({ contourData });
   };
+  
+  const runBudgetSimulation = (data: FormData) => {
+    const { beta, eta, budgetPeriod, budgetItems } = data;
+     if (!beta || !eta || !budgetPeriod || !budgetItems) {
+          toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
+          return;
+      }
+      
+      const items: BudgetInput['items'] = budgetItems.trim().split('\n').map(line => {
+          const parts = line.trim().split(/[\s,]+/);
+          if (parts.length === 2) {
+              const age = parseInt(parts[0], 10);
+              const quantity = parseInt(parts[1], 10);
+              if (!isNaN(age) && !isNaN(quantity)) {
+                  return { age, quantity };
+              }
+          }
+          return null;
+      }).filter((item): item is { age: number; quantity: number; } => item !== null);
+
+      if (items.length === 0) {
+          toast({ variant: 'destructive', title: 'Itens Inválidos', description: 'Nenhum item válido para cálculo. Verifique a entrada de Idade e Quantidade.' });
+          return;
+      }
+
+      const budgetInput: BudgetInput = { beta, eta, items, period: budgetPeriod };
+      const budgetResult = calculateExpectedFailures(budgetInput);
+      setResult({ budgetResult });
+  };
 
   const onSubmit = (data: FormData) => {
     setIsSimulating(true);
@@ -981,6 +1177,8 @@ export default function MonteCarloSimulator() {
                 runDispersionSimulation(data);
             } else if (simulationType === 'contour') {
                 runContourSimulation(data);
+            } else if (simulationType === 'budget') {
+                runBudgetSimulation(data);
             }
         } catch (error: any) {
              toast({
@@ -1019,7 +1217,7 @@ export default function MonteCarloSimulator() {
                 <CardDescription>Selecione o tipo de simulação que deseja realizar.</CardDescription>
             </CardHeader>
              <CardContent>
-                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion' | 'contour')} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion' | 'contour' | 'budget')} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <Label htmlFor="confidence" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'confidence' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="confidence" id="confidence" className="sr-only" />
                           <TestTube className="mb-3 h-6 w-6" />
@@ -1035,6 +1233,11 @@ export default function MonteCarloSimulator() {
                            <TestTube className="mb-3 h-6 w-6" />
                           Gráfico de Contorno
                       </Label>
+                      <Label htmlFor="budget" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'budget' ? 'border-primary' : 'border-muted'}`}>
+                          <RadioGroupItem value="budget" id="budget" className="sr-only" />
+                           <TestTube className="mb-3 h-6 w-6" />
+                          Orçamento de Sobressalentes
+                      </Label>
               </RadioGroup>
             </CardContent>
         </Card>
@@ -1048,6 +1251,9 @@ export default function MonteCarloSimulator() {
                 }
                 {simulationType === 'contour' &&
                     <ContourControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                }
+                 {simulationType === 'budget' &&
+                    <BudgetControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
                 }
             </div>
 
@@ -1076,6 +1282,10 @@ export default function MonteCarloSimulator() {
 
                 {result?.contourData && simulationType === 'contour' && (
                     <ContourPlot data={result.contourData} />
+                )}
+
+                {result?.budgetResult && simulationType === 'budget' && budgedItemCost && (
+                  <BudgetResultsDisplay result={result} itemCost={budgedItemCost} />
                 )}
 
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (

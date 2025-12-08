@@ -139,6 +139,31 @@ export type DistributionAnalysisResult = {
     logLikelihood: number;
 };
 
+// Budget Simulation
+export interface BudgetInput {
+    beta: number;
+    eta: number;
+    items: { age: number, quantity: number }[];
+    period: number;
+    confidenceLevel?: number;
+}
+
+export interface ExpectedFailuresResult {
+    details: {
+        age: number;
+        quantity: number;
+        li: number;
+        median: number;
+        ls: number;
+    }[];
+    totals: {
+        li: number;
+        median: number;
+        ls: number;
+    };
+}
+
+
 // AI Flow Schemas and Types
 
 // PredictFailureRiskFactors
