@@ -1284,8 +1284,8 @@ export default function MonteCarloSimulator() {
                     <ContourPlot data={result.contourData} />
                 )}
 
-                {result?.budgetResult && simulationType === 'budget' && budgedItemCost && (
-                  <BudgetResultsDisplay result={result} itemCost={budgedItemCost} />
+                {result?.budgetResult && simulationType === 'budget' && budgetItemCost && (
+                  <BudgetResultsDisplay result={result} itemCost={budgetItemCost} />
                 )}
 
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
