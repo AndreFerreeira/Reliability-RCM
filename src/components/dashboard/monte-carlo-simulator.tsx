@@ -1069,18 +1069,20 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       setSimulationType(type);
       setResult(null);
       
-      form.reset({
-        ...form.getValues(), // keep current values
-        beta: 1.56,
-        eta: 1512,
-        sampleSize: 20,
-        simulationCount: 200,
-        confidenceLevel: 90,
-        manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
-        timeForCalc: 700,
-        budgetPeriod: 365,
-        budgetItemCost: 2500,
-      });
+      const newDefaults: Partial<FormData> = {
+          beta: 1.56,
+          eta: 1512,
+          sampleSize: 20,
+          simulationCount: 200,
+          confidenceLevel: 90,
+          manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
+          timeForCalc: 700,
+          budgetPeriod: 365,
+          budgetItemCost: 2500,
+          budgetData: "5 S\n33 S\n39 F\n41 F\n57 F\n60 S\n64 F\n78 S\n91 F\n117 S\n118 S\n124 S\n133 S\n134 F\n135 F\n186 S\n196 F\n203 S\n228 S\n235 F\n241 S\n272 F\n276 S\n277 F\n282 F\n289 S\n290 F\n291 S\n295 F\n296 F\n299 F\n302 F\n302 S\n303 F\n308 F\n326 F\n336 F\n338 F\n347 S\n354 S\n376 S\n376 S\n385 F\n388 S\n389 F\n415 S\n416 S\n422 F\n424 S\n425 F\n425 S\n429 F\n429 F\n434 S\n440 F\n444 F\n458 F\n459 S\n460 S\n471 F\n475 F\n475 S\n482 F\n497 F\n497 F\n520 F\n528 S\n535 F\n541 S\n543 S\n563 F\n576 F\n586 F\n613 F\n618 S\n626 S\n657 S\n662 F\n669 S\n670 F\n677 F\n688 S\n689 S\n708 S\n735 F\n748 F\n754 F\n760 F\n760 F\n773 S\n777 F\n782 F\n821 F\n833 F\n839 F\n859 F\n868 F\n884 S\n896 F\n902 S\n907 F\n931 S\n936 F\n940 F\n940 F\n950 F\n951 F\n968 S\n969 F\n970 F\n970 S\n984 F\n986 F\n1004 F\n1012 S\n1016 F\n1027 S\n1039 F\n1047 S\n1049 F\n1049 S\n1050 S\n1052 S\n1060 F\n1078 F\n1084 S\n1170 S\n1181 S\n1185 S\n1200 F\n1201 S\n1202 F\n1210 F\n1227 F\n1229 F\n1249 F\n1261 F\n1264 S\n1287 F\n1293 S\n1298 F\n1298 S\n1313 F\n1325 F\n1364 F\n1375 S\n1378 F\n1387 S\n1409 F\n1424 S\n1428 F\n1434 F\n1452 F\n1454 F\n1469 F\n1503 F\n1538 F\n1540 F\n1540 F\n1548 F\n1567 F\n1613 F\n1650 F\n1676 F\n1680 F\n1683 S\n1710 F\n1719 F\n1725 S\n1731 F\n1737 F\n1810 F\n1836 F\n1912 F\n1954 S\n2023 F\n2109 F\n2120 F\n2121 F\n2224 F\n2229 F\n2291 F\n2300 F\n2340 F\n2396 F\n2397 F\n2567 F\n2652 F\n2698 F\n2708 F\n2725 F\n2781 F\n2818 F\n2861 F\n2899 F\n2942 F\n3158 F\n3562 F\n3631 F",
+      };
+
+      form.reset({ ...form.getValues(), ...newDefaults });
   }
 
   const runConfidenceSimulation = (data: FormData) => {
@@ -1161,66 +1163,66 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   };
   
   const runBudgetSimulation = (data: FormData) => {
-      const { budgetData, budgetPeriod, budgetItemCost, confidenceLevel } = data;
-      if (!budgetData || !budgetPeriod || !budgetItemCost || !confidenceLevel) {
-          toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
-          return;
-      }
-      
-      const lines = budgetData.trim().split('\n');
-      const allCensoredData: CensoredData[] = [];
-      const suspensionData: { time: number }[] = [];
+    const { budgetData, budgetPeriod, budgetItemCost, confidenceLevel } = data;
+    if (!budgetData || !budgetPeriod || !budgetItemCost || !confidenceLevel) {
+        toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
+        return;
+    }
 
-      lines.forEach(line => {
-          const parts = line.trim().split(/[\s,]+/);
-          if (parts.length === 2) {
-              const time = parseFloat(parts[0]);
-              const status = parts[1].toUpperCase();
-              if (!isNaN(time) && (status === 'F' || status === 'S')) {
-                  allCensoredData.push({ time, event: status === 'F' ? 1 : 0 });
-                  if (status === 'S') {
-                      suspensionData.push({ time });
-                  }
-              }
-          }
-      });
-      
-      if (allCensoredData.filter(d => d.event === 1).length < 2) {
-          toast({ variant: 'destructive', title: 'Dados Insuficientes', description: 'São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Weibull.' });
-          return;
-      }
-      
-      const mleParams = fitWeibullMLE(allCensoredData);
-      if (!mleParams?.beta || !mleParams?.eta) {
-           toast({ variant: 'destructive', title: 'Erro de Cálculo', description: 'Não foi possível estimar os parâmetros Beta e Eta a partir dos dados fornecidos.' });
-          return;
-      }
-      
-      const suspensionCounts: { [key: number]: number } = {};
-      suspensionData.forEach(item => {
-          suspensionCounts[item.time] = (suspensionCounts[item.time] || 0) + 1;
-      });
-      
-      const items = Object.entries(suspensionCounts).map(([age, quantity]) => ({
-          age: parseInt(age, 10),
-          quantity
-      }));
-      
-       if (items.length === 0) {
-          toast({ variant: 'destructive', title: 'População Vazia', description: 'Nenhum item de suspensão (S) encontrado para calcular o orçamento.' });
-          return;
-      }
+    const lines = budgetData.trim().split('\n');
+    const allCensoredData: CensoredData[] = [];
+    const suspensionData: { time: number }[] = [];
 
-      const budgetInput: BudgetInput = { 
-        beta: mleParams.beta, 
-        eta: mleParams.eta, 
-        items, 
+    lines.forEach(line => {
+        const parts = line.trim().split(/[\s,]+/);
+        if (parts.length === 2) {
+            const time = parseFloat(parts[0]);
+            const status = parts[1].toUpperCase();
+            if (!isNaN(time) && (status === 'F' || status === 'S')) {
+                allCensoredData.push({ time, event: status === 'F' ? 1 : 0 });
+                if (status === 'S') {
+                    suspensionData.push({ time });
+                }
+            }
+        }
+    });
+
+    if (allCensoredData.filter(d => d.event === 1).length < 2) {
+        toast({ variant: 'destructive', title: 'Dados Insuficientes', description: 'São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Weibull.' });
+        return;
+    }
+
+    const mleParams = fitWeibullMLE(allCensoredData);
+    if (!mleParams?.beta || !mleParams?.eta) {
+        toast({ variant: 'destructive', title: 'Erro de Cálculo', description: 'Não foi possível estimar os parâmetros Beta e Eta a partir dos dados fornecidos.' });
+        return;
+    }
+
+    const suspensionCounts: { [key: number]: number } = {};
+    suspensionData.forEach(item => {
+        suspensionCounts[item.time] = (suspensionCounts[item.time] || 0) + 1;
+    });
+
+    const items = Object.entries(suspensionCounts).map(([age, quantity]) => ({
+        age: parseInt(age, 10),
+        quantity
+    }));
+
+    if (items.length === 0) {
+        toast({ variant: 'destructive', title: 'População Vazia', description: 'Nenhum item de suspensão (S) encontrado para calcular o orçamento.' });
+        return;
+    }
+
+    const budgetInput: BudgetInput = {
+        beta: mleParams.beta,
+        eta: mleParams.eta,
+        items,
         period: budgetPeriod,
         confidenceLevel: confidenceLevel / 100
-      };
+    };
 
-      const budgetResult = calculateExpectedFailures(budgetInput);
-      setResult({ budgetResult, budgetParams: { beta: mleParams.beta, eta: mleParams.eta } });
+    const budgetResult = calculateExpectedFailures(budgetInput);
+    setResult({ budgetResult, budgetParams: { beta: mleParams.beta, eta: mleParams.eta } });
   };
 
   const onSubmit = (data: FormData) => {
@@ -1249,6 +1251,30 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         }
     }, 50);
   }
+
+  useEffect(() => {
+    if (isClient && simulationType === 'budget') {
+      const firstSupplier = suppliers[0];
+      if (firstSupplier) {
+        const { beta, eta } = firstSupplier.params;
+        const suspensionCounts: { [key: number]: number } = {};
+        firstSupplier.suspensionTimes.forEach(time => {
+          suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
+        });
+
+        const budgetDataString = Object.entries(suspensionCounts)
+          .map(([age, quantity]) => `${age} ${quantity}`)
+          .join('\n');
+        
+        form.reset({
+          ...form.getValues(),
+          beta: beta,
+          eta: eta,
+          budgetData: budgetDataString
+        });
+      }
+    }
+  }, [isClient, simulationType, suppliers, form]);
 
   useEffect(() => {
     if (isClient && (simulationType === 'confidence' || simulationType === 'budget')) {
