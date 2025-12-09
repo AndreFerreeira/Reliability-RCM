@@ -103,10 +103,8 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
           <TabsTrigger value="analysis"><LineChartIcon />Análise de Confiabilidade</TabsTrigger>
-          <TabsTrigger value="ai_analysis"><Bot />Análise com IA</TabsTrigger>
-          <TabsTrigger value="probability_paper"><BrainCircuit />Papéis de Probabilidade</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />Simulador Monte Carlo</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
@@ -146,13 +144,6 @@ export default function ReliabilityDashboard() {
               <BathtubCurveAnalysis failureTimes={allFailureTimes} />
             </div>
           </div>
-        </TabsContent>
-        <TabsContent value="ai_analysis" className="space-y-4">
-          <AiRiskPredictor suppliers={suppliers} />
-          <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
-        </TabsContent>
-        <TabsContent value="probability_paper" className="space-y-4">
-          <ProbabilityPaper />
         </TabsContent>
         <TabsContent value="monte_carlo" className="space-y-4">
           <MonteCarloSimulator suppliers={suppliers} />
