@@ -1045,8 +1045,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      beta: 1.85,
-      eta: 1500,
+      beta: 1.56,
+      eta: 1512,
       sampleSize: 20,
       simulationCount: 200,
       confidenceLevel: 90,
@@ -1070,16 +1070,27 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       setResult(null);
       // Reset form with potentially new auto-filled data
       const firstWeibullSupplier = suppliers.find(s => s.distribution === 'Weibull' && s.params.beta && s.params.eta);
+      
+      let initialBudgetItems = "0 1";
+      if (firstWeibullSupplier && firstWeibullSupplier.suspensionTimes.length > 0) {
+          const suspensionCounts: { [key: number]: number } = {};
+          firstWeibullSupplier.suspensionTimes.forEach(time => {
+              suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
+          });
+          initialBudgetItems = Object.entries(suspensionCounts)
+              .map(([age, quantity]) => `${age} ${quantity}`)
+              .join('\n');
+      }
 
       form.reset({
-        beta: firstWeibullSupplier?.params.beta ?? 1.85,
-        eta: firstWeibullSupplier?.params.eta ?? 1500,
+        beta: firstWeibullSupplier?.params.beta ?? 1.56,
+        eta: firstWeibullSupplier?.params.eta ?? 1512,
         sampleSize: 20,
         simulationCount: 200,
         confidenceLevel: 90,
         manualData: type === 'confidence' || type === 'contour' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
         timeForCalc: 700,
-        budgetItems: "0 133\n5 1\n33 1\n60 1\n78 1",
+        budgetItems: initialBudgetItems,
         budgetPeriod: 365,
         budgetItemCost: 2500,
     });
@@ -1092,6 +1103,17 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       if (firstWeibullSupplier) {
         form.setValue('beta', firstWeibullSupplier.params.beta);
         form.setValue('eta', firstWeibullSupplier.params.eta);
+
+         if (firstWeibullSupplier.suspensionTimes.length > 0) {
+            const suspensionCounts: { [key: number]: number } = {};
+            firstWeibullSupplier.suspensionTimes.forEach(time => {
+                suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
+            });
+            const budgetItemsString = Object.entries(suspensionCounts)
+                .map(([age, quantity]) => `${age} ${quantity}`)
+                .join('\n');
+            form.setValue('budgetItems', budgetItemsString);
+        }
       }
     }
   }, [simulationType, suppliers, form]);
