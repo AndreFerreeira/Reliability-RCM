@@ -30,7 +30,8 @@ const formSchema = z.object({
   confidenceLevel: z.coerce.number().min(1).max(99.9),
   manualData: z.string().optional(),
   timeForCalc: z.coerce.number().gt(0, "O tempo deve ser positivo").optional(),
-  budgetData: z.string().optional(),
+  budgetSourceData: z.string().optional(),
+  budgetPopulationData: z.string().optional(),
   budgetPeriod: z.coerce.number().gt(0, "O período deve ser positivo").optional(),
   budgetItemCost: z.coerce.number().gt(0, "O custo deve ser positivo").optional(),
 }).refine(data => {
@@ -740,7 +741,7 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
     </Card>
 );
 
-const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => (
+const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; onExtract: () => void; }) => (
     <Card>
         <CardHeader>
             <CardTitle>Orçamento de Sobressalentes</CardTitle>
@@ -751,10 +752,10 @@ const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulat
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                      <FormField
                         control={form.control}
-                        name="budgetData"
+                        name="budgetSourceData"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Dados de Falha e Suspensão</FormLabel>
+                                <FormLabel>1. Dados de Falha e Suspensão</FormLabel>
                                 <FormControl>
                                     <Textarea
                                         placeholder={"Ex:\n150 F\n210 S"}
@@ -762,7 +763,28 @@ const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulat
                                         {...field}
                                     />
                                 </FormControl>
-                                <FormDescription>Insira os dados de vida dos componentes. Use [Tempo] [F] para falha e [Tempo] [S] para suspensão (item em serviço).</FormDescription>
+                                <FormDescription>Dados para estimar os parâmetros Beta e Eta. Use [Tempo] [F/S].</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="budgetPopulationData"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>2. População em Serviço</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder={"Ex:\n0 133\n5 1\n33 1"}
+                                        rows={6}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormDescription>Itens atualmente em operação. Use [Idade] [Quantidade].</FormDescription>
+                                <Button type="button" variant="outline" size="sm" onClick={onExtract} className="mt-2 w-full">
+                                    Extrair Suspensões dos Dados Acima
+                                </Button>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -1052,7 +1074,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       confidenceLevel: 90,
       manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
       timeForCalc: 700,
-      budgetData: "5 S\n33 S\n39 F\n41 F\n57 F\n60 S\n64 F\n78 S\n91 F\n117 S\n118 S\n124 S\n133 S\n134 F\n135 F\n186 S\n196 F\n203 S\n228 S\n235 F\n241 S\n272 F\n276 S\n277 F\n282 F\n289 S\n290 F\n291 S\n295 F\n296 F\n299 F\n302 F\n302 S\n303 F\n308 F\n326 F\n336 F\n338 F\n347 S\n354 S\n376 S\n376 S\n385 F\n388 S\n389 F\n415 S\n416 S\n422 F\n424 S\n425 F\n425 S\n429 F\n429 F\n434 S\n440 F\n444 F\n458 F\n459 S\n460 S\n471 F\n475 F\n475 S\n482 F\n497 F\n497 F\n520 F\n528 S\n535 F\n541 S\n543 S\n563 F\n576 F\n586 F\n613 F\n618 S\n626 S\n657 S\n662 F\n669 S\n670 F\n677 F\n688 S\n689 S\n708 S\n735 F\n748 F\n754 F\n760 F\n760 F\n773 S\n777 F\n782 F\n821 F\n833 F\n839 F\n859 F\n868 F\n884 S\n896 F\n902 S\n907 F\n931 S\n936 F\n940 F\n940 F\n950 F\n951 F\n968 S\n969 F\n970 F\n970 S\n984 F\n986 F\n1004 F\n1012 S\n1016 F\n1027 S\n1039 F\n1047 S\n1049 F\n1049 S\n1050 S\n1052 S\n1060 F\n1078 F\n1084 S\n1170 S\n1181 S\n1185 S\n1200 F\n1201 S\n1202 F\n1210 F\n1227 F\n1229 F\n1249 F\n1261 F\n1264 S\n1287 F\n1293 S\n1298 F\n1298 S\n1313 F\n1325 F\n1364 F\n1375 S\n1378 F\n1387 S\n1409 F\n1424 S\n1428 F\n1434 F\n1452 F\n1454 F\n1469 F\n1503 F\n1538 F\n1540 F\n1540 F\n1548 F\n1567 F\n1613 F\n1650 F\n1676 F\n1680 F\n1683 S\n1710 F\n1719 F\n1725 S\n1731 F\n1737 F\n1810 F\n1836 F\n1912 F\n1954 S\n2023 F\n2109 F\n2120 F\n2121 F\n2224 F\n2229 F\n2291 F\n2300 F\n2340 F\n2396 F\n2397 F\n2567 F\n2652 F\n2698 F\n2708 F\n2725 F\n2781 F\n2818 F\n2861 F\n2899 F\n2942 F\n3158 F\n3562 F\n3631 F",
+      budgetSourceData: "5 S\n33 S\n39 F\n41 F\n57 F\n60 S\n64 F\n78 S\n91 F\n117 S\n118 S\n124 S\n133 S\n134 F\n135 F\n186 S\n196 F\n203 S\n228 S\n235 F\n241 S\n272 F\n276 S\n277 F\n282 F\n289 S\n290 F\n291 S\n295 F\n296 F\n299 F\n302 F\n302 S\n303 F\n308 F\n326 F\n336 F\n338 F\n347 S\n354 S\n376 S\n376 S\n385 F\n388 S\n389 F\n415 S\n416 S\n422 F\n424 S\n425 F\n425 S\n429 F\n429 F\n434 S\n440 F\n444 F\n458 F\n459 S\n460 S\n471 F\n475 F\n475 S\n482 F\n497 F\n497 F\n520 F\n528 S\n535 F\n541 S\n543 S\n563 F\n576 F\n586 F\n613 F\n618 S\n626 S\n657 S\n662 F\n669 S\n670 F\n677 F\n688 S\n689 S\n708 S\n735 F\n748 F\n754 F\n760 F\n760 F\n773 S\n777 F\n782 F\n821 F\n833 F\n839 F\n859 F\n868 F\n884 S\n896 F\n902 S\n907 F\n931 S\n936 F\n940 F\n940 F\n950 F\n951 F\n968 S\n969 F\n970 F\n970 S\n984 F\n986 F\n1004 F\n1012 S\n1016 F\n1027 S\n1039 F\n1047 S\n1049 F\n1049 S\n1050 S\n1052 S\n1060 F\n1078 F\n1084 S\n1170 S\n1181 S\n1185 S\n1200 F\n1201 S\n1202 F\n1210 F\n1227 F\n1229 F\n1249 F\n1261 F\n1264 S\n1287 F\n1293 S\n1298 F\n1298 S\n1313 F\n1325 F\n1364 F\n1375 S\n1378 F\n1387 S\n1409 F\n1424 S\n1428 F\n1434 F\n1452 F\n1454 F\n1469 F\n1503 F\n1538 F\n1540 F\n1540 F\n1548 F\n1567 F\n1613 F\n1650 F\n1676 F\n1680 F\n1683 S\n1710 F\n1719 F\n1725 S\n1731 F\n1737 F\n1810 F\n1836 F\n1912 F\n1954 S\n2023 F\n2109 F\n2120 F\n2121 F\n2224 F\n2229 F\n2291 F\n2300 F\n2340 F\n2396 F\n2397 F\n2567 F\n2652 F\n2698 F\n2708 F\n2725 F\n2781 F\n2818 F\n2861 F\n2899 F\n2942 F\n3158 F\n3562 F\n3631 F",
+      budgetPopulationData: "0 133",
       budgetPeriod: 365,
       budgetItemCost: 2500,
     },
@@ -1068,22 +1091,34 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget') => {
       setSimulationType(type);
       setResult(null);
-      
-      const newDefaults: Partial<FormData> = {
-          beta: 1.56,
-          eta: 1512,
-          sampleSize: 20,
-          simulationCount: 200,
-          confidenceLevel: 90,
-          manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
-          timeForCalc: 700,
-          budgetPeriod: 365,
-          budgetItemCost: 2500,
-          budgetData: "5 S\n33 S\n39 F\n41 F\n57 F\n60 S\n64 F\n78 S\n91 F\n117 S\n118 S\n124 S\n133 S\n134 F\n135 F\n186 S\n196 F\n203 S\n228 S\n235 F\n241 S\n272 F\n276 S\n277 F\n282 F\n289 S\n290 F\n291 S\n295 F\n296 F\n299 F\n302 F\n302 S\n303 F\n308 F\n326 F\n336 F\n338 F\n347 S\n354 S\n376 S\n376 S\n385 F\n388 S\n389 F\n415 S\n416 S\n422 F\n424 S\n425 F\n425 S\n429 F\n429 F\n434 S\n440 F\n444 F\n458 F\n459 S\n460 S\n471 F\n475 F\n475 S\n482 F\n497 F\n497 F\n520 F\n528 S\n535 F\n541 S\n543 S\n563 F\n576 F\n586 F\n613 F\n618 S\n626 S\n657 S\n662 F\n669 S\n670 F\n677 F\n688 S\n689 S\n708 S\n735 F\n748 F\n754 F\n760 F\n760 F\n773 S\n777 F\n782 F\n821 F\n833 F\n839 F\n859 F\n868 F\n884 S\n896 F\n902 S\n907 F\n931 S\n936 F\n940 F\n940 F\n950 F\n951 F\n968 S\n969 F\n970 F\n970 S\n984 F\n986 F\n1004 F\n1012 S\n1016 F\n1027 S\n1039 F\n1047 S\n1049 F\n1049 S\n1050 S\n1052 S\n1060 F\n1078 F\n1084 S\n1170 S\n1181 S\n1185 S\n1200 F\n1201 S\n1202 F\n1210 F\n1227 F\n1229 F\n1249 F\n1261 F\n1264 S\n1287 F\n1293 S\n1298 F\n1298 S\n1313 F\n1325 F\n1364 F\n1375 S\n1378 F\n1387 S\n1409 F\n1424 S\n1428 F\n1434 F\n1452 F\n1454 F\n1469 F\n1503 F\n1538 F\n1540 F\n1540 F\n1548 F\n1567 F\n1613 F\n1650 F\n1676 F\n1680 F\n1683 S\n1710 F\n1719 F\n1725 S\n1731 F\n1737 F\n1810 F\n1836 F\n1912 F\n1954 S\n2023 F\n2109 F\n2120 F\n2121 F\n2224 F\n2229 F\n2291 F\n2300 F\n2340 F\n2396 F\n2397 F\n2567 F\n2652 F\n2698 F\n2708 F\n2725 F\n2781 F\n2818 F\n2861 F\n2899 F\n2942 F\n3158 F\n3562 F\n3631 F",
-      };
-
-      form.reset({ ...form.getValues(), ...newDefaults });
   }
+
+  const handleExtractSuspensions = () => {
+    const sourceData = form.getValues('budgetSourceData') || '';
+    const lines = sourceData.trim().split('\n');
+    const suspensionCounts: { [key: number]: number } = {};
+    
+    lines.forEach(line => {
+        const parts = line.trim().split(/[\s,]+/);
+        if (parts.length === 2) {
+            const time = parseFloat(parts[0]);
+            const status = parts[1].toUpperCase();
+            if (!isNaN(time) && status === 'S') {
+                suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
+            }
+        }
+    });
+
+    const populationString = Object.entries(suspensionCounts)
+        .map(([age, quantity]) => `${age} ${quantity}`)
+        .join('\n');
+        
+    form.setValue('budgetPopulationData', populationString);
+    toast({
+      title: 'População Extraída',
+      description: 'A população em serviço foi preenchida com os dados de suspensão.'
+    })
+  };
 
   const runConfidenceSimulation = (data: FormData) => {
     const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
@@ -1163,53 +1198,51 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   };
   
   const runBudgetSimulation = (data: FormData) => {
-    const { budgetData, budgetPeriod, budgetItemCost, confidenceLevel } = data;
-    if (!budgetData || !budgetPeriod || !budgetItemCost || !confidenceLevel) {
+    const { budgetSourceData, budgetPopulationData, budgetPeriod, budgetItemCost, confidenceLevel } = data;
+    if (!budgetSourceData || !budgetPeriod || !budgetItemCost || !confidenceLevel || !budgetPopulationData) {
         toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
         return;
     }
 
-    const lines = budgetData.trim().split('\n');
-    const allCensoredData: CensoredData[] = [];
-    const suspensionData: { time: number }[] = [];
-
-    lines.forEach(line => {
+    const sourceLines = budgetSourceData.trim().split('\n');
+    const censoredData: CensoredData[] = [];
+    sourceLines.forEach(line => {
         const parts = line.trim().split(/[\s,]+/);
         if (parts.length === 2) {
             const time = parseFloat(parts[0]);
             const status = parts[1].toUpperCase();
             if (!isNaN(time) && (status === 'F' || status === 'S')) {
-                allCensoredData.push({ time, event: status === 'F' ? 1 : 0 });
-                if (status === 'S') {
-                    suspensionData.push({ time });
-                }
+                censoredData.push({ time, event: status === 'F' ? 1 : 0 });
             }
         }
     });
 
-    if (allCensoredData.filter(d => d.event === 1).length < 2) {
-        toast({ variant: 'destructive', title: 'Dados Insuficientes', description: 'São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Weibull.' });
+    if (censoredData.filter(d => d.event === 1).length < 2) {
+        toast({ variant: 'destructive', title: 'Dados de Origem Insuficientes', description: 'São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Beta e Eta.' });
         return;
     }
 
-    const mleParams = fitWeibullMLE(allCensoredData);
+    const mleParams = fitWeibullMLE(censoredData);
     if (!mleParams?.beta || !mleParams?.eta) {
-        toast({ variant: 'destructive', title: 'Erro de Cálculo', description: 'Não foi possível estimar os parâmetros Beta e Eta a partir dos dados fornecidos.' });
+        toast({ variant: 'destructive', title: 'Erro de Cálculo de Parâmetros', description: 'Não foi possível estimar Beta e Eta a partir dos dados de origem.' });
         return;
     }
 
-    const suspensionCounts: { [key: number]: number } = {};
-    suspensionData.forEach(item => {
-        suspensionCounts[item.time] = (suspensionCounts[item.time] || 0) + 1;
+    const populationLines = budgetPopulationData.trim().split('\n');
+    const items: { age: number, quantity: number }[] = [];
+    populationLines.forEach(line => {
+        const parts = line.trim().split(/[\s,]+/);
+        if (parts.length === 2) {
+            const age = parseInt(parts[0], 10);
+            const quantity = parseInt(parts[1], 10);
+            if (!isNaN(age) && !isNaN(quantity)) {
+                items.push({ age, quantity });
+            }
+        }
     });
-
-    const items = Object.entries(suspensionCounts).map(([age, quantity]) => ({
-        age: parseInt(age, 10),
-        quantity
-    }));
-
+    
     if (items.length === 0) {
-        toast({ variant: 'destructive', title: 'População Vazia', description: 'Nenhum item de suspensão (S) encontrado para calcular o orçamento.' });
+        toast({ variant: 'destructive', title: 'População Vazia', description: 'Nenhum item na população em serviço para calcular o orçamento.' });
         return;
     }
 
@@ -1253,29 +1286,16 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   }
 
   useEffect(() => {
-    if (isClient && simulationType === 'budget' && suppliers.length > 0) {
-        const firstSupplier = suppliers[0];
-        if (firstSupplier) {
-            const dataString = [
-                ...firstSupplier.failureTimes.map(t => `${t} F`),
-                ...firstSupplier.suspensionTimes.map(t => `${t} S`)
-            ].join('\n');
-            
-            form.reset({
-              ...form.getValues(),
-              budgetData: dataString
-            });
+    if (isClient && simulationType === 'budget') {
+        const sourceData = form.getValues('budgetSourceData');
+        const populationData = form.getValues('budgetPopulationData');
+        if(sourceData && !populationData){
+            handleExtractSuspensions();
         }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isClient, simulationType, suppliers]);
-
-  useEffect(() => {
-    if (isClient && (simulationType === 'confidence' || simulationType === 'budget')) {
         form.handleSubmit(onSubmit)();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isClient]); 
+  }, [isClient, simulationType]); 
 
 
   if (!isClient) {
@@ -1331,7 +1351,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                     <ContourControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
                 }
                  {simulationType === 'budget' &&
-                    <BudgetControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    <BudgetControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} onExtract={handleExtractSuspensions} />
                 }
             </div>
 
