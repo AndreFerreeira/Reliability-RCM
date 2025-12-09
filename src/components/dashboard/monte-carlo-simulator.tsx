@@ -1109,14 +1109,17 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         }
     });
 
+    const existingPopulationData = form.getValues('budgetPopulationData') || '';
+    const existingLines = existingPopulationData.trim().split('\n').filter(l => l.trim() !== '');
+
     const populationString = Object.entries(suspensionCounts)
         .map(([age, quantity]) => `${age} ${quantity}`)
         .join('\n');
         
-    form.setValue('budgetPopulationData', populationString);
+    form.setValue('budgetPopulationData', existingLines.concat(populationString.split('\n')).join('\n'));
     toast({
       title: 'População Extraída',
-      description: 'A população em serviço foi preenchida com os dados de suspensão.'
+      description: 'Os itens de suspensão foram adicionados à população em serviço.'
     })
   };
 
@@ -1206,6 +1209,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
 
     const sourceLines = budgetSourceData.trim().split('\n');
     const censoredData: CensoredData[] = [];
+    const failureTimes: number[] = [];
     sourceLines.forEach(line => {
         const parts = line.trim().split(/[\s,]+/);
         if (parts.length === 2) {
@@ -1213,6 +1217,9 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
             const status = parts[1].toUpperCase();
             if (!isNaN(time) && (status === 'F' || status === 'S')) {
                 censoredData.push({ time, event: status === 'F' ? 1 : 0 });
+                if (status === 'F') {
+                  failureTimes.push(time);
+                }
             }
         }
     });
@@ -1251,7 +1258,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         eta: mleParams.eta,
         items,
         period: budgetPeriod,
-        confidenceLevel: confidenceLevel / 100
+        confidenceLevel: confidenceLevel / 100,
+        failureTimes,
     };
 
     const budgetResult = calculateExpectedFailures(budgetInput);
@@ -1289,10 +1297,9 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     if (isClient && simulationType === 'budget') {
         const sourceData = form.getValues('budgetSourceData');
         const populationData = form.getValues('budgetPopulationData');
-        if(sourceData && !populationData){
-            handleExtractSuspensions();
+        if(sourceData && populationData){
+            form.handleSubmit(onSubmit)();
         }
-        form.handleSubmit(onSubmit)();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClient, simulationType]); 

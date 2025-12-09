@@ -146,6 +146,7 @@ export interface BudgetInput {
     items: { age: number, quantity: number }[];
     period: number;
     confidenceLevel?: number;
+    failureTimes?: number[];
 }
 
 export interface ExpectedFailuresResult {

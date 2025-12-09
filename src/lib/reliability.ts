@@ -984,37 +984,54 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
     return { results: analysisResults, best: bestDistribution };
 }
 
+function getFailureProbWithBounds(t: number, T: number, beta: number, eta: number, n: number, confidence: number) {
+    const z = invNormalCdf(confidence);
+    const var_b = beta*beta / n;
+    const var_e = eta*eta / (n * beta*beta);
+    const cov_be = 0.277 * beta*eta / n;
+
+    const R_t = weibullSurvival(t, beta, eta);
+    const R_t_plus_T = weibullSurvival(t + T, beta, eta);
+
+    const probFailureMedian = R_t > 1e-9 ? (R_t - R_t_plus_T) / R_t : 1;
+
+    const dPdb_term1 = -Math.pow((t+T)/eta, beta) * Math.log((t+T)/eta) * R_t_plus_T;
+    const dPdb_term2 = -(-Math.pow(t/eta, beta) * Math.log(t/eta) * R_t);
+    const dPdb = (1/R_t) * (dPdb_term1 - dPdb_term2) - ((R_t - R_t_plus_T) / (R_t * R_t)) * dPdb_term2;
+
+    const dPde_term1 = R_t_plus_T * (beta/eta) * Math.pow((t+T)/eta, beta);
+    const dPde_term2 = R_t * (beta/eta) * Math.pow(t/eta, beta);
+    const dPde = (1/R_t) * (dPde_term1 - dPde_term2) + ((R_t - R_t_plus_T) / (R_t*R_t)) * dPde_term2;
+
+    const var_P = dPdb*dPdb * var_b + dPde*dPde * var_e + 2 * dPdb*dPde * cov_be;
+    
+    if (var_P < 0) {
+        return { li: probFailureMedian, median: probFailureMedian, ls: probFailureMedian };
+    }
+
+    const se_P = Math.sqrt(var_P);
+    const probFailureLi = Math.max(0, probFailureMedian - z * se_P);
+    const probFailureLs = Math.min(1, probFailureMedian + z * se_P);
+
+    return { li: probFailureLi, median: probFailureMedian, ls: probFailureLs };
+}
+
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
-    const { beta, eta, items, period, confidenceLevel } = input;
+    const { beta, eta, items, period, confidenceLevel, failureTimes } = input;
     const alpha = 1 - (confidenceLevel ?? 0.90);
+    const n_failures = failureTimes?.length ?? items.length; // Use failure times for variance calc if available
 
     const details = items.map(item => {
         const { age, quantity } = item;
 
-        const R_t = weibullSurvival(age, beta, eta);
-        const R_t_plus_T = weibullSurvival(age + period, beta, eta);
-
-        // Conditional probability of failure for a unit aged t
-        const probFailure = R_t > 1e-9 ? (R_t - R_t_plus_T) / R_t : 1;
-        
-        // Expected number of failures (Median) for the group
-        const medianFailures = probFailure * quantity;
-        
-        // One-sided confidence bounds using Chi-Squared
-        // Lower limit for expected failures
-        const li_df = 2 * medianFailures;
-        const li = invChi2(alpha / 2, li_df) / 2;
-        
-        // Upper limit for expected failures
-        const ls_df = 2 * (medianFailures + 1);
-        const ls = invChi2(1 - alpha / 2, ls_df) / 2;
+        const {li: probLi, median: probMedian, ls: probLs} = getFailureProbWithBounds(age, period, beta, eta, n_failures, 1 - alpha);
 
         return {
             age,
             quantity,
-            li: isNaN(li) ? 0 : li,
-            median: medianFailures,
-            ls: isNaN(ls) ? medianFailures : ls,
+            li: probLi * quantity,
+            median: probMedian * quantity,
+            ls: probLs * quantity,
         };
     });
 
