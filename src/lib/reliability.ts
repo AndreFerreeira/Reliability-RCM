@@ -34,14 +34,17 @@ export function invNormalCdf(p: number): number {
 // Chi-Squared distribution quantile function
 function invChi2(p: number, df: number): number {
     if (df <= 0) return NaN;
+    if (p <= 0) return 0;
+    if (p >= 1) return Infinity;
 
-    // Abramowitz and Stegun 26.4.17
+    // Use a more robust approximation (Wilson-Hilferty)
     let x = invNormalCdf(p);
-    let p_ = 2.0/9.0/df;
-    let chi = df * Math.pow(1.0 - p_ + x*Math.sqrt(p_), 3);
-
-    // Refine with Newton's method if needed, but this is a good approximation.
-    return chi;
+    let term = 1 - 2/(9*df) + x * Math.sqrt(2/(9*df));
+    if (term <= 0) { // Fallback for small df or extreme p
+        let approx = df + Math.sqrt(2*df)*x + (2/3)*(x*x-1);
+        return Math.max(0, approx);
+    }
+    return df * Math.pow(term, 3);
 }
 
 // --- Helper for error function ---
@@ -180,37 +183,40 @@ function calculateAdjustedRanks(failureTimes: number[], suspensionTimes: number[
     const failurePoints: { time: number, prob: number }[] = [];
     let cumulativeReliability = 1.0;
     let itemsAtRisk = n;
-    let lastTime = -1;
 
     for (let i = 0; i < n; ) {
         const t = allEvents[i].time;
         let failuresAtT = 0;
-        let suspensionsAtT = 0;
         
         let j = i;
         while(j < n && allEvents[j].time === t) {
             if (allEvents[j].event === 1) failuresAtT++;
-            else suspensionsAtT++;
             j++;
         }
         
-        const totalAtT = failuresAtT + suspensionsAtT;
-        
         if (failuresAtT > 0) {
-            const reliabilityAtT = (itemsAtRisk - failuresAtT) / itemsAtRisk;
-            cumulativeReliability *= reliabilityAtT;
-            failurePoints.push({ time: t, prob: 1 - cumulativeReliability });
+            for (let k = 0; k < failuresAtT; k++) {
+                 // Kaplan-Meier Product-Limit Estimator for individual failure points
+                const reliabilityAtPoint = (itemsAtRisk - 1) / itemsAtRisk;
+                cumulativeReliability *= reliabilityAtPoint;
+                failurePoints.push({ time: t, prob: 1 - cumulativeReliability });
+                itemsAtRisk--;
+            }
         }
         
-        itemsAtRisk -= totalAtT;
-        i += totalAtT;
-        lastTime = t;
-    }
+        // Handle suspensions at time t
+        let suspensionsAtT = 0;
+        let k = i + failuresAtT;
+        while(k < n && allEvents[k].time === t && allEvents[k].event === 0) {
+            suspensionsAtT++;
+            itemsAtRisk--;
+            k++;
+        }
 
-    // De-duplicate points at the same time, which can happen with K-M method if not handled carefully
-    const uniqueFailurePoints = Array.from(new Map(failurePoints.map(item => [item.time, item])).values());
+        i = j;
+    }
     
-    return uniqueFailurePoints.sort((a, b) => a.time - b.time);
+    return failurePoints.sort((a, b) => a.time - b.time);
 }
 
 
@@ -222,7 +228,21 @@ export function estimateParametersByRankRegression(
     method: 'SRM' | 'RRX'
 ): AnalysisResult | null {
     
-    const rankedPoints = calculateAdjustedRanks(failureTimes, suspensionTimes);
+    const hasSuspensions = suspensionTimes.length > 0;
+    const sortedFailures = [...failureTimes].sort((a, b) => a - b);
+    const n = hasSuspensions ? failureTimes.length + suspensionTimes.length : failureTimes.length;
+    
+    let rankedPoints: {time: number, prob: number}[];
+
+    if (hasSuspensions) {
+        rankedPoints = calculateAdjustedRanks(failureTimes, suspensionTimes);
+    } else {
+        rankedPoints = sortedFailures.map((time, i) => ({
+            time: time,
+            prob: (i + 1 - 0.3) / (n + 0.4) // Benard's approximation for Median Ranks
+        }));
+    }
+
     if (rankedPoints.length === 0) return null;
 
     let transformedPoints: { x: number; y: number; time: number; prob: number; }[] = [];
@@ -966,21 +986,33 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
 
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
     const { beta, eta, items, period, confidenceLevel } = input;
-    const confidence = confidenceLevel ?? 0.90;
-    const alpha = 1 - confidence;
+    const alpha = 1 - (confidenceLevel ?? 0.90);
 
     const details = items.map(item => {
         const { age, quantity } = item;
-        const H_t = Math.pow(age / eta, beta);
-        const H_t_plus_T = Math.pow((age + period) / eta, beta);
         
-        const medianFailures = quantity * (H_t_plus_T - H_t);
+        // Renewal calculation for expected number of failures (median)
+        const R_t = weibullSurvival(age, beta, eta);
+        const R_t_plus_T = weibullSurvival(age + period, beta, eta);
         
-        // One-sided confidence bounds using Chi-Squared
+        let medianFailures = 0;
+        if (R_t > 1e-9) { // Avoid division by zero
+            medianFailures = quantity * ( (R_t - R_t_plus_T) / R_t );
+        } else {
+            // If the item has almost 0% chance of surviving to its current age,
+            // we assume it has already failed and will be replaced.
+            // The new item will have age 0.
+            const R_T_new = weibullSurvival(period, beta, eta);
+            medianFailures = quantity * (1 - R_T_new);
+        }
+        
+        // One-sided confidence bounds using Chi-Squared for Poisson distribution
         const li_df = 2 * medianFailures;
         const ls_df = 2 * (medianFailures + 1);
 
+        // Lower limit for failures
         const li = invChi2(alpha, li_df) / 2;
+        // Upper limit for failures
         const ls = invChi2(1 - alpha, ls_df) / 2;
 
         return {
