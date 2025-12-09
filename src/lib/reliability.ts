@@ -595,96 +595,69 @@ export function calculateLikelihoodRatioBounds(
     if (!mle) {
         return { error: "Falha na estimação MLE. Verifique os dados." };
     }
-    const { beta: betaMLE, eta: etaMLE } = mle;
-    const llMLE = -negLogLikWeibull([Math.log(betaMLE), Math.log(etaMLE)], times.map(t => ({time:t, event: 1})));
-
-    const beta_sd_approx = 1.2 / Math.sqrt(times.length) * betaMLE;
-    const betaLow = Math.max(0.1, betaMLE - 6 * beta_sd_approx);
-    const betaHigh = betaMLE + 6 * beta_sd_approx;
-
-    const eta_sd_approx = (etaMLE / (betaMLE * Math.sqrt(times.length))) * 2.5;
-    const etaLow = Math.max(1, etaMLE - 6 * eta_sd_approx);
-    const etaHigh = etaMLE + 6 * eta_sd_approx;
-
-
-    const GRID_B = 140;
-    const GRID_E = 140;
-    const betaStep = (betaHigh - betaLow) / (GRID_B - 1);
-    const etaStep = (etaHigh - etaLow) / (GRID_E - 1);
+    const { beta: betaMLE, eta: etaMLE, ll: llMLE } = mle;
     
-    const chi2_val = invChi2(confidenceLevel, 2);
-    if (!isFinite(chi2_val)) return { error: "Não foi possível calcular o valor de Qui-quadrado." };
-    
-    const thresholdLL = llMLE - (chi2_val / 2.0);
+    // Fisher Matrix Inversion Method for Confidence Bounds
+    const n = times.length;
+    const b = betaMLE;
+    const k = etaMLE;
 
-    const mask: boolean[][] = Array.from({ length: GRID_E }, () => Array(GRID_B).fill(false));
-    let anyValid = false;
+    const var_b = b*b / n;
+    const var_k = k*k / (n * b*b);
+    const cov_bk = 0.277 * b*k / n; // Approximation
 
-    for (let i = 0; i < GRID_E; i++) {
-        const eta = etaLow + i * etaStep;
-        for (let j = 0; j < GRID_B; j++) {
-            const beta = betaLow + j * betaStep;
-            if (!isFinite(beta) || beta <= 0 || !isFinite(eta) || eta <= 0) continue;
-            const currentLL = -negLogLikWeibull([Math.log(beta), Math.log(eta)], times.map(t => ({time: t, event: 1})));
-            if (isFinite(currentLL) && currentLL >= thresholdLL) {
-                mask[i][j] = true;
-                anyValid = true;
-            }
-        }
+    const z = invNormalCdf(1 - (1 - confidenceLevel) / 2);
+
+    const timePoints = generateTimeGrid(Math.max(1, Math.min(...times) * 0.5), Math.max(...times) * 2, 120);
+
+    const medianCurve: {x:number, y:number}[] = [];
+    const lowerCurve: {x:number, y:number}[] = [];
+    const upperCurve: {x:number, y:number}[] = [];
+
+    for (const t of timePoints) {
+        if (t <= 0) continue;
+        const medianF = weibullCDF(t, b, k);
+        const logT = Math.log(t);
+        const logK = Math.log(k);
+
+        const dFdb = -Math.pow(t/k, b) * Math.log(t/k) * Math.exp(-Math.pow(t/k, b));
+        const dFdk = Math.pow(t/k, b) * (b/k) * Math.exp(-Math.pow(t/k, b));
+
+        const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
+
+        if (var_F < 0) continue; // Should not happen with valid inputs
+
+        const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
+        
+        const lowerF = 1 - Math.pow(1 - medianF, 1/w);
+        const upperF = 1 - Math.pow(1 - medianF, w);
+
+        medianCurve.push({x: t, y: medianF * 100});
+        lowerCurve.push({x: t, y: lowerF * 100});
+        upperCurve.push({x: t, y: upperF * 100});
     }
 
-    if (!anyValid) {
-        return { error: "Não foi possível encontrar contorno com a grade atual." };
-    }
-
-    const timesGrid = generateTimeGrid(Math.max(1, Math.min(...times) * 0.5), Math.max(...times) * 2, 120);
-
-    const bandLower: number[] = [];
-    const bandUpper: number[] = [];
-    for (const t of timesGrid) {
-        let minF = Infinity, maxF = -Infinity;
-        for (let i = 0; i < GRID_E; i++) {
-            for (let j = 0; j < GRID_B; j++) {
-                if (mask[i][j]) {
-                    const beta = betaLow + j * betaStep;
-                    const eta = etaLow + i * etaStep;
-                    const f = weibullCDF(t, beta, eta);
-                    if (isFinite(f)) {
-                        minF = Math.min(minF, f);
-                        maxF = Math.max(maxF, f);
-                    }
-                }
-            }
-        }
-        bandLower.push(isFinite(minF) ? minF * 100 : 0);
-        bandUpper.push(isFinite(maxF) ? maxF * 100 : 0);
-    }
-    
     let calculation = null;
     if (tValue && isFinite(tValue) && tValue > 0) {
-      let minF = Infinity, maxF = -Infinity;
-      for (let i = 0; i < GRID_E; i++) {
-        for (let j = 0; j < GRID_B; j++) {
-          if (mask[i][j]) {
-            const beta = betaLow + j * betaStep;
-            const eta = etaLow + i * etaStep;
-            const f = weibullCDF(tValue, beta, eta);
-            if (isFinite(f)) {
-                minF = Math.min(minF, f);
-                maxF = Math.max(maxF, f);
-            }
-          }
-        }
-      }
-      calculation = {
-        medianAtT: weibullCDF(tValue, betaMLE, etaMLE) * 100,
-        lowerAtT: isFinite(minF) ? minF * 100 : null,
-        upperAtT: isFinite(maxF) ? maxF * 100 : null,
-      };
+       const medianF = weibullCDF(tValue, b, k);
+       const dFdb = -Math.pow(tValue/k, b) * Math.log(tValue/k) * Math.exp(-Math.pow(tValue/k, b));
+       const dFdk = Math.pow(tValue/k, b) * (b/k) * Math.exp(-Math.pow(tValue/k, b));
+       const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
+
+       if(var_F >= 0) {
+         const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
+         const lowerF = 1 - Math.pow(1 - medianF, 1/w);
+         const upperF = 1 - Math.pow(1 - medianF, w);
+          calculation = {
+            medianAtT: medianF * 100,
+            lowerAtT: lowerF * 100,
+            upperAtT: upperF * 100
+          };
+       }
     }
     
     const plotResult = estimateParameters({ dist: 'Weibull', failureTimes: times, method: 'SRM' });
-    if (!plotResult || !plotResult.plotData) {
+    if (!plotResult?.plotData) {
         return { error: 'Falha ao gerar dados de plotagem para a regressão.' };
     }
 
@@ -695,9 +668,9 @@ export function calculateLikelihoodRatioBounds(
       confidenceLevel: confidenceLevel * 100,
       points: plotResult.plotData.points,
       rSquared: plotResult.plotData.rSquared,
-      medianCurve: timesGrid.map(t => ({ x: t, y: weibullCDF(t, betaMLE, etaMLE) * 100 })),
-      lowerCurve: timesGrid.map((t, idx) => ({ x: t, y: bandLower[idx] })),
-      upperCurve: timesGrid.map((t, idx) => ({ x: t, y: bandUpper[idx] })),
+      medianCurve,
+      lowerCurve,
+      upperCurve,
       calculation
     };
 }
@@ -1003,10 +976,10 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
         
         const medianFailures = quantity * (H_t_plus_T - H_t);
         
+        // One-sided confidence bounds using Chi-Squared
         const li_df = 2 * medianFailures;
         const ls_df = 2 * (medianFailures + 1);
 
-        // One-sided confidence bounds
         const li = invChi2(alpha, li_df) / 2;
         const ls = invChi2(1 - alpha, ls_df) / 2;
 

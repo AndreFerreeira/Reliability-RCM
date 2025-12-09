@@ -63,7 +63,6 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         calculation
     } = data;
     
-    // PASSO 1: Garantir que todos os dados são números e ordenados
     const sortFn = (a: { x: number }, b: { x: number }) => a.x - b.x;
     const medianCurve = rawMedian.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
     const lowerCurve = rawLower.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
@@ -73,7 +72,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const medianData = medianCurve.map(p => [p.x, p.y]);
     const lowerData = lowerCurve.map(p => [p.x, p.y]);
     const upperData = upperCurve.map(p => [p.x, p.y]);
-    const scatterData = points.map(p => [p.time, p.prob]);
+    const scatterData = points.map(p => [p.x, p.y]);
 
     const lowerSeries = {
         name: `Limite Inferior ${data.confidenceLevel}%`,
@@ -176,7 +175,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         backgroundColor: "transparent",
         grid: { left: 65, right: 40, top: 70, bottom: 60 },
         title: {
-            text: 'Limites de Confiança (Razão de Verossimilhança)',
+            text: 'Limites de Confiança (Matriz de Fisher)',
             subtext: `β: ${betaMLE.toFixed(2)} | η: ${etaMLE.toFixed(0)} | N: ${points.length}`,
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))', fontSize: 16 },
@@ -1122,7 +1121,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     }
 
     if (!boundsData || boundsData.error) {
-        throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança pelo método da razão de verossimilhança.");
+        throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança.");
     }
     setResult({ boundsData });
   }
