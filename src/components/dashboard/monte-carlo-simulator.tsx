@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE } from '@/lib/reliability';
+import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE, getFailureProbWithBounds } from '@/lib/reliability';
 import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -953,7 +953,7 @@ const ContourResultsDisplay = ({ result }: { result: SimulationResult }) => {
     );
 };
 
-const BudgetResultsDisplay = ({ result, itemCost }: { result: SimulationResult, itemCost: number }) => {
+const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: SimulationResult, itemCost: number, confidenceLevel: number }) => {
     if (!result.budgetResult) return null;
     const { totals } = result.budgetResult;
     const formatCurrency = (value: number) => {
@@ -1018,6 +1018,28 @@ const BudgetResultsDisplay = ({ result, itemCost }: { result: SimulationResult, 
                     </Table>
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Interpretando a Previsão de Falhas</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-4">
+                     <p>
+                        A <strong className="text-foreground">Mediana</strong> é a sua melhor estimativa, o número mais provável de falhas com base nos dados. É o ponto de partida para o planejamento.
+                    </p>
+                    <p>
+                        Os <strong className="text-foreground">Limites de Confiança (LI e LS)</strong> quantificam a incerteza da previsão, com base no nível de confiança de <strong className="text-foreground">{confidenceLevel}%</strong>. Eles definem um intervalo onde o número real de falhas provavelmente se encontrará.
+                    </p>
+                    <ul className="list-disc pl-5 space-y-2">
+                        <li><strong className="text-green-400">Limite Inferior (LI):</strong> O cenário otimista. Há uma baixa probabilidade de que o número de falhas seja menor que este valor.</li>
+                        <li><strong className="text-yellow-400">Limite Superior (LS):</strong> O cenário pessimista e o mais importante para o orçamento. Para garantir um nível de serviço adequado e evitar falta de estoque, planeje seu orçamento de sobressalentes com base neste valor.</li>
+                    </ul>
+                     <p className="pt-2">
+                       A largura do intervalo (diferença entre LS e LI) reflete a qualidade dos seus dados. Dados mais consistentes e em maior volume geralmente resultam em um intervalo de confiança mais estreito e uma previsão mais precisa.
+                    </p>
+                </CardContent>
+            </Card>
+            
             <Card>
                 <CardHeader>
                     <CardTitle>Tabela Detalhada de Falhas por Item</CardTitle>
@@ -1087,6 +1109,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
 
   const timeForCalc = form.watch('timeForCalc');
   const budgetItemCost = form.watch('budgetItemCost');
+  const confidenceLevel = form.watch('confidenceLevel');
   
   const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget') => {
       setSimulationType(type);
@@ -1259,7 +1282,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         items,
         period: budgetPeriod,
         confidenceLevel: confidenceLevel / 100,
-        failureTimes,
+        n: censoredData.length
     };
 
     const budgetResult = calculateExpectedFailures(budgetInput);
@@ -1389,8 +1412,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                     <ContourPlot data={result.contourData} />
                 )}
 
-                {result?.budgetResult && simulationType === 'budget' && budgetItemCost && (
-                  <BudgetResultsDisplay result={result} itemCost={budgetItemCost} />
+                {result?.budgetResult && simulationType === 'budget' && budgetItemCost && confidenceLevel && (
+                  <BudgetResultsDisplay result={result} itemCost={budgetItemCost} confidenceLevel={confidenceLevel} />
                 )}
 
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
