@@ -990,22 +990,17 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
 
     const details = items.map(item => {
         const { age, quantity } = item;
-        
-        // Median failures using the renewal equation for a single item
+
         const R_t = weibullSurvival(age, beta, eta);
         const R_t_plus_T = weibullSurvival(age + period, beta, eta);
-        
-        let medianFailuresPerItem = 0;
-        if (R_t > 1e-12) {
-            medianFailuresPerItem = (1 - R_t_plus_T / R_t);
-        } else {
-            // If survival at current age is ~0, it has effectively failed. The replacement is new.
-            medianFailuresPerItem = (1 - weibullSurvival(period, beta, eta));
-        }
-        
-        const medianFailures = medianFailuresPerItem * quantity;
 
-        // One-sided confidence bounds for Poisson parameter (lambda*t)
+        // Conditional probability of failure for a unit aged t
+        const probFailure = R_t > 1e-9 ? (R_t - R_t_plus_T) / R_t : 1;
+        
+        // Expected number of failures (Median) for the group
+        const medianFailures = probFailure * quantity;
+        
+        // One-sided confidence bounds using Chi-Squared
         // Lower limit for expected failures
         const li_df = 2 * medianFailures;
         const li = invChi2(alpha / 2, li_df) / 2;
