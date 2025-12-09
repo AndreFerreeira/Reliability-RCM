@@ -462,7 +462,7 @@ function fitLognormalMLE(data: CensoredData[]): Parameters {
     return { mean: mu, stdDev: Math.exp(logSigma), lkv: -res.fx };
 }
 
-function fitWeibullMLE(data: CensoredData[]): Parameters {
+export function fitWeibullMLE(data: CensoredData[]): Parameters {
     const failures = data.filter(d => d.event === 1).map(d => d.time);
     if (failures.length === 0) return { lkv: -Infinity };
     const median = failures.sort((a,b) => a-b)[Math.floor(failures.length/2)] || 1;
@@ -991,29 +991,27 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
     const details = items.map(item => {
         const { age, quantity } = item;
         
-        // Renewal calculation for expected number of failures (median)
+        // Median failures based on renewal equation
         const R_t = weibullSurvival(age, beta, eta);
         const R_t_plus_T = weibullSurvival(age + period, beta, eta);
         
         let medianFailures = 0;
-        if (R_t > 1e-9) { // Avoid division by zero
-            medianFailures = quantity * ( (R_t - R_t_plus_T) / R_t );
+        if (R_t > 1e-12) {
+            medianFailures = quantity * ((R_t - R_t_plus_T) / R_t);
         } else {
-            // If the item has almost 0% chance of surviving to its current age,
-            // we assume it has already failed and will be replaced.
-            // The new item will have age 0.
-            const R_T_new = weibullSurvival(period, beta, eta);
-            medianFailures = quantity * (1 - R_T_new);
+             // If survival at current age is ~0, it has failed. The replacement is new.
+            medianFailures = quantity * (1 - weibullSurvival(period, beta, eta));
         }
         
-        // One-sided confidence bounds using Chi-Squared for Poisson distribution
+        // One-sided confidence bounds for Poisson parameter (lambda*t)
+        // Lower limit for expected failures
         const li_df = 2 * medianFailures;
-        const ls_df = 2 * (medianFailures + 1);
-
-        // Lower limit for failures
         const li = invChi2(alpha, li_df) / 2;
-        // Upper limit for failures
+        
+        // Upper limit for expected failures
+        const ls_df = 2 * (medianFailures + 1);
         const ls = invChi2(1 - alpha, ls_df) / 2;
+
 
         return {
             age,

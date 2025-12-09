@@ -12,8 +12,8 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures } from '@/lib/reliability';
-import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput } from '@/lib/types';
+import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE } from '@/lib/reliability';
+import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ const formSchema = z.object({
   confidenceLevel: z.coerce.number().min(1).max(99.9),
   manualData: z.string().optional(),
   timeForCalc: z.coerce.number().gt(0, "O tempo deve ser positivo").optional(),
-  budgetItems: z.string().optional(),
+  budgetData: z.string().optional(),
   budgetPeriod: z.coerce.number().gt(0, "O período deve ser positivo").optional(),
   budgetItemCost: z.coerce.number().gt(0, "O custo deve ser positivo").optional(),
 }).refine(data => {
@@ -47,6 +47,7 @@ interface SimulationResult {
   contourData?: ContourData;
   budgetResult?: ExpectedFailuresResult;
   simulationCount?: number;
+  budgetParams?: { beta: number, eta: number };
 }
 
 const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeForCalc?: number }) => {
@@ -743,49 +744,25 @@ const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulat
     <Card>
         <CardHeader>
             <CardTitle>Orçamento de Sobressalentes</CardTitle>
-            <CardDescription>Estime a quantidade de falhas e os custos para um período.</CardDescription>
+            <CardDescription>Estime falhas futuras e custos para uma população de itens em serviço.</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                            control={form.control}
-                            name="beta"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Beta (β)</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="eta"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Eta (η)</FormLabel>
-                                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
                      <FormField
                         control={form.control}
-                        name="budgetItems"
+                        name="budgetData"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Idade e Quantidade dos Itens</FormLabel>
+                                <FormLabel>Dados de Falha e Suspensão</FormLabel>
                                 <FormControl>
                                     <Textarea
-                                        placeholder={"Ex:\n[Idade] [Quantidade]\n0 133\n5 1"}
-                                        rows={5}
+                                        placeholder={"Ex:\n150 F\n210 S"}
+                                        rows={8}
                                         {...field}
                                     />
                                 </FormControl>
-                                <FormDescription>Insira a idade atual e a quantidade de itens em cada linha.</FormDescription>
+                                <FormDescription>Insira os dados de vida dos componentes. Use [Tempo] [F] para falha e [Tempo] [S] para suspensão (item em serviço).</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -796,8 +773,8 @@ const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulat
                             name="budgetPeriod"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Período (dias)</FormLabel>
-                                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormLabel>Período de Previsão</FormLabel>
+                                    <FormControl><Input type="number" placeholder="Ex: 365" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -808,7 +785,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulat
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Custo Unitário (R$)</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormControl><Input type="number" step="0.01" placeholder="Ex: 2500" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -962,12 +939,34 @@ const BudgetResultsDisplay = ({ result, itemCost }: { result: SimulationResult, 
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
+             {result.budgetParams && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Parâmetros Weibull Calculados (MLE)</CardTitle>
+                        <CardDescription>
+                           Estes são os parâmetros de forma (Beta) e escala (Eta) calculados a partir dos seus dados.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="grid grid-cols-2 gap-4">
+                            <div className="rounded-md border p-4">
+                                <p className="text-sm text-muted-foreground">Beta (β)</p>
+                                <p className="text-2xl font-bold">{result.budgetParams.beta.toFixed(3)}</p>
+                            </div>
+                            <div className="rounded-md border p-4">
+                                <p className="text-sm text-muted-foreground">Eta (η)</p>
+                                <p className="text-2xl font-bold">{result.budgetParams.eta.toFixed(0)}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                 </Card>
+             )}
             <Card>
                 <CardHeader>
                     <CardTitle>Resultados do Orçamento</CardTitle>
                     <CardDescription>
-                        Quantidade de falhas esperadas e custos associados para o período.
+                        Quantidade de falhas esperadas e custos associados para a população em serviço no período definido.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -999,17 +998,18 @@ const BudgetResultsDisplay = ({ result, itemCost }: { result: SimulationResult, 
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle>Tabela Detalhada de Falhas</CardTitle>
+                    <CardTitle>Tabela Detalhada de Falhas por Item</CardTitle>
+                     <CardDescription>Esta é a previsão de falhas para cada grupo de itens da sua população em serviço.</CardDescription>
                 </CardHeader>
                 <CardContent className="max-h-80 overflow-y-auto">
                     <Table>
                         <TableHeader>
                            <TableRow>
                                 <TableHead>Idade Atual</TableHead>
-                                <TableHead>Qtd.</TableHead>
-                                <TableHead className="text-right">LI</TableHead>
-                                <TableHead className="text-right">Mediana</TableHead>
-                                <TableHead className="text-right">LS</TableHead>
+                                <TableHead>Qtd. Itens</TableHead>
+                                <TableHead className="text-right">Falhas (LI)</TableHead>
+                                <TableHead className="text-right">Falhas (Mediana)</TableHead>
+                                <TableHead className="text-right">Falhas (LS)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1037,7 +1037,7 @@ interface MonteCarloSimulatorProps {
 export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorProps) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget'>('confidence');
+  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget'>('budget');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   
@@ -1052,7 +1052,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       confidenceLevel: 90,
       manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
       timeForCalc: 700,
-      budgetItems: "0 133\n5 1\n33 1\n60 1\n78 1",
+      budgetData: "5 S\n33 S\n39 F\n41 F\n57 F\n60 S\n64 F\n78 S\n91 F\n117 S\n118 S\n124 S\n133 S\n134 F\n135 F\n186 S\n196 F\n203 S\n228 S\n235 F\n241 S\n272 F\n276 S\n277 F\n282 F\n289 S\n290 F\n291 S\n295 F\n296 F\n299 F\n302 F\n302 S\n303 F\n308 F\n326 F\n336 F\n338 F\n347 S\n354 S\n376 S\n376 S\n385 F\n388 S\n389 F\n415 S\n416 S\n422 F\n424 S\n425 F\n425 S\n429 F\n429 F\n434 S\n440 F\n444 F\n458 F\n459 S\n460 S\n471 F\n475 F\n475 S\n482 F\n497 F\n497 F\n520 F\n528 S\n535 F\n541 S\n543 S\n563 F\n576 F\n586 F\n613 F\n618 S\n626 S\n657 S\n662 F\n669 S\n670 F\n677 F\n688 S\n689 S\n708 S\n735 F\n748 F\n754 F\n760 F\n760 F\n773 S\n777 F\n782 F\n821 F\n833 F\n839 F\n859 F\n868 F\n884 S\n896 F\n902 S\n907 F\n931 S\n936 F\n940 F\n940 F\n950 F\n951 F\n968 S\n969 F\n970 F\n970 S\n984 F\n986 F\n1004 F\n1012 S\n1016 F\n1027 S\n1039 F\n1047 S\n1049 F\n1049 S\n1050 S\n1052 S\n1060 F\n1078 F\n1084 S\n1170 S\n1181 S\n1185 S\n1200 F\n1201 S\n1202 F\n1210 F\n1227 F\n1229 F\n1249 F\n1261 F\n1264 S\n1287 F\n1293 S\n1298 F\n1298 S\n1313 F\n1325 F\n1364 F\n1375 S\n1378 F\n1387 S\n1409 F\n1424 S\n1428 F\n1434 F\n1452 F\n1454 F\n1469 F\n1503 F\n1538 F\n1540 F\n1540 F\n1548 F\n1567 F\n1613 F\n1650 F\n1676 F\n1680 F\n1683 S\n1710 F\n1719 F\n1725 S\n1731 F\n1737 F\n1810 F\n1836 F\n1912 F\n1954 S\n2023 F\n2109 F\n2120 F\n2121 F\n2224 F\n2229 F\n2291 F\n2300 F\n2340 F\n2396 F\n2397 F\n2567 F\n2652 F\n2698 F\n2708 F\n2725 F\n2781 F\n2818 F\n2861 F\n2899 F\n2942 F\n3158 F\n3562 F\n3631 F",
       budgetPeriod: 365,
       budgetItemCost: 2500,
     },
@@ -1068,56 +1068,20 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget') => {
       setSimulationType(type);
       setResult(null);
-      // Reset form with potentially new auto-filled data
-      const firstWeibullSupplier = suppliers.find(s => s.distribution === 'Weibull' && s.params.beta && s.params.eta);
       
-      let initialBudgetItems = "0 1";
-      if (firstWeibullSupplier && firstWeibullSupplier.suspensionTimes.length > 0) {
-          const suspensionCounts: { [key: number]: number } = {};
-          firstWeibullSupplier.suspensionTimes.forEach(time => {
-              suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
-          });
-          initialBudgetItems = Object.entries(suspensionCounts)
-              .map(([age, quantity]) => `${age} ${quantity}`)
-              .join('\n');
-      }
-
       form.reset({
-        beta: firstWeibullSupplier?.params.beta ?? 1.56,
-        eta: firstWeibullSupplier?.params.eta ?? 1512,
+        ...form.getValues(), // keep current values
+        beta: 1.56,
+        eta: 1512,
         sampleSize: 20,
         simulationCount: 200,
         confidenceLevel: 90,
-        manualData: type === 'confidence' || type === 'contour' ? '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042' : '',
+        manualData: '105, 213, 332, 351, 365, 397, 400, 397, 437, 1014, 1126, 1132, 3944, 5042',
         timeForCalc: 700,
-        budgetItems: initialBudgetItems,
         budgetPeriod: 365,
         budgetItemCost: 2500,
-    });
+      });
   }
-
-  // Effect to auto-fill budget params from the main supplier list
-  useEffect(() => {
-    if (simulationType === 'budget' && suppliers.length > 0) {
-      const firstWeibullSupplier = suppliers.find(s => s.distribution === 'Weibull' && s.params.beta && s.params.eta);
-      if (firstWeibullSupplier) {
-        form.setValue('beta', firstWeibullSupplier.params.beta);
-        form.setValue('eta', firstWeibullSupplier.params.eta);
-
-         if (firstWeibullSupplier.suspensionTimes.length > 0) {
-            const suspensionCounts: { [key: number]: number } = {};
-            firstWeibullSupplier.suspensionTimes.forEach(time => {
-                suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
-            });
-            const budgetItemsString = Object.entries(suspensionCounts)
-                .map(([age, quantity]) => `${age} ${quantity}`)
-                .join('\n');
-            form.setValue('budgetItems', budgetItemsString);
-        }
-      }
-    }
-  }, [simulationType, suppliers, form]);
-
 
   const runConfidenceSimulation = (data: FormData) => {
     const failureTimes = data.manualData?.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0) || [];
@@ -1197,38 +1161,66 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   };
   
   const runBudgetSimulation = (data: FormData) => {
-    const { beta, eta, budgetPeriod, budgetItems, confidenceLevel } = data;
-     if (!beta || !eta || !budgetPeriod || !budgetItems) {
+      const { budgetData, budgetPeriod, budgetItemCost, confidenceLevel } = data;
+      if (!budgetData || !budgetPeriod || !budgetItemCost || !confidenceLevel) {
           toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
           return;
       }
       
-      const items: BudgetInput['items'] = budgetItems.trim().split('\n').map(line => {
+      const lines = budgetData.trim().split('\n');
+      const allCensoredData: CensoredData[] = [];
+      const suspensionData: { time: number }[] = [];
+
+      lines.forEach(line => {
           const parts = line.trim().split(/[\s,]+/);
           if (parts.length === 2) {
-              const age = parseInt(parts[0], 10);
-              const quantity = parseInt(parts[1], 10);
-              if (!isNaN(age) && !isNaN(quantity)) {
-                  return { age, quantity };
+              const time = parseFloat(parts[0]);
+              const status = parts[1].toUpperCase();
+              if (!isNaN(time) && (status === 'F' || status === 'S')) {
+                  allCensoredData.push({ time, event: status === 'F' ? 1 : 0 });
+                  if (status === 'S') {
+                      suspensionData.push({ time });
+                  }
               }
           }
-          return null;
-      }).filter((item): item is { age: number; quantity: number; } => item !== null);
-
-      if (items.length === 0) {
-          toast({ variant: 'destructive', title: 'Itens Inválidos', description: 'Nenhum item válido para cálculo. Verifique a entrada de Idade e Quantidade.' });
+      });
+      
+      if (allCensoredData.filter(d => d.event === 1).length < 2) {
+          toast({ variant: 'destructive', title: 'Dados Insuficientes', description: 'São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Weibull.' });
+          return;
+      }
+      
+      const mleParams = fitWeibullMLE(allCensoredData);
+      if (!mleParams?.beta || !mleParams?.eta) {
+           toast({ variant: 'destructive', title: 'Erro de Cálculo', description: 'Não foi possível estimar os parâmetros Beta e Eta a partir dos dados fornecidos.' });
+          return;
+      }
+      
+      const suspensionCounts: { [key: number]: number } = {};
+      suspensionData.forEach(item => {
+          suspensionCounts[item.time] = (suspensionCounts[item.time] || 0) + 1;
+      });
+      
+      const items = Object.entries(suspensionCounts).map(([age, quantity]) => ({
+          age: parseInt(age, 10),
+          quantity
+      }));
+      
+       if (items.length === 0) {
+          toast({ variant: 'destructive', title: 'População Vazia', description: 'Nenhum item de suspensão (S) encontrado para calcular o orçamento.' });
           return;
       }
 
       const budgetInput: BudgetInput = { 
-        beta, 
-        eta, 
+        beta: mleParams.beta, 
+        eta: mleParams.eta, 
         items, 
         period: budgetPeriod,
         confidenceLevel: confidenceLevel / 100
       };
+
       const budgetResult = calculateExpectedFailures(budgetInput);
-      setResult({ budgetResult });
+      setResult({ budgetResult, budgetParams: { beta: mleParams.beta, eta: mleParams.eta } });
   };
 
   const onSubmit = (data: FormData) => {
@@ -1259,7 +1251,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   }
 
   useEffect(() => {
-    if (isClient && simulationType === 'confidence') {
+    if (isClient && (simulationType === 'confidence' || simulationType === 'budget')) {
         form.handleSubmit(onSubmit)();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
