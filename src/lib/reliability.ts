@@ -993,7 +993,7 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
 
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
     const { beta, eta, items, period, confidenceLevel } = input;
-    const confidence = confidenceLevel ?? 0.90; // Default 90%
+    const confidence = confidenceLevel ?? 0.90;
     const alpha = 1 - confidence;
 
     const details = items.map(item => {
@@ -1003,12 +1003,12 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
         
         const medianFailures = quantity * (H_t_plus_T - H_t);
         
-        // Using Poisson confidence intervals based on Chi-Squared distribution
         const li_df = 2 * medianFailures;
         const ls_df = 2 * (medianFailures + 1);
 
-        const li = invChi2(alpha / 2, li_df) / 2;
-        const ls = invChi2(1 - alpha / 2, ls_df) / 2;
+        // One-sided confidence bounds
+        const li = invChi2(alpha, li_df) / 2;
+        const ls = invChi2(1 - alpha, ls_df) / 2;
 
         return {
             age,
