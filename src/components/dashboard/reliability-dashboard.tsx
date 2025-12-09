@@ -46,7 +46,7 @@ const initialSuppliers: Supplier[] = initialSuppliersData.map(s => {
 
 export default function ReliabilityDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
-  const [estimationMethod, setEstimationMethod] = useState<EstimationMethod>('SRM');
+  const [estimationMethod, setEstimationMethod] = useState<EstimationMethod>('MLE');
 
   const handleSetSuppliers = (updater: (prev: Supplier[]) => Supplier[]) => {
     setSuppliers(prev => {

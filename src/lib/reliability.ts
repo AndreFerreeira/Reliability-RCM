@@ -991,18 +991,20 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
     const details = items.map(item => {
         const { age, quantity } = item;
         
-        // Median failures based on renewal equation
+        // Median failures using the renewal equation for a single item
         const R_t = weibullSurvival(age, beta, eta);
         const R_t_plus_T = weibullSurvival(age + period, beta, eta);
         
-        let medianFailures = 0;
+        let medianFailuresPerItem = 0;
         if (R_t > 1e-12) {
-            medianFailures = quantity * ((R_t - R_t_plus_T) / R_t);
+            medianFailuresPerItem = (R_t - R_t_plus_T) / R_t;
         } else {
-             // If survival at current age is ~0, it has failed. The replacement is new.
-            medianFailures = quantity * (1 - weibullSurvival(period, beta, eta));
+            // If survival at current age is ~0, it has effectively failed. The replacement is new.
+            medianFailuresPerItem = (1 - weibullSurvival(period, beta, eta));
         }
         
+        const medianFailures = medianFailuresPerItem * quantity;
+
         // One-sided confidence bounds for Poisson parameter (lambda*t)
         // Lower limit for expected failures
         const li_df = 2 * medianFailures;
@@ -1012,11 +1014,10 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
         const ls_df = 2 * (medianFailures + 1);
         const ls = invChi2(1 - alpha, ls_df) / 2;
 
-
         return {
             age,
             quantity,
-            li: isNaN(li) || li < 0 ? 0 : li,
+            li: isNaN(li) ? 0 : li,
             median: medianFailures,
             ls: isNaN(ls) ? medianFailures : ls,
         };

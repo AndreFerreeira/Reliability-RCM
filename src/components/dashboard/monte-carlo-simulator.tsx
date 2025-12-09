@@ -1253,28 +1253,22 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   }
 
   useEffect(() => {
-    if (isClient && simulationType === 'budget') {
-      const firstSupplier = suppliers[0];
-      if (firstSupplier) {
-        const { beta, eta } = firstSupplier.params;
-        const suspensionCounts: { [key: number]: number } = {};
-        firstSupplier.suspensionTimes.forEach(time => {
-          suspensionCounts[time] = (suspensionCounts[time] || 0) + 1;
-        });
-
-        const budgetDataString = Object.entries(suspensionCounts)
-          .map(([age, quantity]) => `${age} ${quantity}`)
-          .join('\n');
-        
-        form.reset({
-          ...form.getValues(),
-          beta: beta,
-          eta: eta,
-          budgetData: budgetDataString
-        });
-      }
+    if (isClient && simulationType === 'budget' && suppliers.length > 0) {
+        const firstSupplier = suppliers[0];
+        if (firstSupplier) {
+            const dataString = [
+                ...firstSupplier.failureTimes.map(t => `${t} F`),
+                ...firstSupplier.suspensionTimes.map(t => `${t} S`)
+            ].join('\n');
+            
+            form.reset({
+              ...form.getValues(),
+              budgetData: dataString
+            });
+        }
     }
-  }, [isClient, simulationType, suppliers, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClient, simulationType, suppliers]);
 
   useEffect(() => {
     if (isClient && (simulationType === 'confidence' || simulationType === 'budget')) {
