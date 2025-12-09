@@ -985,10 +985,25 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
 }
 
 function getFailureProbWithBounds(t: number, T: number, beta: number, eta: number, n: number, confidence: number) {
-    const z = invNormalCdf(confidence);
-    const var_b = beta*beta / n;
-    const var_e = eta*eta / (n * beta*beta);
-    const cov_be = 0.277 * beta*eta / n;
+    const z = invNormalCdf(1 - (1 - confidence) / 2);
+    const var_b = beta * beta / n;
+    const var_k = eta * eta / (n * beta * beta);
+    const cov_be = 0.277 * beta * eta / n; // Approximation
+
+    if (t === 0) {
+        const medianF = weibullCDF(T, beta, eta);
+        const dFdb = -Math.pow(T/eta, beta) * Math.log(T/eta) * Math.exp(-Math.pow(T/eta, beta));
+        const dFdk = Math.pow(T/eta, beta) * (beta/eta) * Math.exp(-Math.pow(T/eta, beta));
+        const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_be;
+        if(var_F < 0 || !(1 - medianF > 0) || !isFinite(var_F)) {
+            return { li: medianF, median: medianF, ls: medianF };
+        }
+        const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
+        const li = 1 - Math.pow(1 - medianF, 1/w);
+        const ls = 1 - Math.pow(1 - medianF, w);
+        return { li, median: medianF, ls };
+    }
+
 
     const R_t = weibullSurvival(t, beta, eta);
     const R_t_plus_T = weibullSurvival(t + T, beta, eta);
@@ -1018,13 +1033,12 @@ function getFailureProbWithBounds(t: number, T: number, beta: number, eta: numbe
 
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
     const { beta, eta, items, period, confidenceLevel, failureTimes } = input;
-    const alpha = 1 - (confidenceLevel ?? 0.90);
     const n_failures = failureTimes?.length ?? items.length; // Use failure times for variance calc if available
 
     const details = items.map(item => {
         const { age, quantity } = item;
 
-        const {li: probLi, median: probMedian, ls: probLs} = getFailureProbWithBounds(age, period, beta, eta, n_failures, 1 - alpha);
+        const {li: probLi, median: probMedian, ls: probLs} = getFailureProbWithBounds(age, period, beta, eta, n_failures, confidenceLevel);
 
         return {
             age,
