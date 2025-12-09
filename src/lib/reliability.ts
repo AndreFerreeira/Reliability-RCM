@@ -997,7 +997,7 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
         
         let medianFailuresPerItem = 0;
         if (R_t > 1e-12) {
-            medianFailuresPerItem = (R_t - R_t_plus_T) / R_t;
+            medianFailuresPerItem = (1 - R_t_plus_T / R_t);
         } else {
             // If survival at current age is ~0, it has effectively failed. The replacement is new.
             medianFailuresPerItem = (1 - weibullSurvival(period, beta, eta));
@@ -1008,11 +1008,11 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
         // One-sided confidence bounds for Poisson parameter (lambda*t)
         // Lower limit for expected failures
         const li_df = 2 * medianFailures;
-        const li = invChi2(alpha, li_df) / 2;
+        const li = invChi2(alpha / 2, li_df) / 2;
         
         // Upper limit for expected failures
         const ls_df = 2 * (medianFailures + 1);
-        const ls = invChi2(1 - alpha, ls_df) / 2;
+        const ls = invChi2(1 - alpha / 2, ls_df) / 2;
 
         return {
             age,
