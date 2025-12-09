@@ -988,13 +988,14 @@ function getFailureProbWithBounds(t: number, T: number, beta: number, eta: numbe
     const z = invNormalCdf(1 - (1 - confidence) / 2);
     const var_b = beta * beta / n;
     const var_k = eta * eta / (n * beta * beta);
-    const cov_be = 0.277 * beta * eta / n; // Approximation
+    const cov_bk = 0.277 * beta * eta / n; // Approximation
 
     if (t === 0) {
         const medianF = weibullCDF(T, beta, eta);
         const dFdb = -Math.pow(T/eta, beta) * Math.log(T/eta) * Math.exp(-Math.pow(T/eta, beta));
         const dFdk = Math.pow(T/eta, beta) * (beta/eta) * Math.exp(-Math.pow(T/eta, beta));
-        const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_be;
+        const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
+
         if(var_F < 0 || !(1 - medianF > 0) || !isFinite(var_F)) {
             return { li: medianF, median: medianF, ls: medianF };
         }
@@ -1003,7 +1004,6 @@ function getFailureProbWithBounds(t: number, T: number, beta: number, eta: numbe
         const ls = 1 - Math.pow(1 - medianF, w);
         return { li, median: medianF, ls };
     }
-
 
     const R_t = weibullSurvival(t, beta, eta);
     const R_t_plus_T = weibullSurvival(t + T, beta, eta);
@@ -1014,11 +1014,11 @@ function getFailureProbWithBounds(t: number, T: number, beta: number, eta: numbe
     const dPdb_term2 = -(-Math.pow(t/eta, beta) * Math.log(t/eta) * R_t);
     const dPdb = (1/R_t) * (dPdb_term1 - dPdb_term2) - ((R_t - R_t_plus_T) / (R_t * R_t)) * dPdb_term2;
 
-    const dPde_term1 = R_t_plus_T * (beta/eta) * Math.pow((t+T)/eta, beta);
-    const dPde_term2 = R_t * (beta/eta) * Math.pow(t/eta, beta);
-    const dPde = (1/R_t) * (dPde_term1 - dPde_term2) + ((R_t - R_t_plus_T) / (R_t*R_t)) * dPde_term2;
+    const dPdk_term1 = R_t_plus_T * (beta/eta) * Math.pow((t+T)/eta, beta);
+    const dPdk_term2 = R_t * (beta/eta) * Math.pow(t/eta, beta);
+    const dPdk = (1/R_t) * (dPdk_term1 - dPdk_term2) + ((R_t - R_t_plus_T) / (R_t*R_t)) * dPdk_term2;
 
-    const var_P = dPdb*dPdb * var_b + dPde*dPde * var_e + 2 * dPdb*dPde * cov_be;
+    const var_P = dPdb*dPdb * var_b + dPdk*dPdk * var_k + 2 * dPdb*dPdk * cov_bk;
     
     if (var_P < 0) {
         return { li: probFailureMedian, median: probFailureMedian, ls: probFailureMedian };
