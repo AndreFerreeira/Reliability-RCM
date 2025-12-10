@@ -1,5 +1,3 @@
-'use client';
-
 import { z } from "zod";
 
 export type Distribution = 'Weibull' | 'Normal' | 'Lognormal' | 'Exponential' | 'Loglogistic' | 'Gumbel';
