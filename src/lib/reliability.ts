@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis } from '@/lib/types';
 
 
 // --- Statistical Helpers ---
@@ -988,7 +988,7 @@ export function getFailureProbWithBounds(t: number, T: number, beta: number, eta
     const z = invNormalCdf(1 - (1 - confidence) / 2);
     
     const var_b = beta * beta / n;
-    const var_k = eta * eta / (n * beta * beta); // Note: Renamed from var_e to var_k
+    const var_k = eta * eta / (n * beta * beta);
     const cov_bk = 0.277 * beta * eta / n;
 
     if (t === 0) {
@@ -1013,6 +1013,10 @@ export function getFailureProbWithBounds(t: number, T: number, beta: number, eta
     const R_t_plus_T = weibullSurvival(t + T, beta, eta);
 
     const probFailureMedian = R_t > 1e-9 ? (R_t - R_t_plus_T) / R_t : 1;
+    
+    if (!isFinite(R_t) || R_t <= 1e-9) {
+      return { li: probFailureMedian, median: probFailureMedian, ls: probFailureMedian };
+    }
 
     const dPdb_term1 = -Math.pow((t+T)/eta, beta) * Math.log((t+T)/eta) * R_t_plus_T;
     const dPdb_term2 = -(-Math.pow(t/eta, beta) * Math.log(t/eta) * R_t);
@@ -1024,7 +1028,7 @@ export function getFailureProbWithBounds(t: number, T: number, beta: number, eta
 
     const var_P = dPdb*dPdb * var_b + dPdk*dPdk * var_k + 2 * dPdb*dPdk * cov_bk;
     
-    if (var_P < 0) {
+    if (var_P < 0 || !isFinite(var_P)) {
         return { li: probFailureMedian, median: probFailureMedian, ls: probFailureMedian };
     }
 
@@ -1065,7 +1069,7 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
 export function analyzeCompetingFailureModes(
     modes: CompetingFailureMode[],
     period: number
-) {
+): CompetingModesAnalysis | null {
     if (modes.length === 0) {
         return null;
     }
@@ -1075,7 +1079,7 @@ export function analyzeCompetingFailureModes(
         return { ...mode, ...analysis };
     });
 
-    const timePoints = generateTimeGrid(1, period * 1.5, 100);
+    const timePoints = generateTimeGrid(1, period * 1.2, 100);
 
     const systemReliability: ChartDataPoint[] = timePoints.map(t => {
         let system_R_t = 1;
@@ -1093,9 +1097,22 @@ export function analyzeCompetingFailureModes(
         return point;
     });
 
+    const failureProbabilities = modeAnalyses.map(mode => {
+        let prob = 0;
+        if (mode.params.beta && mode.params.eta) {
+            prob = weibullCDF(period, mode.params.beta, mode.params.eta);
+        }
+        return {
+            name: mode.name,
+            probability: prob,
+        };
+    }).sort((a,b) => b.probability - a.probability);
+
+
     return {
         analyses: modeAnalyses,
         reliabilityData: systemReliability,
+        failureProbabilities,
         period,
     };
 }

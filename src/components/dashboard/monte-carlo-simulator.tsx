@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Trophy } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 const competingModeSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -989,8 +990,8 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
                             name="competingModesPeriod"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Período de Previsão</FormLabel>
-                                    <FormControl><Input type="number" placeholder="Ex: 6000" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormLabel>Tempo para Análise (t)</FormLabel>
+                                    <FormControl><Input type="number" placeholder="Ex: 2000" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -1238,7 +1239,8 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
 
 const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) => {
     if (!result.competingModesResult) return null;
-    const { analyses } = result.competingModesResult;
+    const { analyses, failureProbabilities, period } = result.competingModesResult;
+    const criticalMode = failureProbabilities?.[0];
 
     return (
         <div className="grid grid-cols-1 gap-6">
@@ -1270,6 +1272,46 @@ const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) 
                     </Table>
                 </CardContent>
             </Card>
+             {failureProbabilities && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Probabilidade de Falha em t = {period}</CardTitle>
+                        <CardDescription>Probabilidade de falha individual para cada modo no tempo especificado.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Modo de Falha</TableHead>
+                                    <TableHead className="text-right">Probabilidade F(t)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {failureProbabilities.map(fp => (
+                                    <TableRow key={fp.name} className={cn(fp.name === criticalMode.name && "bg-primary/10")}>
+                                        <TableCell className="font-medium flex items-center">
+                                            {fp.name}
+                                            {fp.name === criticalMode.name && (
+                                                <Trophy className="h-4 w-4 ml-2 text-yellow-500" />
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {(fp.probability * 100).toFixed(4)}%
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                        {criticalMode && (
+                           <CardFooter className="pt-4">
+                                <p className="text-sm text-muted-foreground">
+                                    O modo de falha <strong className="text-primary">{criticalMode.name}</strong> é o mais crítico, com a maior probabilidade de ocorrência.
+                                </p>
+                           </CardFooter>
+                        )}
+                    </CardContent>
+                 </Card>
+            )}
             <Card>
                  <CardContent className="pt-6">
                     <CompetingModesPlot result={result.competingModesResult} />
@@ -1311,7 +1353,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         { name: 'Empenamento', times: '2345, 2467, 2789, 2996, 3025, 3321' },
         { name: 'Desgaste', times: '3996, 4345, 4678, 5213, 5303' }
       ],
-      competingModesPeriod: 6000,
+      competingModesPeriod: 2000,
     },
   });
 

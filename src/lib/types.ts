@@ -173,6 +173,7 @@ export interface CompetingFailureMode {
 export interface CompetingModesAnalysis {
     analyses: (CompetingFailureMode & { params: Parameters, plotData?: PlotData })[];
     reliabilityData: ChartDataPoint[];
+    failureProbabilities: { name: string; probability: number; }[];
     period: number;
 }
 
