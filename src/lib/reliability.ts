@@ -1,5 +1,3 @@
-'use client';
-
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis } from '@/lib/types';
 
 
