@@ -145,7 +145,7 @@ export interface BudgetInput {
     eta: number;
     items: { age: number, quantity: number }[];
     period: number;
-    confidenceLevel?: number;
+    confidenceLevel: number;
     failureTimes?: number[];
 }
 
@@ -162,6 +162,18 @@ export interface ExpectedFailuresResult {
         median: number;
         ls: number;
     };
+}
+
+// Competing Failure Modes
+export interface CompetingFailureMode {
+    name: string;
+    times: number[];
+}
+
+export interface CompetingModesAnalysis {
+    analyses: (CompetingFailureMode & { params: Parameters, plotData?: PlotData })[];
+    reliabilityData: ChartDataPoint[];
+    period: number;
 }
 
 

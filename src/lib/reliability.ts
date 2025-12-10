@@ -1,6 +1,6 @@
 'use client';
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode } from '@/lib/types';
 
 
 // --- Statistical Helpers ---
@@ -984,25 +984,29 @@ export function findBestDistribution(failureTimes: number[], suspensionTimes: nu
     return { results: analysisResults, best: bestDistribution };
 }
 
-function getFailureProbWithBounds(t: number, T: number, beta: number, eta: number, n: number, confidence: number) {
+export function getFailureProbWithBounds(t: number, T: number, beta: number, eta: number, n: number, confidence: number) {
     const z = invNormalCdf(1 - (1 - confidence) / 2);
+    
     const var_b = beta * beta / n;
-    const var_k = eta * eta / (n * beta * beta);
-    const cov_bk = 0.277 * beta * eta / n; // Approximation
+    const var_k = eta * eta / (n * beta * beta); // Note: Renamed from var_e to var_k
+    const cov_bk = 0.277 * beta * eta / n;
 
     if (t === 0) {
         const medianF = weibullCDF(T, beta, eta);
-        const dFdb = -Math.pow(T/eta, beta) * Math.log(T/eta) * Math.exp(-Math.pow(T/eta, beta));
-        const dFdk = Math.pow(T/eta, beta) * (beta/eta) * Math.exp(-Math.pow(T/eta, beta));
+        if (!isFinite(medianF) || medianF <= 0 || medianF >= 1) {
+            return { li: medianF, median: medianF, ls: medianF };
+        }
+        const dFdb = -Math.pow(T / eta, beta) * Math.log(T / eta) * Math.exp(-Math.pow(T / eta, beta));
+        const dFdk = Math.pow(T / eta, beta) * (beta / eta) * Math.exp(-Math.pow(T / eta, beta));
         const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
 
         if(var_F < 0 || !(1 - medianF > 0) || !isFinite(var_F)) {
             return { li: medianF, median: medianF, ls: medianF };
         }
-        const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
+        const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1 / (1 - medianF)) ) );
         const li = 1 - Math.pow(1 - medianF, 1/w);
         const ls = 1 - Math.pow(1 - medianF, w);
-        return { li, median: medianF, ls };
+        return { li: li, median: medianF, ls: ls };
     }
 
     const R_t = weibullSurvival(t, beta, eta);
@@ -1032,13 +1036,12 @@ function getFailureProbWithBounds(t: number, T: number, beta: number, eta: numbe
 }
 
 export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresResult {
-    const { beta, eta, items, period, confidenceLevel, failureTimes } = input;
-    const n_failures = failureTimes?.length ?? items.length; // Use failure times for variance calc if available
+    const { beta, eta, items, period, confidenceLevel } = input;
+    const n = input.failureTimes?.length ?? items.reduce((sum, item) => sum + item.quantity, 0);
 
     const details = items.map(item => {
         const { age, quantity } = item;
-
-        const {li: probLi, median: probMedian, ls: probLs} = getFailureProbWithBounds(age, period, beta, eta, n_failures, confidenceLevel);
+        const {li: probLi, median: probMedian, ls: probLs} = getFailureProbWithBounds(age, period, beta, eta, n, confidenceLevel);
 
         return {
             age,
@@ -1057,4 +1060,42 @@ export function calculateExpectedFailures(input: BudgetInput): ExpectedFailuresR
     }, { li: 0, median: 0, ls: 0 });
 
     return { details, totals };
+}
+
+export function analyzeCompetingFailureModes(
+    modes: CompetingFailureMode[],
+    period: number
+) {
+    if (modes.length === 0) {
+        return null;
+    }
+
+    const modeAnalyses = modes.map(mode => {
+        const analysis = estimateParameters({ dist: 'Weibull', failureTimes: mode.times, method: 'MLE' });
+        return { ...mode, ...analysis };
+    });
+
+    const timePoints = generateTimeGrid(1, period * 1.5, 100);
+
+    const systemReliability: ChartDataPoint[] = timePoints.map(t => {
+        let system_R_t = 1;
+        const point: ChartDataPoint = { time: t };
+
+        modeAnalyses.forEach(mode => {
+            if (mode.params.beta && mode.params.eta) {
+                const mode_R_t = weibullSurvival(t, mode.params.beta, mode.params.eta);
+                point[mode.name] = mode_R_t;
+                system_R_t *= mode_R_t;
+            }
+        });
+
+        point['Sistema'] = system_R_t;
+        return point;
+    });
+
+    return {
+        analyses: modeAnalyses,
+        reliabilityData: systemReliability,
+        period,
+    };
 }

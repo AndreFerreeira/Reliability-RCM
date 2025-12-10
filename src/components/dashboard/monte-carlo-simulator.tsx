@@ -12,8 +12,8 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
-import { calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE, getFailureProbWithBounds } from '@/lib/reliability';
-import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData } from '@/lib/types';
+import { analyzeCompetingFailureModes, calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE, getFailureProbWithBounds } from '@/lib/reliability';
+import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData, CompetingModesAnalysis, CompetingFailureMode } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +34,8 @@ const formSchema = z.object({
   budgetPopulationData: z.string().optional(),
   budgetPeriod: z.coerce.number().gt(0, "O período deve ser positivo").optional(),
   budgetItemCost: z.coerce.number().gt(0, "O custo deve ser positivo").optional(),
+  competingModesData: z.string().optional(),
+  competingModesPeriod: z.coerce.number().gt(0).optional(),
 }).refine(data => {
     return true;
 });
@@ -47,6 +49,7 @@ interface SimulationResult {
   originalPlot?: PlotData;
   contourData?: ContourData;
   budgetResult?: ExpectedFailuresResult;
+  competingModesResult?: CompetingModesAnalysis;
   simulationCount?: number;
   budgetParams?: { beta: number, eta: number };
 }
@@ -544,6 +547,69 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
     );
 };
 
+const CompetingModesPlot = ({ result }: { result?: CompetingModesAnalysis }) => {
+    if (!result) return null;
+    const { analyses, reliabilityData } = result;
+
+    const legendData = analyses.map(a => a.name).concat('Sistema');
+    const series = legendData.map(name => ({
+        name: name,
+        type: 'line',
+        data: reliabilityData.map(d => [d.time, d[name]! * 100]),
+        showSymbol: false,
+        lineStyle: { width: name === 'Sistema' ? 3 : 2 },
+    }));
+
+    const option = {
+        backgroundColor: 'transparent',
+        title: {
+            text: 'Confiabilidade do Sistema (Modos Competitivos)',
+            subtext: `Período de Análise: ${result.period}`,
+            left: 'center',
+            textStyle: { color: 'hsl(var(--foreground))' },
+            subtextStyle: { color: 'hsl(var(--muted-foreground))' },
+        },
+        grid: { left: 80, right: 40, top: 80, bottom: 80 },
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: any[]) => {
+                let tooltip = `<b>Tempo: ${params[0].axisValue.toFixed(0)}</b><br/>`;
+                params.forEach(p => {
+                    tooltip += `<span style="color: ${p.color}">●</span> ${p.seriesName}: ${p.value[1].toFixed(2)}%<br/>`;
+                });
+                return tooltip;
+            }
+        },
+        legend: {
+            data: legendData,
+            bottom: 25,
+            textStyle: { color: 'hsl(var(--muted-foreground))' },
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Tempo',
+            nameLocation: 'middle',
+            nameGap: 30,
+            axisLabel: { color: 'hsl(var(--muted-foreground))' },
+            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
+        },
+        yAxis: {
+            type: 'value',
+            name: 'Confiabilidade R(t), %',
+            nameLocation: 'middle',
+            nameGap: 50,
+            min: 0,
+            max: 100,
+            axisLabel: { color: 'hsl(var(--muted-foreground))', formatter: '{value}%' },
+            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))', opacity: 0.5 } },
+        },
+        series: series
+    };
+
+    return <ReactECharts option={option} style={{ height: '450px', width: '100%' }} notMerge={true} />;
+};
+
+
 const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
     <Card>
         <CardHeader>
@@ -844,6 +910,54 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
     </Card>
 );
 
+const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => (
+    <Card>
+        <CardHeader>
+            <CardTitle>Modos de Falha Competitivos</CardTitle>
+            <CardDescription>Analise a confiabilidade de um sistema com múltiplos modos de falha.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="competingModesData"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Dados de Tempo até a Falha</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder="Quebra;Empenamento;Desgaste\n980;2345;3996\n1253;2467;4345"
+                                        rows={10}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormDescription>A primeira linha contém os nomes dos modos, separados por ponto e vírgula. As linhas seguintes contêm os tempos de falha para cada modo.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="competingModesPeriod"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Período de Previsão</FormLabel>
+                                <FormControl><Input type="number" placeholder="Ex: 6000" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" disabled={isSimulating} className="w-full">
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analisando...</> : 'Analisar Modos Competitivos'}
+                    </Button>
+                </form>
+            </Form>
+        </CardContent>
+    </Card>
+);
+
+
 const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, timeForCalc?: number }) => {
     if (!result?.boundsData?.calculation || timeForCalc === undefined) return null;
     
@@ -1074,6 +1188,50 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
     );
 };
 
+const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) => {
+    if (!result.competingModesResult) return null;
+    const { analyses } = result.competingModesResult;
+
+    return (
+        <div className="grid grid-cols-1 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Análise dos Modos de Falha</CardTitle>
+                    <CardDescription>
+                        Parâmetros Weibull (MLE) calculados para cada modo de falha competitivo.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Modo de Falha</TableHead>
+                                <TableHead className="text-right">Beta (β)</TableHead>
+                                <TableHead className="text-right">Eta (η)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {analyses.map(mode => (
+                                <TableRow key={mode.name}>
+                                    <TableCell className="font-medium">{mode.name}</TableCell>
+                                    <TableCell className="text-right font-mono">{mode.params.beta?.toFixed(3) ?? 'N/A'}</TableCell>
+                                    <TableCell className="text-right font-mono">{mode.params.eta?.toFixed(0) ?? 'N/A'}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <Card>
+                 <CardContent className="pt-6">
+                    <CompetingModesPlot result={result.competingModesResult} />
+                </CardContent>
+            </Card>
+        </div>
+    );
+};
+
+
 interface MonteCarloSimulatorProps {
   suppliers: Supplier[];
 }
@@ -1081,7 +1239,7 @@ interface MonteCarloSimulatorProps {
 export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorProps) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget'>('budget');
+  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing'>('budget');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   
@@ -1100,6 +1258,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       budgetPopulationData: "0 133",
       budgetPeriod: 365,
       budgetItemCost: 2500,
+      competingModesData: 'Quebra;Empenamento;Desgaste\n980;2345;3996\n1253;2467;4345\n1589;2789;4678\n1785;2996;5213\n1996;3025;5303\n2357;3321;\n2467;;\n3013;;',
+      competingModesPeriod: 6000,
     },
   });
 
@@ -1111,7 +1271,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const budgetItemCost = form.watch('budgetItemCost');
   const confidenceLevel = form.watch('confidenceLevel');
   
-  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget') => {
+  const handleSimulationTypeChange = (type: 'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing') => {
       setSimulationType(type);
       setResult(null);
   }
@@ -1282,12 +1442,45 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         items,
         period: budgetPeriod,
         confidenceLevel: confidenceLevel / 100,
-        n: censoredData.length
+        failureTimes: failureTimes,
     };
 
     const budgetResult = calculateExpectedFailures(budgetInput);
     setResult({ budgetResult, budgetParams: { beta: mleParams.beta, eta: mleParams.eta } });
   };
+  
+    const runCompetingModesSimulation = (data: FormData) => {
+        const { competingModesData, competingModesPeriod } = data;
+        if (!competingModesData || !competingModesPeriod) {
+            toast({ variant: 'destructive', title: 'Dados Incompletos', description: 'Por favor, preencha os dados dos modos de falha e o período de previsão.' });
+            return;
+        }
+
+        const lines = competingModesData.trim().split('\n');
+        if (lines.length < 2) {
+             toast({ variant: 'destructive', title: 'Dados Inválidos', description: 'É necessário pelo menos uma linha de cabeçalho e uma linha de dados.' });
+            return;
+        }
+
+        const headers = lines.shift()!.split(';').map(h => h.trim());
+        const modes: CompetingFailureMode[] = headers.map(h => ({ name: h, times: [] }));
+
+        lines.forEach(line => {
+            const values = line.split(';');
+            values.forEach((val, index) => {
+                if (index < headers.length) {
+                    const time = parseFloat(val.replace(/\./g, '').trim());
+                    if (!isNaN(time)) {
+                        modes[index].times.push(time);
+                    }
+                }
+            });
+        });
+
+        const competingModesResult = analyzeCompetingFailureModes(modes, competingModesPeriod);
+        setResult({ competingModesResult });
+    };
+
 
   const onSubmit = (data: FormData) => {
     setIsSimulating(true);
@@ -1303,6 +1496,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                 runContourSimulation(data);
             } else if (simulationType === 'budget') {
                 runBudgetSimulation(data);
+            } else if (simulationType === 'competing') {
+                runCompetingModesSimulation(data);
             }
         } catch (error: any) {
              toast({
@@ -1317,10 +1512,14 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   }
 
   useEffect(() => {
-    if (isClient && simulationType === 'budget') {
+    if (isClient && (simulationType === 'budget' || simulationType === 'competing')) {
         const sourceData = form.getValues('budgetSourceData');
         const populationData = form.getValues('budgetPopulationData');
-        if(sourceData && populationData){
+        const competingData = form.getValues('competingModesData');
+        
+        if(simulationType === 'budget' && sourceData && populationData){
+            form.handleSubmit(onSubmit)();
+        } else if (simulationType === 'competing' && competingData) {
             form.handleSubmit(onSubmit)();
         }
     }
@@ -1345,7 +1544,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                 <CardDescription>Selecione o tipo de simulação que deseja realizar.</CardDescription>
             </CardHeader>
              <CardContent>
-                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion' | 'contour' | 'budget')} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing')} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       <Label htmlFor="confidence" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'confidence' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="confidence" id="confidence" className="sr-only" />
                           <TestTube className="mb-3 h-6 w-6" />
@@ -1366,6 +1565,11 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                            <TestTube className="mb-3 h-6 w-6" />
                           Orçamento de Sobressalentes
                       </Label>
+                       <Label htmlFor="competing" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'competing' ? 'border-primary' : 'border-muted'}`}>
+                          <RadioGroupItem value="competing" id="competing" className="sr-only" />
+                           <TestTube className="mb-3 h-6 w-6" />
+                          Modos Competitivos
+                      </Label>
               </RadioGroup>
             </CardContent>
         </Card>
@@ -1382,6 +1586,9 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                 }
                  {simulationType === 'budget' &&
                     <BudgetControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} onExtract={handleExtractSuspensions} />
+                }
+                 {simulationType === 'competing' &&
+                    <CompetingModesControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
                 }
             </div>
 
@@ -1410,6 +1617,10 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
 
                 {result?.contourData && simulationType === 'contour' && (
                     <ContourPlot data={result.contourData} />
+                )}
+                
+                {result?.competingModesResult && simulationType === 'competing' && (
+                  <CompetingModesResultsDisplay result={result} />
                 )}
 
                 {result?.budgetResult && simulationType === 'budget' && budgetItemCost && confidenceLevel && (
