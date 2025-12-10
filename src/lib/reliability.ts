@@ -1,3 +1,4 @@
+'use client';
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis } from '@/lib/types';
 
 
@@ -663,7 +664,7 @@ export function calculateLikelihoodRatioBounds(
        const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
 
        if(var_F >= 0) {
-         const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
+         const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1 / (1 - medianF)) ) );
          const lowerF = 1 - Math.pow(1 - medianF, 1/w);
          const upperF = 1 - Math.pow(1 - medianF, w);
           calculation = {
@@ -1072,9 +1073,21 @@ export function analyzeCompetingFailureModes(
         return null;
     }
 
-    const modeAnalyses = modes.map(mode => {
-        const analysis = estimateParameters({ dist: 'Weibull', failureTimes: mode.times, method: 'MLE' });
-        return { ...mode, ...analysis };
+    const allModeNames = modes.map(m => m.name);
+
+    const modeAnalyses = modes.map(currentMode => {
+        const otherModesFailureTimes = modes
+            .filter(m => m.name !== currentMode.name)
+            .flatMap(m => m.times);
+        
+        const analysis = estimateParameters({ 
+            dist: 'Weibull', 
+            failureTimes: currentMode.times,
+            suspensionTimes: otherModesFailureTimes, 
+            method: 'MLE' 
+        });
+        
+        return { ...currentMode, ...analysis };
     });
 
     const timePoints = generateTimeGrid(1, period * 1.2, 100);
