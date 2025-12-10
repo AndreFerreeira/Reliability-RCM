@@ -168,11 +168,22 @@ export interface CompetingFailureMode {
     times: number[];
 }
 
+export type AnalysisTableData = {
+    modeName: string;
+    dataRows: {
+        time: number;
+        status: 'F' | 'S';
+        originalMode: string;
+    }[];
+};
+
+
 export interface CompetingModesAnalysis {
     analyses: (CompetingFailureMode & { params: Parameters, plotData?: PlotData })[];
     reliabilityData: ChartDataPoint[];
     failureProbabilities: { name: string; probability: number; }[];
     period: number;
+    tables: AnalysisTableData[];
 }
 
 

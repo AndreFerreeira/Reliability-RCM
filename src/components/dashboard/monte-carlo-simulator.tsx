@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
 import { analyzeCompetingFailureModes, calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE, getFailureProbWithBounds } from '@/lib/reliability';
-import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData, CompetingModesAnalysis, CompetingFailureMode } from '@/lib/types';
+import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData, CompetingModesAnalysis, CompetingFailureMode, AnalysisTableData } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -1124,7 +1124,7 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
     }
 
     return (
-        <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
              {result.budgetParams && (
                  <Card>
                     <CardHeader>
@@ -1180,6 +1180,11 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
                         </TableBody>
                     </Table>
                 </CardContent>
+                 <CardFooter>
+                    <p className="text-sm text-muted-foreground">
+                        Planeje seu orçamento com base no Limite Superior (LS) para garantir um nível de serviço de {confidenceLevel}%.
+                    </p>
+                 </CardFooter>
             </Card>
 
             <Card>
@@ -1239,11 +1244,11 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
 
 const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) => {
     if (!result.competingModesResult) return null;
-    const { analyses, failureProbabilities, period } = result.competingModesResult;
+    const { analyses, failureProbabilities, period, tables } = result.competingModesResult;
     const criticalMode = failureProbabilities?.[0];
 
     return (
-        <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Análise dos Modos de Falha</CardTitle>
@@ -1317,7 +1322,51 @@ const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) 
                     <CompetingModesPlot result={result.competingModesResult} />
                 </CardContent>
             </Card>
+
+            {tables && tables.length > 0 && <CompetingModesTablesDisplay tables={tables} />}
         </div>
+    );
+};
+
+const CompetingModesTablesDisplay = ({ tables }: { tables: AnalysisTableData[] }) => {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Tabelas de Dados da Análise</CardTitle>
+                <CardDescription>
+                    Veja como os dados são tratados para cada análise individual de modo de falha. 'F' indica uma falha do modo em análise, e 'S' indica uma suspensão (uma falha de um modo competitivo).
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tables.map(table => (
+                        <div key={table.modeName}>
+                            <h3 className="font-semibold text-center mb-2">Analisando - {table.modeName}</h3>
+                            <div className="max-h-80 overflow-y-auto rounded-md border">
+                                <Table>
+                                    <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                                        <TableRow>
+                                            <TableHead>Tempo</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Modo de Falha</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {table.dataRows.map((row, index) => (
+                                            <TableRow key={index} className={cn(row.status === 'F' && 'bg-primary/10')}>
+                                                <TableCell>{row.time}</TableCell>
+                                                <TableCell>{row.status}</TableCell>
+                                                <TableCell>{row.originalMode}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 

@@ -1,5 +1,4 @@
-'use client';
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from '@/lib/types';
 
 
 // --- Statistical Helpers ---
@@ -1073,7 +1072,17 @@ export function analyzeCompetingFailureModes(
         return null;
     }
 
-    const allModeNames = modes.map(m => m.name);
+    const allDataPoints = modes.flatMap(m => m.times.map(t => ({ time: t, originalMode: m.name })));
+    allDataPoints.sort((a, b) => a.time - b.time);
+
+    const analysisTables: AnalysisTableData[] = modes.map(currentMode => {
+        const dataRows = allDataPoints.map(dp => ({
+            time: dp.time,
+            status: dp.originalMode === currentMode.name ? 'F' : 'S',
+            originalMode: dp.originalMode
+        }));
+        return { modeName: currentMode.name, dataRows };
+    });
 
     const modeAnalyses = modes.map(currentMode => {
         const otherModesFailureTimes = modes
@@ -1125,5 +1134,6 @@ export function analyzeCompetingFailureModes(
         reliabilityData: systemReliability,
         failureProbabilities,
         period,
+        tables: analysisTables,
     };
 }
