@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
@@ -22,6 +22,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+const competingModeSchema = z.object({
+  name: z.string().min(1, 'O nome é obrigatório.'),
+  times: z.string().min(1, 'Insira pelo menos um tempo de falha.'),
+});
+
 const formSchema = z.object({
   beta: z.coerce.number().gt(0, { message: 'Beta (β) deve ser maior que zero.' }).optional(),
   eta: z.coerce.number().gt(0, { message: 'Eta (η) deve ser maior que zero.' }).optional(),
@@ -34,8 +39,8 @@ const formSchema = z.object({
   budgetPopulationData: z.string().optional(),
   budgetPeriod: z.coerce.number().gt(0, "O período deve ser positivo").optional(),
   budgetItemCost: z.coerce.number().gt(0, "O custo deve ser positivo").optional(),
-  competingModesData: z.string().optional(),
-  competingModesPeriod: z.coerce.number().gt(0).optional(),
+  competingModes: z.array(competingModeSchema).min(1, "Adicione pelo menos um modo de falha."),
+  competingModesPeriod: z.coerce.number().gt(0, "O período deve ser positivo").optional(),
 }).refine(data => {
     return true;
 });
@@ -910,52 +915,95 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
     </Card>
 );
 
-const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => (
-    <Card>
-        <CardHeader>
-            <CardTitle>Modos de Falha Competitivos</CardTitle>
-            <CardDescription>Analise a confiabilidade de um sistema com múltiplos modos de falha.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField
-                        control={form.control}
-                        name="competingModesData"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Dados de Tempo até a Falha</FormLabel>
-                                <FormControl>
-                                    <Textarea
-                                        placeholder="Quebra;Empenamento;Desgaste\n980;2345;3996\n1253;2467;4345"
-                                        rows={10}
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormDescription>A primeira linha contém os nomes dos modos, separados por ponto e vírgula. As linhas seguintes contêm os tempos de falha para cada modo.</FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="competingModesPeriod"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Período de Previsão</FormLabel>
-                                <FormControl><Input type="number" placeholder="Ex: 6000" {...field} value={field.value ?? ''} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <Button type="submit" disabled={isSimulating} className="w-full">
-                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analisando...</> : 'Analisar Modos Competitivos'}
-                    </Button>
-                </form>
-            </Form>
-        </CardContent>
-    </Card>
-);
+const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => {
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "competingModes",
+    });
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Modos de Falha Competitivos</CardTitle>
+                <CardDescription>Analise a confiabilidade de um sistema com múltiplos modos de falha.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="space-y-4">
+                            {fields.map((field, index) => (
+                                <Card key={field.id} className="p-4 relative">
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name={`competingModes.${index}.name`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Nome do Modo #{index + 1}</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Ex: Quebra" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`competingModes.${index}.times`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tempos de Falha</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea placeholder="500, 900, 1200..." rows={4} {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-1 right-1"
+                                        onClick={() => remove(index)}
+                                    >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </Card>
+                            ))}
+                        </div>
+                        
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => append({ name: '', times: '' })}
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Adicionar Modo de Falha
+                        </Button>
+                        
+                        <FormField
+                            control={form.control}
+                            name="competingModesPeriod"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Período de Previsão</FormLabel>
+                                    <FormControl><Input type="number" placeholder="Ex: 6000" {...field} value={field.value ?? ''} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <Button type="submit" disabled={isSimulating} className="w-full">
+                            {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analisando...</> : 'Analisar Modos Competitivos'}
+                        </Button>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+    );
+};
 
 
 const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, timeForCalc?: number }) => {
@@ -1258,7 +1306,11 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
       budgetPopulationData: "0 133",
       budgetPeriod: 365,
       budgetItemCost: 2500,
-      competingModesData: 'Quebra;Empenamento;Desgaste\n980;2345;3996\n1253;2467;4345\n1589;2789;4678\n1785;2996;5213\n1996;3025;5303\n2357;3321;\n2467;;\n3013;;',
+      competingModes: [
+        { name: 'Quebra', times: '980, 1253, 1589, 1785, 1996, 2357, 2467, 3013' },
+        { name: 'Empenamento', times: '2345, 2467, 2789, 2996, 3025, 3321' },
+        { name: 'Desgaste', times: '3996, 4345, 4678, 5213, 5303' }
+      ],
       competingModesPeriod: 6000,
     },
   });
@@ -1450,34 +1502,26 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   };
   
     const runCompetingModesSimulation = (data: FormData) => {
-        const { competingModesData, competingModesPeriod } = data;
-        if (!competingModesData || !competingModesPeriod) {
-            toast({ variant: 'destructive', title: 'Dados Incompletos', description: 'Por favor, preencha os dados dos modos de falha e o período de previsão.' });
+        const { competingModes, competingModesPeriod } = data;
+        if (!competingModes || competingModes.length === 0 || !competingModesPeriod) {
+            toast({ variant: 'destructive', title: 'Dados Incompletos', description: 'Adicione pelo menos um modo de falha e preencha o período de previsão.' });
             return;
         }
 
-        const lines = competingModesData.trim().split('\n');
-        if (lines.length < 2) {
-             toast({ variant: 'destructive', title: 'Dados Inválidos', description: 'É necessário pelo menos uma linha de cabeçalho e uma linha de dados.' });
+        const modes: CompetingFailureMode[] = competingModes.map(mode => ({
+            name: mode.name,
+            times: mode.times.replace(/\./g, '').split(/[\s,]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0)
+        }));
+
+        if (modes.some(m => m.times.length === 0)) {
+             toast({ variant: 'destructive', title: 'Modo de Falha Vazio', description: 'Todos os modos de falha devem ter pelo menos um tempo de falha.' });
             return;
         }
-
-        const headers = lines.shift()!.split(';').map(h => h.trim());
-        const modes: CompetingFailureMode[] = headers.map(h => ({ name: h, times: [] }));
-
-        lines.forEach(line => {
-            const values = line.split(';');
-            values.forEach((val, index) => {
-                if (index < headers.length) {
-                    const time = parseFloat(val.replace(/\./g, '').trim());
-                    if (!isNaN(time)) {
-                        modes[index].times.push(time);
-                    }
-                }
-            });
-        });
 
         const competingModesResult = analyzeCompetingFailureModes(modes, competingModesPeriod);
+        if (!competingModesResult) {
+            throw new Error("Não foi possível analisar os modos competitivos. Verifique os dados de entrada.");
+        }
         setResult({ competingModesResult });
     };
 
@@ -1515,11 +1559,11 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     if (isClient && (simulationType === 'budget' || simulationType === 'competing')) {
         const sourceData = form.getValues('budgetSourceData');
         const populationData = form.getValues('budgetPopulationData');
-        const competingData = form.getValues('competingModesData');
+        const competingData = form.getValues('competingModes');
         
         if(simulationType === 'budget' && sourceData && populationData){
             form.handleSubmit(onSubmit)();
-        } else if (simulationType === 'competing' && competingData) {
+        } else if (simulationType === 'competing' && competingData && competingData.length > 0) {
             form.handleSubmit(onSubmit)();
         }
     }
