@@ -71,20 +71,20 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         points,
         beta,
         eta,
-        rSquared,
+        confidenceLevel,
         calculation
     } = data;
     
     const sortFn = (a: { x: number }, b: { x: number }) => a.x - b.x;
     
-    const medianData = medianLine.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
-    const lowerData = lowerLine.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
-    const upperData = upperLine.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
+    const medianData = medianLine.map(p => [p.x, p.y]).sort(sortFn);
+    const lowerData = lowerLine.map(p => [p.x, p.y]).sort(sortFn);
+    const upperData = upperLine.map(p => [p.x, p.y]).sort(sortFn);
 
     const scatterData = points.median.map(p => [p.x, p.y]);
     
     const lowerSeries = {
-        name: `Limite Inferior ${data.confidenceLevel}%`,
+        name: `Limite Inferior ${confidenceLevel}%`,
         type: 'line',
         data: lowerData,
         showSymbol: false,
@@ -94,7 +94,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
 
     const upperSeries = {
-        name: `Limite Superior ${data.confidenceLevel}%`,
+        name: `Limite Superior ${confidenceLevel}%`,
         type: 'line',
         data: upperData,
         showSymbol: false,
@@ -195,11 +195,12 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         tooltip: { 
             trigger: 'axis',
             formatter: (params: any[]) => {
+              if (!params || params.length === 0) return '';
               const logTime = params[0].axisValue;
               const time = Math.exp(logTime);
               let tooltip = `<strong>Tempo:</strong> ${time.toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Base') && !p.seriesName.includes('Dados')) {
+                  if (p.seriesName && !p.seriesName.includes('Base') && !p.seriesName.includes('Faixa') && !p.seriesName.includes('Dados')) {
                       const loglogY = p.value[1];
                       if(typeof loglogY === 'number') {
                          const prob = (1 - Math.exp(-Math.exp(loglogY))) * 100;
@@ -211,7 +212,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Base') && !name.includes('Band') && !name.includes('Valor no t')),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Base') && !name.includes('Faixa') && !name.includes('Valor no t')),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,

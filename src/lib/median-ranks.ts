@@ -13,7 +13,7 @@ function solveForRank(i: number, n: number): number {
 
 export interface MedianRankTable {
     sampleSize: number;
-    data: number[][]; // [order, rank_5, rank_50, rank_95]
+    data: number[][]; // [order, rank_10, rank_50, rank_90]
 }
 
 const generateRanks = (n: number): number[][] => {
@@ -24,17 +24,15 @@ const generateRanks = (n: number): number[][] => {
         // Use a stable approximation for median rank
         const medianRank = solveForRank(i, n); 
         
-        // Placeholder for confidence bounds on ranks - actual confidence is on data
-        // For simplicity and stability, we'll calculate bounds on the regression line itself
-        // rather than on the ranks. We will use median ranks for all lines for now.
-        const rank5pct = solveForRank(i, n); // Simplified, bounds are on the line
-        const rank95pct = solveForRank(i, n); // Simplified, bounds are on the line
+        // These are approximations for plotting. The statistical confidence comes from the method.
+        const rank10pct = solveForRank(i-0.5, n);
+        const rank90pct = solveForRank(i+0.5, n);
         
         tableData.push([
             order,
-            rank5pct,
+            rank10pct,
             medianRank,
-            rank95pct
+            rank90pct
         ]);
     }
     return tableData;

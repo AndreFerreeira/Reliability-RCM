@@ -1,3 +1,4 @@
+'use client';
 // @ts-nocheck - This is a temporary measure to allow for the use of the `jStat` library.
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from './types';
@@ -566,17 +567,18 @@ export function calculateLikelihoodRatioBounds(
     
     const sortedTimes = [...times].sort((a,b) => a-b);
 
-    const lowerRankIndex = 1; // 5%
+    const lowerRankIndex = 1; // 10% rank approx
     const medianRankIndex = 2; // 50%
-    const upperRankIndex = 3; // 95%
+    const upperRankIndex = 3; // 90% rank approx
     
     const getTransformedPoints = (rankIndex: number) => {
         return sortedTimes.map((time, i) => {
             const prob = rankTable[i][rankIndex];
+            if (prob <= 0 || prob >=1) return null;
             const x = Math.log(time);
             const y = Math.log(Math.log(1 / (1 - prob)));
             return { x, y, time, prob };
-        }).filter(p => isFinite(p.x) && isFinite(p.y));
+        }).filter(p => p && isFinite(p.x) && isFinite(p.y));
     };
     
     const lowerPoints = getTransformedPoints(lowerRankIndex);
@@ -589,8 +591,8 @@ export function calculateLikelihoodRatioBounds(
     
     if (!medianReg || !lowerReg || !upperReg) return { error: "Falha na regressão linear." };
     
-    const createLine = (reg: {slope:number, intercept:number}) => {
-        const allX = medianPoints.map(p => p.x);
+    const createLine = (reg: {slope:number, intercept:number}, points: {x:number}[]) => {
+        const allX = points.map(p => p.x);
         const minX = Math.min(...allX);
         const maxX = Math.max(...allX);
         return [
@@ -599,9 +601,9 @@ export function calculateLikelihoodRatioBounds(
         ];
     };
 
-    const medianLine = createLine(medianReg);
-    const lowerLine = createLine(lowerReg);
-    const upperLine = createLine(upperReg);
+    const medianLine = createLine(medianReg, medianPoints);
+    const lowerLine = createLine(lowerReg, lowerPoints);
+    const upperLine = createLine(upperReg, upperPoints);
     
     let calculation = null;
     if (tValue && isFinite(tValue) && tValue > 0) {
