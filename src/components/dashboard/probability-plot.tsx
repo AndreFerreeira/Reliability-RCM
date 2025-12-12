@@ -32,7 +32,7 @@ function normalInverse(p: number): number {
 
 export default function ProbabilityPlot({ suppliers = [], paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
     
-    const validSuppliers = (suppliers || []).filter(s => s && s.plotData && s.plotData.points && s.plotData.line && s.plotData.points.length > 0 && s.distribution === paperType);
+    const validSuppliers = (suppliers || []).filter(s => s && s.plotData && s.plotData.points?.median && s.plotData.points.median.length > 0 && s.distribution === paperType);
 
     if (validSuppliers.length === 0) {
        return (
@@ -50,7 +50,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
     // ECharts series
     const series = validSuppliers.flatMap(supplier => {
         const { plotData, color, name } = supplier;
-        if (!plotData || !plotData.points || !plotData.line) return [];
+        if (!plotData || !plotData.points?.median || !plotData.line) return [];
         
         let transformedPoints: [number, number][] = [];
         let transformedLine: [number, number][] = [];
@@ -58,27 +58,27 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
         // Data transformation based on paper type
         switch(paperType) {
             case 'Weibull':
-                transformedPoints = plotData.points.map(p => [p.x, p.y]);
+                transformedPoints = plotData.points.median.map(p => [p.x, p.y]);
                 transformedLine = plotData.line.map(p => [p.x, p.y]);
                 break;
             case 'Lognormal':
-                transformedPoints = plotData.points.map(p => [p.x, p.y]);
+                transformedPoints = plotData.points.median.map(p => [p.x, p.y]);
                 transformedLine = plotData.line.map(p => [p.x, p.y]);
                 break;
             case 'Normal':
-                transformedPoints = plotData.points.map(p => [p.time, normalInverse(p.prob)]);
+                transformedPoints = plotData.points.median.map(p => [p.time, normalInverse(p.prob)]);
                 transformedLine = plotData.line.map(p => [p.x, p.y]);
                 break;
             case 'Exponential':
-                transformedPoints = plotData.points.map(p => [p.time, -Math.log(1 - p.prob)]);
+                transformedPoints = plotData.points.median.map(p => [p.time, -Math.log(1 - p.prob)]);
                 transformedLine = plotData.line.map(p => [p.x, p.y]);
                 break;
             case 'Loglogistic':
-                transformedPoints = plotData.points.map(p => [Math.log(p.time), Math.log(p.prob / (1 - p.prob))]);
+                transformedPoints = plotData.points.median.map(p => [Math.log(p.time), Math.log(p.prob / (1 - p.prob))]);
                 transformedLine = plotData.line.map(p => [p.x, p.y]);
                 break;
             case 'Gumbel':
-                transformedPoints = plotData.points.map(p => [p.time, -Math.log(-Math.log(p.prob))]);
+                transformedPoints = plotData.points.median.map(p => [p.time, -Math.log(-Math.log(p.prob))]);
                 transformedLine = plotData.line.map(p => [p.x, p.y]);
                 break;
         }
@@ -265,7 +265,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                     
                     let probVal;
                      if (paperType === 'Weibull') {
-                        probVal = (1 - Math.exp(-Math.exp(lineParam.value))) * 100;
+                        probVal = (1 - Math.exp(-Math.exp(lineParam.value[1]))) * 100;
                     } else {
                         probVal = 'N/A'; // Need CDF for others
                     }
@@ -274,9 +274,9 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                 }
                 
                 const supplier = validSuppliers.find(s => s.name === pointParam.seriesName);
-                if (!supplier || !supplier.plotData) return '';
+                if (!supplier || !supplier.plotData || !supplier.plotData.points.median) return '';
                 
-                const originalPoint = supplier.plotData.points[pointParam.dataIndex];
+                const originalPoint = supplier.plotData.points.median[pointParam.dataIndex];
                 if (!originalPoint) return '';
 
                 let tooltip = `<strong>${supplier.name}</strong><br/>Tempo: ${originalPoint.time.toFixed(0)}<br/>Prob. Falha: ${(originalPoint.prob * 100).toFixed(2)}%`;

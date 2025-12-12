@@ -247,7 +247,7 @@ export function estimateParametersByRankRegression(
         } else {
             rankedPoints = sortedFailures.map((time, i) => ({
                 time: time,
-                prob: rankTable[i][1] // Median rank (50%)
+                prob: rankTable[i][2] // Median rank (50%)
             }));
         }
     }
@@ -333,8 +333,12 @@ export function estimateParametersByRankRegression(
 
     const angle = Math.atan(slope) * (180 / Math.PI);
     
+    const plotData = { points: {median: transformedPoints}, line, rSquared, angle };
+    
+    if(!plotData) return null;
+
     return { 
-        plotData: { points: {median: transformedPoints}, line, rSquared, angle },
+        plotData,
         params
     };
 }
@@ -563,15 +567,11 @@ export function calculateLikelihoodRatioBounds(
     
     const sortedTimes = [...times].sort((a, b) => a - b);
     
-    const alpha = (100 - confidenceLevel) / 2 / 100;
-    const lowerConfidence = alpha;
-    const upperConfidence = 1 - alpha;
+    const alpha = (100 - confidenceLevel) / 100;
 
     const getRanks = (confidence: number) => {
         const ranks = [];
         for (let i = 1; i <= n; i++) {
-            // F(z) = confidence level. We need to find Z, which is the rank.
-            // This is the inverse of the regularized incomplete beta function.
             const rank = jStat.beta.inv(confidence, i, n - i + 1);
             ranks.push(rank);
         }
@@ -579,8 +579,8 @@ export function calculateLikelihoodRatioBounds(
     }
 
     const medianRanks = getRanks(0.5);
-    const lowerRanks = getRanks(lowerConfidence);
-    const upperRanks = getRanks(upperConfidence);
+    const lowerRanks = getRanks(alpha / 2);
+    const upperRanks = getRanks(1 - alpha / 2);
 
     const getTransformedPoints = (ranks: number[]): PlotPoint[] => {
         return sortedTimes.map((time, i) => {
@@ -622,7 +622,6 @@ export function calculateLikelihoodRatioBounds(
     let calculation = null;
     if (tValue && isFinite(tValue) && tValue > 0) {
         const logTime = Math.log(tValue);
-        // Note: The lower confidence rank line gives the upper bound on failure probability, and vice versa.
         calculation = {
             medianAtT: medianReg.slope * logTime + medianReg.intercept,
             lowerAtT: upperReg.slope * logTime + upperReg.intercept, 
