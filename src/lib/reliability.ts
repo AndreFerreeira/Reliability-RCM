@@ -1,9 +1,8 @@
-'use client';
 // @ts-nocheck - This is a temporary measure to allow for the use of the `jStat` library.
 
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from './types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData, PlotPoint } from './types';
 import { medianRankTables } from './median-ranks';
-
+import { jStat } from 'jstat';
 
 // --- Statistical Helpers ---
 
@@ -561,20 +560,31 @@ export function calculateLikelihoodRatioBounds(
 ): LRBoundsResult | undefined {
     const n = times.length;
     if (n < 2) return { error: "Pelo menos 2 pontos de dados são necessários." };
-
-    const rankTable = medianRankTables.find(t => t.sampleSize === n)?.data;
-    if (!rankTable) return { error: `Tabela de postos não encontrada para n=${n}` };
     
     const sortedTimes = [...times].sort((a, b) => a - b);
     
-    const confidenceAlpha = (100 - confidenceLevel) / 100;
-    const lowerRankIndex = confidenceLevel === 90 && n <= 25 ? 0 : 1; // 5% for 90% bilateral, or Benard's approx
-    const medianRankIndex = 1; // 50%
-    const upperRankIndex = confidenceLevel === 90 && n <= 25 ? 2 : 1; // 95% for 90% bilateral, or Benard's approx
-    
-    const getTransformedPoints = (rankIndex: number) => {
+    const alpha = (100 - confidenceLevel) / 2 / 100;
+    const lowerConfidence = alpha;
+    const upperConfidence = 1 - alpha;
+
+    const getRanks = (confidence: number) => {
+        const ranks = [];
+        for (let i = 1; i <= n; i++) {
+            // F(z) = confidence level. We need to find Z, which is the rank.
+            // This is the inverse of the regularized incomplete beta function.
+            const rank = jStat.beta.inv(confidence, i, n - i + 1);
+            ranks.push(rank);
+        }
+        return ranks;
+    }
+
+    const medianRanks = getRanks(0.5);
+    const lowerRanks = getRanks(lowerConfidence);
+    const upperRanks = getRanks(upperConfidence);
+
+    const getTransformedPoints = (ranks: number[]): PlotPoint[] => {
         return sortedTimes.map((time, i) => {
-            const prob = rankTable[i][rankIndex];
+            const prob = ranks[i];
             if (prob <= 0 || prob >= 1) return null;
             const x = Math.log(time);
             const y = Math.log(Math.log(1 / (1 - prob)));
@@ -582,14 +592,14 @@ export function calculateLikelihoodRatioBounds(
         }).filter(p => p && isFinite(p.x) && isFinite(p.y)) as PlotPoint[];
     };
     
-    const lowerPoints = getTransformedPoints(lowerRankIndex);
-    const medianPoints = getTransformedPoints(medianRankIndex);
-    const upperPoints = getTransformedPoints(upperRankIndex);
+    const medianPoints = getTransformedPoints(medianRanks);
+    const lowerPoints = getTransformedPoints(lowerRanks);
+    const upperPoints = getTransformedPoints(upperRanks);
     
-    const lowerReg = performLinearRegression(lowerPoints, false);
     const medianReg = performLinearRegression(medianPoints, false);
+    const lowerReg = performLinearRegression(lowerPoints, false);
     const upperReg = performLinearRegression(upperPoints, false);
-    
+
     if (!medianReg || !lowerReg || !upperReg) return { error: "Falha na regressão linear." };
     
     const createLine = (reg: {slope:number, intercept:number}, points: PlotPoint[]) => {
@@ -597,9 +607,11 @@ export function calculateLikelihoodRatioBounds(
         const minX = Math.min(...allX);
         const maxX = Math.max(...allX);
         const range = maxX - minX;
+        const x1 = minX - range * 0.1;
+        const x2 = maxX + range * 0.1;
         return [
-            { x: minX - range * 0.1, y: reg.slope * (minX - range * 0.1) + reg.intercept },
-            { x: maxX + range * 0.1, y: reg.slope * (maxX + range * 0.1) + reg.intercept },
+            { x: x1, y: reg.slope * x1 + reg.intercept },
+            { x: x2, y: reg.slope * x2 + reg.intercept },
         ];
     };
 
@@ -610,10 +622,11 @@ export function calculateLikelihoodRatioBounds(
     let calculation = null;
     if (tValue && isFinite(tValue) && tValue > 0) {
         const logTime = Math.log(tValue);
+        // Note: The lower confidence rank line gives the upper bound on failure probability, and vice versa.
         calculation = {
             medianAtT: medianReg.slope * logTime + medianReg.intercept,
-            lowerAtT: upperReg.slope * logTime + upperReg.intercept, // Swapped
-            upperAtT: lowerReg.slope * logTime + lowerReg.intercept, // Swapped
+            lowerAtT: upperReg.slope * logTime + upperReg.intercept, 
+            upperAtT: lowerReg.slope * logTime + lowerReg.intercept,
         };
     }
     
