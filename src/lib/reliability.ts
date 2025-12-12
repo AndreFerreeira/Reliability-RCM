@@ -1,6 +1,4 @@
-'use client';
-
-import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from '@/lib/types';
+import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from './types';
 
 
 // --- Statistical Helpers ---
@@ -553,18 +551,15 @@ export function calculateLikelihoodRatioBounds(
     if (!srmResult || !srmResult.params.beta || !srmResult.params.eta) {
       return { error: 'Falha na estimação inicial dos parâmetros.' };
     }
-    const beta_srm = srmResult.params.beta;
-    const eta_srm = srmResult.params.eta;
-
+    
     const mleResult = fitWeibullMLE(times.map(t => ({time: t, event: 1})));
     if (!mleResult.beta || !mleResult.eta) {
         return { error: 'Falha na estimação MLE.' };
     }
     const { beta: betaMLE, eta: etaMLE, lkv: llMLE } = mleResult;
     
-    // Fisher Matrix Method for Confidence Bounds
     const n = times.length;
-    const r = times.length; // Number of failures
+    const r = times.length; 
     const b = betaMLE;
     const k = etaMLE;
 
@@ -584,7 +579,6 @@ export function calculateLikelihoodRatioBounds(
         if (t <= 0) continue;
         const medianF = weibullCDF(t, b, k);
         
-        // Skip calculation if medianF is too close to 0 or 1 to avoid numerical instability
         if (medianF < 1e-6 || medianF > 0.999999) {
           medianCurve.push({x: t, y: medianF * 100});
           lowerCurve.push({x: t, y: medianF * 100});
@@ -601,8 +595,8 @@ export function calculateLikelihoodRatioBounds(
 
         const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
         
-        const lowerF = 1 - Math.pow(1 - medianF, 1/w);
-        const upperF = 1 - Math.pow(1 - medianF, w);
+        const lowerF = 1 - Math.pow(1 - medianF, w);
+        const upperF = 1 - Math.pow(1 - medianF, 1/w);
 
         medianCurve.push({x: t, y: medianF * 100});
         lowerCurve.push({x: t, y: lowerF * 100});
@@ -621,8 +615,8 @@ export function calculateLikelihoodRatioBounds(
 
             if(var_F >= 0) {
                 const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1 / (1 - medianF)) ) );
-                const lowerF = 1 - Math.pow(1 - medianF, 1/w);
-                const upperF = 1 - Math.pow(1 - medianF, w);
+                const lowerF = 1 - Math.pow(1 - medianF, w);
+                const upperF = 1 - Math.pow(1 - medianF, 1/w);
                 calculation = {
                     medianAtT: medianF * 100,
                     lowerAtT: lowerF * 100,
