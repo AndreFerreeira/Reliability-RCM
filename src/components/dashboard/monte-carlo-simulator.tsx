@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TestTube } from '@/components/icons';
 import ReactECharts from 'echarts-for-react';
 import { analyzeCompetingFailureModes, calculateLikelihoodRatioBounds, estimateParametersByRankRegression, generateWeibullFailureTime, calculateLikelihoodRatioContour, calculateExpectedFailures, fitWeibullMLE, getFailureProbWithBounds } from '@/lib/reliability';
-import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData, CompetingModesAnalysis, CompetingFailureMode, AnalysisTableData } from '@/lib/types';
+import type { Supplier, LRBoundsResult, PlotData, ContourData, DistributionAnalysisResult, ExpectedFailuresResult, BudgetInput, CensoredData, CompetingFailureMode, AnalysisTableData } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
