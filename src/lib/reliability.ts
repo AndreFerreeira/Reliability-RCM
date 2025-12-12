@@ -567,9 +567,9 @@ export function calculateLikelihoodRatioBounds(
     
     const sortedTimes = [...times].sort((a,b) => a-b);
 
-    const lowerRankIndex = 1; // 10% rank approx
-    const medianRankIndex = 2; // 50%
-    const upperRankIndex = 3; // 90% rank approx
+    const lowerRankIndex = 1; 
+    const medianRankIndex = 2;
+    const upperRankIndex = 3; 
     
     const getTransformedPoints = (rankIndex: number) => {
         return sortedTimes.map((time, i) => {
@@ -595,9 +595,10 @@ export function calculateLikelihoodRatioBounds(
         const allX = points.map(p => p.x);
         const minX = Math.min(...allX);
         const maxX = Math.max(...allX);
+        const range = maxX - minX;
         return [
-            { x: minX, y: reg.slope * minX + reg.intercept },
-            { x: maxX, y: reg.slope * maxX + reg.intercept },
+            { x: minX - range * 0.1, y: reg.slope * (minX - range * 0.1) + reg.intercept },
+            { x: maxX + range * 0.1, y: reg.slope * (maxX + range * 0.1) + reg.intercept },
         ];
     };
 

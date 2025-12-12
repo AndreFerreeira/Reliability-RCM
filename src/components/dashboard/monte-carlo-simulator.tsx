@@ -88,7 +88,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         type: 'line',
         data: lowerData,
         showSymbol: false,
-        smooth: false,
+        smooth: true,
         lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
         z: 9,
     };
@@ -98,7 +98,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         type: 'line',
         data: upperData,
         showSymbol: false,
-        smooth: false,
+        smooth: true,
         lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
         z: 9,
     };
@@ -129,7 +129,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         type: 'line',
         data: medianData,
         showSymbol: false,
-        smooth: false,
+        smooth: true,
         lineStyle: { width: 3, color: '#a88cff' },
         z: 10,
     };
