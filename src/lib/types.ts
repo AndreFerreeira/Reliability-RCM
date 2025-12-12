@@ -53,30 +53,39 @@ export interface DataTypeOptions {
   isGrouped: boolean;
 }
 
+export type PlotPoint = { x: number; y: number; time: number; prob: number };
+
 export type PlotData = {
-    points: { x: number; y: number; time: number; prob: number }[];
+    points: {
+      lower?: PlotPoint[];
+      median: PlotPoint[];
+      upper?: PlotPoint[];
+    };
     line: { x: number; y: number }[];
     rSquared: number;
     angle?: number;
 };
 
 export type LRBoundsResult = {
-  betaMLE: number;
-  etaMLE: number;
-  llMLE: number;
-  confidenceLevel: number;
-  points: { x: number, y: number, time: number, prob: number }[];
+  beta: number;
+  eta: number;
   rSquared: number;
-  medianCurve: { x: number, y: number }[];
-  lowerCurve: { x: number, y: number }[];
-  upperCurve: { x: number, y: number }[];
+  confidenceLevel: number;
+  points: {
+    lower: PlotPoint[];
+    median: PlotPoint[];
+    upper: PlotPoint[];
+  };
+  lowerLine: { x: number; y: number }[];
+  medianLine: { x: number; y: number }[];
+  upperLine: { x: number; y: number }[];
   calculation: {
     medianAtT: number | null;
     lowerAtT: number | null;
     upperAtT: number | null;
   } | null;
   error?: string;
-}
+};
 
 
 export type ContourData = {

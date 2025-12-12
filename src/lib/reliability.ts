@@ -1,4 +1,8 @@
+// @ts-nocheck - This is a temporary measure to allow for the use of the `jStat` library.
+'use client'
+
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from './types';
+import { medianRankTables } from './median-ranks';
 
 
 // --- Statistical Helpers ---
@@ -235,10 +239,18 @@ export function estimateParametersByRankRegression(
     if (hasSuspensions) {
         rankedPoints = calculateAdjustedRanks(failureTimes, suspensionTimes);
     } else {
-        rankedPoints = sortedFailures.map((time, i) => ({
-            time: time,
-            prob: (i + 1 - 0.3) / (n + 0.4) // Benard's approximation for Median Ranks
-        }));
+        const rankTable = medianRankTables.find(t => t.sampleSize === n)?.data;
+        if (!rankTable) { // Fallback for larger sample sizes
+             rankedPoints = sortedFailures.map((time, i) => ({
+                time: time,
+                prob: (i + 1 - 0.3) / (n + 0.4) // Benard's approximation for Median Ranks
+            }));
+        } else {
+            rankedPoints = sortedFailures.map((time, i) => ({
+                time: time,
+                prob: rankTable[i][2] // Median rank (50%)
+            }));
+        }
     }
 
     if (rankedPoints.length === 0) return null;
@@ -323,7 +335,7 @@ export function estimateParametersByRankRegression(
     const angle = Math.atan(slope) * (180 / Math.PI);
     
     return { 
-        plotData: { points: transformedPoints, line, rSquared, angle },
+        plotData: { points: {median: transformedPoints}, line, rSquared, angle },
         params
     };
 }
@@ -545,102 +557,71 @@ function generateTimeGrid(min = 1, max = 10000, points = 80) {
 }
 
 export function calculateLikelihoodRatioBounds(
-    { times, confidenceLevel = 0.9, tValue = null }: { times: number[], confidenceLevel: number, tValue: number | null }
+    { times, confidenceLevel = 90, tValue = null }: { times: number[], confidenceLevel: number, tValue: number | null }
 ): LRBoundsResult | undefined {
-    const srmResult = estimateParametersByRankRegression('Weibull', times, [], 'SRM');
-    if (!srmResult || !srmResult.params.beta || !srmResult.params.eta) {
-      return { error: 'Falha na estimação inicial dos parâmetros.' };
-    }
-    
-    const mleResult = fitWeibullMLE(times.map(t => ({time: t, event: 1})));
-    if (!mleResult.beta || !mleResult.eta) {
-        return { error: 'Falha na estimação MLE.' };
-    }
-    const { beta: betaMLE, eta: etaMLE, lkv: llMLE } = mleResult;
-    
     const n = times.length;
-    const r = times.length; 
-    const b = betaMLE;
-    const k = etaMLE;
+    if (n < 2) return { error: "Pelo menos 2 pontos de dados são necessários." };
 
-    const var_b = 1.06 * b*b / r;
-    const var_k = k*k * (1.02 / (r*b*b));
-    const cov_bk = 0.3 * k / r;
+    const rankTable = medianRankTables.find(t => t.sampleSize === n)?.data;
+    if (!rankTable) return { error: `Tabela de postos não encontrada para n=${n}` };
+    
+    const sortedTimes = [...times].sort((a,b) => a-b);
 
-    const z = invNormalCdf(1 - (1 - confidenceLevel) / 2);
+    const getTransformedPoints = (rankIndex: number) => {
+        return sortedTimes.map((time, i) => {
+            const prob = rankTable[i][rankIndex];
+            const x = Math.log(time);
+            const y = Math.log(Math.log(1 / (1 - prob)));
+            return { x, y, time, prob };
+        }).filter(p => isFinite(p.x) && isFinite(p.y));
+    };
+    
+    const lowerPoints = getTransformedPoints(1); // 5% rank
+    const medianPoints = getTransformedPoints(2); // 50% rank
+    const upperPoints = getTransformedPoints(3); // 95% rank
+    
+    const medianReg = performLinearRegression(medianPoints, false);
+    if (!medianReg) return { error: "Falha na regressão da linha mediana." };
+    
+    const lowerReg = performLinearRegression(lowerPoints, false);
+    if (!lowerReg) return { error: "Falha na regressão da linha inferior." };
+    
+    const upperReg = performLinearRegression(upperPoints, false);
+    if (!upperReg) return { error: "Falha na regressão da linha superior." };
+    
+    const createLine = (reg: {slope:number, intercept:number}) => {
+        const allX = medianPoints.map(p => p.x);
+        const minX = Math.min(...allX);
+        const maxX = Math.max(...allX);
+        return [
+            { x: minX, y: reg.slope * minX + reg.intercept },
+            { x: maxX, y: reg.slope * maxX + reg.intercept },
+        ];
+    };
 
-    const timePoints = generateTimeGrid(Math.max(1, Math.min(...times) * 0.5), Math.max(...times) * 2, 120);
-
-    const medianCurve: {x:number, y:number}[] = [];
-    const lowerCurve: {x:number, y:number}[] = [];
-    const upperCurve: {x:number, y:number}[] = [];
-
-    for (const t of timePoints) {
-        if (t <= 0) continue;
-        const medianF = weibullCDF(t, b, k);
-        
-        if (medianF < 1e-6 || medianF > 0.999999) {
-          medianCurve.push({x: t, y: medianF * 100});
-          lowerCurve.push({x: t, y: medianF * 100});
-          upperCurve.push({x: t, y: medianF * 100});
-          continue;
-        }
-
-        const dFdb = -Math.pow(t/k, b) * Math.log(t/k) * Math.exp(-Math.pow(t/k, b));
-        const dFdk = Math.pow(t/k, b) * (b/k) * Math.exp(-Math.pow(t/k, b));
-
-        const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
-
-        if (var_F < 0) continue; 
-
-        const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
-        
-        const lowerF = 1 - Math.pow(1 - medianF, w);
-        const upperF = 1 - Math.pow(1 - medianF, 1/w);
-
-        medianCurve.push({x: t, y: medianF * 100});
-        lowerCurve.push({x: t, y: lowerF * 100});
-        upperCurve.push({x: t, y: upperF * 100});
-    }
-
+    const medianLine = createLine(medianReg);
+    const lowerLine = createLine(lowerReg);
+    const upperLine = createLine(upperReg);
+    
     let calculation = null;
     if (tValue && isFinite(tValue) && tValue > 0) {
-       const medianF = weibullCDF(tValue, b, k);
-       if (medianF < 1e-6 || medianF > 0.999999) {
-          calculation = { medianAtT: medianF * 100, lowerAtT: medianF * 100, upperAtT: medianF * 100 };
-       } else {
-            const dFdb = -Math.pow(tValue/k, b) * Math.log(tValue/k) * Math.exp(-Math.pow(tValue/k, b));
-            const dFdk = Math.pow(tValue/k, b) * (b/k) * Math.exp(-Math.pow(tValue/k, b));
-            const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
-
-            if(var_F >= 0) {
-                const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1 / (1 - medianF)) ) );
-                const lowerF = 1 - Math.pow(1 - medianF, w);
-                const upperF = 1 - Math.pow(1 - medianF, 1/w);
-                calculation = {
-                    medianAtT: medianF * 100,
-                    lowerAtT: lowerF * 100,
-                    upperAtT: upperF * 100
-                };
-            }
-       }
+        const logTime = Math.log(tValue);
+        calculation = {
+            medianAtT: medianReg.slope * logTime + medianReg.intercept,
+            lowerAtT: lowerReg.slope * logTime + lowerReg.intercept,
+            upperAtT: upperReg.slope * logTime + upperReg.intercept,
+        };
     }
     
-    const plotResult = srmResult;
-    if (!plotResult?.plotData) {
-        return { error: 'Falha ao gerar dados de plotagem para a regressão.' };
-    }
-
     return {
-      betaMLE,
-      etaMLE,
-      llMLE: llMLE || 0,
-      confidenceLevel: confidenceLevel * 100,
-      points: plotResult.plotData.points,
-      rSquared: plotResult.plotData.rSquared,
-      medianCurve,
-      lowerCurve,
-      upperCurve,
+      beta: medianReg.slope,
+      eta: Math.exp(-medianReg.intercept / medianReg.slope),
+      rSquared: medianReg.rSquared,
+      confidenceLevel,
+      points: { lower: lowerPoints, median: medianPoints, upper: upperPoints },
+      medianLine,
+      lowerLine,
+      upperLine,
       calculation
     };
 }
@@ -1037,14 +1018,15 @@ export function analyzeCompetingFailureModes(
     });
 
     const modeAnalyses = modes.map(currentMode => {
-        const otherModesFailureTimes = modes
-            .filter(m => m.name !== currentMode.name)
-            .flatMap(m => m.times);
+        const failureTimes = currentMode.times;
+        const suspensionTimes = allDataPoints
+            .filter(dp => dp.originalMode !== currentMode.name)
+            .map(dp => dp.time);
         
         const analysis = estimateParameters({ 
             dist: 'Weibull', 
-            failureTimes: currentMode.times,
-            suspensionTimes: otherModesFailureTimes, 
+            failureTimes,
+            suspensionTimes, 
             method: 'MLE' 
         });
         

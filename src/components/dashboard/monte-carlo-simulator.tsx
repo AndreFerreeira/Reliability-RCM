@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { invNormalCdf } from '@/lib/reliability';
 
 const competingModeSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -61,36 +62,33 @@ interface SimulationResult {
 }
 
 const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeForCalc?: number }) => {
-    if (!data || !data.medianCurve) return null;
+    if (!data || !data.medianLine) return null;
 
     const {
-        medianCurve: rawMedian,
-        lowerCurve: rawLower,
-        upperCurve: rawUpper,
-        points: rawPoints,
-        betaMLE,
-        etaMLE,
+        medianLine,
+        lowerLine,
+        upperLine,
+        points,
+        beta,
+        eta,
         rSquared,
         calculation
     } = data;
     
     const sortFn = (a: { x: number }, b: { x: number }) => a.x - b.x;
-    const medianCurve = rawMedian.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
-    const lowerCurve = rawLower.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
-    const upperCurve = rawUpper.map(p => ({ x: Number(p.x), y: Number(p.y) })).sort(sortFn);
-    const points = rawPoints.map(p => ({ time: Number(p.time), prob: Number(p.prob) * 100, x: Number(p.x), y: Number(p.y) }));
+    
+    const medianData = medianLine.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
+    const lowerData = lowerLine.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
+    const upperData = upperLine.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
 
-    const medianData = medianCurve.map(p => [p.x, p.y]);
-    const lowerData = lowerCurve.map(p => [p.x, p.y]);
-    const upperData = upperCurve.map(p => [p.x, p.y]);
-    const scatterData = points.map(p => [p.x, p.y]);
-
+    const scatterData = points.median.map(p => [p.x, p.y]);
+    
     const lowerSeries = {
         name: `Limite Inferior ${data.confidenceLevel}%`,
         type: 'line',
         data: lowerData,
         showSymbol: false,
-        smooth: 0.35,
+        smooth: false,
         lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
         z: 9,
     };
@@ -100,7 +98,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         type: 'line',
         data: upperData,
         showSymbol: false,
-        smooth: 0.35,
+        smooth: false,
         lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
         z: 9,
     };
@@ -131,16 +129,16 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         type: 'line',
         data: medianData,
         showSymbol: false,
-        smooth: 0.35,
+        smooth: false,
         lineStyle: { width: 3, color: '#a88cff' },
         z: 10,
     };
 
     const scatterSeries = {
-        name: 'Dados Originais',
+        name: 'Dados (Posto Mediano)',
         type: 'scatter',
         data: scatterData,
-        symbolSize: 6,
+        symbolSize: 8,
         itemStyle: { color: 'rgba(200,200,200,0.8)' }
     };
     
@@ -154,20 +152,21 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     ];
 
     if (timeForCalc && calculation && calculation.medianAtT !== null && calculation.lowerAtT !== null && calculation.upperAtT !== null) {
-        medianSeries.markLine = {
+         const timeLog = Math.log(timeForCalc);
+         medianSeries.markLine = {
             silent: true,
             symbol: 'none',
             lineStyle: { color: 'rgba(255,215,102,0.9)', type: 'dashed', width: 2 },
-            data: [{ xAxis: timeForCalc, name: 'Tempo t' }]
+            data: [{ xAxis: timeLog, name: 'Tempo t' }]
         };
         
          const calculatedPointsSeries = {
             name: "Valor no t",
             type: "scatter",
             data: [
-                [timeForCalc, calculation.medianAtT],
-                [timeForCalc, calculation.lowerAtT],
-                [timeForCalc, calculation.upperAtT]
+                [timeLog, calculation.medianAtT],
+                [timeLog, calculation.lowerAtT],
+                [timeLog, calculation.upperAtT]
             ],
             symbolSize: 8,
             itemStyle: {
@@ -181,13 +180,14 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     }
     
     const probabilityTicks = [0.1, 1, 5, 10, 20, 30, 50, 70, 90, 99, 99.9];
+    const logProbabilityTicks = probabilityTicks.map(p => Math.log(Math.log(1 / (1 - p/100))));
     
     const option = {
         backgroundColor: "transparent",
         grid: { left: 65, right: 40, top: 70, bottom: 60 },
         title: {
-            text: 'Limites de Confiança (Matriz de Fisher)',
-            subtext: `β: ${betaMLE.toFixed(2)} | η: ${etaMLE.toFixed(0)} | N: ${points.length}`,
+            text: 'Limites de Confiança (Postos de Plotagem)',
+            subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | N: ${points.median.length}`,
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))', fontSize: 16 },
             subtextStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 12 },
@@ -195,13 +195,15 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         tooltip: { 
             trigger: 'axis',
             formatter: (params: any[]) => {
-              const axisValue = params[0].axisValue;
-              let tooltip = `<strong>Tempo:</strong> ${Number(axisValue).toLocaleString()}<br/>`;
+              const logTime = params[0].axisValue;
+              const time = Math.exp(logTime);
+              let tooltip = `<strong>Tempo:</strong> ${time.toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Band') && !p.seriesName.includes('Base') && p.seriesName !== 'Dados Originais' && p.seriesName !== 'Valor no t') {
-                      const value = p.value[1];
-                      if(typeof value === 'number') {
-                         tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${value.toFixed(2)}%<br/>`;
+                  if (p.seriesName && !p.seriesName.includes('Stack') && !p.seriesName.includes('Base') && !p.seriesName.includes('Dados')) {
+                      const loglogY = p.value[1];
+                      if(typeof loglogY === 'number') {
+                         const prob = (1 - Math.exp(-Math.exp(loglogY))) * 100;
+                         tooltip += `<span style="color:${p.color};">●</span> ${p.seriesName}: ${prob.toFixed(2)}%<br/>`;
                       }
                   }
               });
@@ -209,30 +211,35 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Base') && !name.includes('Band') && name !== 'Dados Originais' && name !== 'Valor no t'),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Stack') && !name.includes('Base') && !name.includes('Band') && !name.includes('Valor no t')),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
             inactiveColor: "#555"
         },
         xAxis: {
-            type: 'log',
-            name: 'Tempo (t)',
+            type: 'value',
+            name: 'ln(Tempo)',
             nameLocation: 'middle',
             nameGap: 30,
-            axisLabel: { color: "#aaa", formatter: (v: number) => Number(v).toLocaleString() },
+            axisLabel: { color: "#aaa" },
             splitLine: { show: true, lineStyle: { type: 'dashed', color: "rgba(255,255,255,0.05)", opacity: 0.5 } },
         },
         yAxis: {
-            type: 'log',
-            name: 'Probabilidade de Falha, F(t)%',
+            type: 'value',
+            name: 'ln(ln(1/(1-F(t))))',
             nameLocation: 'middle',
             nameGap: 50,
             axisLabel: {
-                formatter: (value: number) => `${value}%`,
+                formatter: (value: number) => {
+                    const prob = (1 - Math.exp(-Math.exp(value))) * 100;
+                    const roundedProb = Math.round(prob);
+                    const tickMatch = probabilityTicks.find(p => Math.abs(p - roundedProb) < 1 || (p < 1 && Math.abs(p - prob) < 0.1) );
+                    return tickMatch ? `${tickMatch}%` : '';
+                },
                 color: "#aaa",
             },
-            splitLine: { show: true, lineStyle: { type: 'dashed', color: 'rgba(255,255,255,0.05)', opacity: 0.5 } },
+            splitLine: { show: false },
         },
         series: series
     };
@@ -1012,6 +1019,8 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
     
     const { calculation, confidenceLevel } = result.boundsData;
 
+    const transformY = (y: number) => (1 - Math.exp(-Math.exp(y))) * 100;
+    
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
@@ -1034,15 +1043,15 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                         <TableBody>
                             <TableRow>
                                 <TableCell className="font-medium">Prob. Falha (F(t))</TableCell>
-                                <TableCell className="text-right font-mono text-green-400">{(calculation.lowerAtT ?? 0).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-purple-400">{(calculation.medianAtT ?? 0).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-yellow-400">{(calculation.upperAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-green-400">{transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-purple-400">{transformY(calculation.medianAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-yellow-400">{transformY(calculation.upperAtT ?? 0).toFixed(2)}%</TableCell>
                             </TableRow>
                              <TableRow>
                                 <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
-                                <TableCell className="text-right font-mono text-green-400">{(100 - (calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-purple-400">{(100 - (calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-yellow-400">{(100 - (calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-green-400">{(100 - transformY(calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-purple-400">{(100 - transformY(calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-yellow-400">{(100 - transformY(calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
@@ -1056,10 +1065,10 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                      {isFinite(calculation.medianAtT ?? NaN) && timeForCalc ? (
                         <>
                             <p>
-                                Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a probabilidade de falha estimada (melhor palpite) é de <strong className="text-primary">{(calculation.medianAtT ?? 0).toFixed(2)}%</strong>.
+                                Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a probabilidade de falha estimada (melhor palpite) é de <strong className="text-primary">{transformY(calculation.medianAtT ?? 0).toFixed(2)}%</strong>.
                             </p>
                             <p>
-                                O intervalo de confiança de <strong className="text-foreground">{confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira probabilidade de falha</strong> do equipamento está entre <strong className="text-primary">{(calculation.lowerAtT ?? 0).toFixed(2)}%</strong> (cenário otimista) e <strong className="text-primary">{(calculation.upperAtT ?? 0).toFixed(2)}%</strong> (cenário pessimista).
+                                O intervalo de confiança de <strong className="text-foreground">{confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira probabilidade de falha</strong> do equipamento está entre <strong className="text-primary">{transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</strong> (cenário otimista) e <strong className="text-primary">{transformY(calculation.upperAtT ?? 0).toFixed(2)}%</strong> (cenário pessimista).
                             </p>
                              <p>
                                 Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.
@@ -1464,13 +1473,9 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
 
     const boundsData = calculateLikelihoodRatioBounds({
         times: failureTimes,
-        confidenceLevel: data.confidenceLevel / 100,
+        confidenceLevel: data.confidenceLevel,
         tValue: data.timeForCalc
     });
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log("DEBUG_BOUNDS", JSON.stringify(boundsData, null, 2));
-    }
 
     if (!boundsData || boundsData.error) {
         throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança.");
@@ -1495,7 +1500,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
           { x: minLogTime, y: beta * minLogTime + trueIntercept },
           { x: maxLogTime, y: beta * maxLogTime + trueIntercept },
       ];
-      const originalPlot: PlotData = { points: [], line: trueLine, rSquared: 1 };
+      const originalPlot: PlotData = { points: {median: []}, line: trueLine, rSquared: 1 };
 
       const dispersionData = Array.from({ length: simulationCount }, () => {
           const sample = Array.from({ length: sampleSize }, () =>
