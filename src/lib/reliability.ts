@@ -1,5 +1,4 @@
 // @ts-nocheck - This is a temporary measure to allow for the use of the `jStat` library.
-'use client'
 
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from './types';
 import { medianRankTables } from './median-ranks';
@@ -567,6 +566,10 @@ export function calculateLikelihoodRatioBounds(
     
     const sortedTimes = [...times].sort((a,b) => a-b);
 
+    const lowerRankIndex = 1; // 5%
+    const medianRankIndex = 2; // 50%
+    const upperRankIndex = 3; // 95%
+    
     const getTransformedPoints = (rankIndex: number) => {
         return sortedTimes.map((time, i) => {
             const prob = rankTable[i][rankIndex];
@@ -576,18 +579,15 @@ export function calculateLikelihoodRatioBounds(
         }).filter(p => isFinite(p.x) && isFinite(p.y));
     };
     
-    const lowerPoints = getTransformedPoints(1); // 5% rank
-    const medianPoints = getTransformedPoints(2); // 50% rank
-    const upperPoints = getTransformedPoints(3); // 95% rank
-    
-    const medianReg = performLinearRegression(medianPoints, false);
-    if (!medianReg) return { error: "Falha na regressão da linha mediana." };
+    const lowerPoints = getTransformedPoints(lowerRankIndex);
+    const medianPoints = getTransformedPoints(medianRankIndex);
+    const upperPoints = getTransformedPoints(upperRankIndex);
     
     const lowerReg = performLinearRegression(lowerPoints, false);
-    if (!lowerReg) return { error: "Falha na regressão da linha inferior." };
-    
+    const medianReg = performLinearRegression(medianPoints, false);
     const upperReg = performLinearRegression(upperPoints, false);
-    if (!upperReg) return { error: "Falha na regressão da linha superior." };
+    
+    if (!medianReg || !lowerReg || !upperReg) return { error: "Falha na regressão linear." };
     
     const createLine = (reg: {slope:number, intercept:number}) => {
         const allX = medianPoints.map(p => p.x);
