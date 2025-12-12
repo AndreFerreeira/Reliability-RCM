@@ -1,3 +1,5 @@
+'use client';
+
 import type { Supplier, ReliabilityData, ChartDataPoint, Distribution, Parameters, GumbelParams, LoglogisticParams, EstimationMethod, EstimateParams, PlotData, LRBoundsResult, ContourData, DistributionAnalysisResult, CensoredData, BudgetInput, ExpectedFailuresResult, CompetingFailureMode, CompetingModesAnalysis, AnalysisTableData } from '@/lib/types';
 
 
@@ -544,85 +546,31 @@ function generateTimeGrid(min = 1, max = 10000, points = 80) {
   return out;
 }
 
-function estimateWeibullMLE(times: number[], maxIter = 200, tol = 1e-7): { beta: number; eta: number; ll: number } | undefined {
-  const n = times.length;
-  if (n === 0) return undefined;
-  for (const t of times) if (!isFinite(t) || t <= 0) return undefined;
-
-  const lnTs = times.map((t) => Math.log(t));
-  const sumLnT = lnTs.reduce((a, b) => a + b, 0);
-  const meanLnT = sumLnT / n;
-  const s2 = lnTs.reduce((acc, x) => acc + (x - meanLnT) ** 2, 0) / n;
-  let beta = 1.2;
-   if (s2 > 1e-12) {
-    const cvln = Math.sqrt(s2);
-    const guess = 1.2 / Math.max(0.5, Math.min(5, cvln * 1.0));
-    if (isFinite(guess) && guess > 0) beta = guess;
-  }
-  
-  for (let iter = 0; iter < maxIter; iter++) {
-    let sumPow = 0, sumPowLn = 0, sumPowLn2 = 0;
-    for (const t of times) {
-      const xp = Math.pow(t, beta);
-      if (!isFinite(xp)) return undefined;
-      sumPow += xp;
-      sumPowLn += xp * Math.log(t);
-      sumPowLn2 += xp * Math.pow(Math.log(t), 2);
-    }
-    
-    if (sumPow <= 0) return undefined;
-    const A = sumPow;
-    const B = sumPowLn;
-
-    const score = n / beta + sumLnT - (n * B) / A;
-    const deriv = -n / (beta * beta) - n * (sumPowLn2 / A - (B / A) * (B / A));
-
-    if (!isFinite(score) || !isFinite(deriv) || Math.abs(deriv) < 1e-16) break;
-    const delta = score / deriv;
-    const betaNew = beta - delta;
-    
-    beta = (isFinite(betaNew) && betaNew > 0) ? betaNew : Math.max(0.01, beta + delta * 0.1);
-    if (Math.abs(delta) < tol * Math.max(1, Math.abs(beta))) break;
-  }
-  
-  if (!isFinite(beta) || beta <= 0) return undefined;
-  let sumPowFinal = 0;
-  for (const t of times) {
-    const xp = Math.pow(t, beta);
-    if (!isFinite(xp)) return undefined;
-    sumPowFinal += xp;
-  }
-  
-  const eta = Math.pow(sumPowFinal / n, 1 / beta);
-  if (!isFinite(eta) || eta <= 0) return undefined;
-  
-  let ll = 0;
-  let sumPower = 0;
-  for (const t of times) sumPower += Math.pow(t / eta, beta);
-  ll = n * Math.log(beta) - n * beta * Math.log(eta) + (beta - 1) * sumLnT - sumPower;
-  
-  if (!isFinite(ll)) return undefined;
-  return { beta, eta, ll };
-}
-
 export function calculateLikelihoodRatioBounds(
     { times, confidenceLevel = 0.9, tValue = null }: { times: number[], confidenceLevel: number, tValue: number | null }
 ): LRBoundsResult | undefined {
-    
-    const mle = estimateWeibullMLE(times);
-    if (!mle) {
-        return { error: "Falha na estimação MLE. Verifique os dados." };
+    const srmResult = estimateParametersByRankRegression('Weibull', times, [], 'SRM');
+    if (!srmResult || !srmResult.params.beta || !srmResult.params.eta) {
+      return { error: 'Falha na estimação inicial dos parâmetros.' };
     }
-    const { beta: betaMLE, eta: etaMLE, ll: llMLE } = mle;
+    const beta_srm = srmResult.params.beta;
+    const eta_srm = srmResult.params.eta;
+
+    const mleResult = fitWeibullMLE(times.map(t => ({time: t, event: 1})));
+    if (!mleResult.beta || !mleResult.eta) {
+        return { error: 'Falha na estimação MLE.' };
+    }
+    const { beta: betaMLE, eta: etaMLE, lkv: llMLE } = mleResult;
     
-    // Fisher Matrix Inversion Method for Confidence Bounds
+    // Fisher Matrix Method for Confidence Bounds
     const n = times.length;
+    const r = times.length; // Number of failures
     const b = betaMLE;
     const k = etaMLE;
 
-    const var_b = b*b / n;
-    const var_k = k*k / (n * b*b);
-    const cov_bk = 0.277 * b*k / n; // Approximation
+    const var_b = 1.06 * b*b / r;
+    const var_k = k*k * (1.02 / (r*b*b));
+    const cov_bk = 0.3 * k / r;
 
     const z = invNormalCdf(1 - (1 - confidenceLevel) / 2);
 
@@ -635,15 +583,21 @@ export function calculateLikelihoodRatioBounds(
     for (const t of timePoints) {
         if (t <= 0) continue;
         const medianF = weibullCDF(t, b, k);
-        const logT = Math.log(t);
-        const logK = Math.log(k);
+        
+        // Skip calculation if medianF is too close to 0 or 1 to avoid numerical instability
+        if (medianF < 1e-6 || medianF > 0.999999) {
+          medianCurve.push({x: t, y: medianF * 100});
+          lowerCurve.push({x: t, y: medianF * 100});
+          upperCurve.push({x: t, y: medianF * 100});
+          continue;
+        }
 
         const dFdb = -Math.pow(t/k, b) * Math.log(t/k) * Math.exp(-Math.pow(t/k, b));
         const dFdk = Math.pow(t/k, b) * (b/k) * Math.exp(-Math.pow(t/k, b));
 
         const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
 
-        if (var_F < 0) continue; // Should not happen with valid inputs
+        if (var_F < 0) continue; 
 
         const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1/(1-medianF)) ) );
         
@@ -658,23 +612,27 @@ export function calculateLikelihoodRatioBounds(
     let calculation = null;
     if (tValue && isFinite(tValue) && tValue > 0) {
        const medianF = weibullCDF(tValue, b, k);
-       const dFdb = -Math.pow(tValue/k, b) * Math.log(tValue/k) * Math.exp(-Math.pow(tValue/k, b));
-       const dFdk = Math.pow(tValue/k, b) * (b/k) * Math.exp(-Math.pow(tValue/k, b));
-       const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
+       if (medianF < 1e-6 || medianF > 0.999999) {
+          calculation = { medianAtT: medianF * 100, lowerAtT: medianF * 100, upperAtT: medianF * 100 };
+       } else {
+            const dFdb = -Math.pow(tValue/k, b) * Math.log(tValue/k) * Math.exp(-Math.pow(tValue/k, b));
+            const dFdk = Math.pow(tValue/k, b) * (b/k) * Math.exp(-Math.pow(tValue/k, b));
+            const var_F = dFdb*dFdb * var_b + dFdk*dFdk * var_k + 2*dFdb*dFdk * cov_bk;
 
-       if(var_F >= 0) {
-         const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1 / (1 - medianF)) ) );
-         const lowerF = 1 - Math.pow(1 - medianF, 1/w);
-         const upperF = 1 - Math.pow(1 - medianF, w);
-          calculation = {
-            medianAtT: medianF * 100,
-            lowerAtT: lowerF * 100,
-            upperAtT: upperF * 100
-          };
+            if(var_F >= 0) {
+                const w = Math.exp( (z * Math.sqrt(var_F)) / ( (1 - medianF) * Math.log(1 / (1 - medianF)) ) );
+                const lowerF = 1 - Math.pow(1 - medianF, 1/w);
+                const upperF = 1 - Math.pow(1 - medianF, w);
+                calculation = {
+                    medianAtT: medianF * 100,
+                    lowerAtT: lowerF * 100,
+                    upperAtT: upperF * 100
+                };
+            }
        }
     }
     
-    const plotResult = estimateParameters({ dist: 'Weibull', failureTimes: times, method: 'SRM' });
+    const plotResult = srmResult;
     if (!plotResult?.plotData) {
         return { error: 'Falha ao gerar dados de plotagem para a regressão.' };
     }
@@ -682,7 +640,7 @@ export function calculateLikelihoodRatioBounds(
     return {
       betaMLE,
       etaMLE,
-      llMLE,
+      llMLE: llMLE || 0,
       confidenceLevel: confidenceLevel * 100,
       points: plotResult.plotData.points,
       rSquared: plotResult.plotData.rSquared,
