@@ -82,6 +82,9 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     const upperData = upperLine.map(p => [p.x, p.y]).sort(sortFn);
 
     const scatterData = points.median.map(p => [p.x, p.y]);
+    const lowerScatterData = points.lower?.map(p => [p.x, p.y]);
+    const upperScatterData = points.upper?.map(p => [p.x, p.y]);
+
     
     const lowerSeries = {
         name: `Limite Inferior ${confidenceLevel}%`,
@@ -89,7 +92,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: lowerData,
         showSymbol: false,
         smooth: true,
-        lineStyle: { width: 2, type: 'dashed', color: '#88ff88' },
+        lineStyle: { width: 2, color: 'hsl(var(--destructive))' },
         z: 9,
     };
 
@@ -99,29 +102,8 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: upperData,
         showSymbol: false,
         smooth: true,
-        lineStyle: { width: 2, type: 'dashed', color: '#ffd766' },
+        lineStyle: { width: 2, color: 'hsl(var(--destructive))' },
         z: 9,
-    };
-    
-    const bandBaseSeries = {
-        name: 'Faixa de Confiança Base',
-        type: 'line',
-        data: lowerData,
-        showSymbol: false,
-        lineStyle: { width: 0 },
-        stack: 'confidence',
-        z: 1,
-    };
-    
-    const bandFillSeries = {
-        name: 'Faixa de Confiança',
-        type: 'line',
-        data: upperData.map((p, i) => [p[0], Math.max(0, p[1] - (lowerData[i]?.[1] ?? 0))]),
-        showSymbol: false,
-        lineStyle: { width: 0 },
-        areaStyle: { color: 'rgba(255, 215, 102, 0.15)' },
-        stack: 'confidence',
-        z: 1,
     };
 
      const medianSeries = {
@@ -130,7 +112,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         data: medianData,
         showSymbol: false,
         smooth: true,
-        lineStyle: { width: 3, color: '#a88cff' },
+        lineStyle: { width: 3, color: 'hsl(var(--primary))' },
         z: 10,
     };
 
@@ -139,16 +121,31 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         type: 'scatter',
         data: scatterData,
         symbolSize: 8,
+        itemStyle: { color: 'black', borderWidth: 2, borderColor: 'hsl(var(--primary))' }
+    };
+
+    const lowerScatterSeries = {
+        name: 'Dados (Posto 5%)',
+        type: 'scatter',
+        data: lowerScatterData,
+        symbolSize: 8,
+        itemStyle: { color: 'rgba(200,200,200,0.8)' }
+    };
+     const upperScatterSeries = {
+        name: 'Dados (Posto 95%)',
+        type: 'scatter',
+        data: upperScatterData,
+        symbolSize: 8,
         itemStyle: { color: 'rgba(200,200,200,0.8)' }
     };
     
     let series: any[] = [
-        bandBaseSeries,
-        bandFillSeries,
         upperSeries,
         lowerSeries,
         medianSeries,
         scatterSeries,
+        lowerScatterSeries,
+        upperScatterSeries,
     ];
 
     if (timeForCalc && calculation && calculation.medianAtT !== null && calculation.lowerAtT !== null && calculation.upperAtT !== null) {
@@ -170,7 +167,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             ],
             symbolSize: 8,
             itemStyle: {
-                color: (params: any) => ['#a88cff', '#88ff88', '#ffd766'][params.dataIndex],
+                color: (params: any) => ['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--destructive))'][params.dataIndex],
                 borderColor: '#fff',
                 borderWidth: 1.5,
             },
@@ -212,7 +209,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Base') && !name.includes('Faixa') && !name.includes('Valor no t')),
+            data: series.map(s => s.name).filter(name => name && !name.includes('Dados') && !name.includes('Valor no t')),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -1036,23 +1033,23 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Métrica</TableHead>
-                                <TableHead className="text-right">Inferior</TableHead>
-                                <TableHead className="text-right">Mediana</TableHead>
-                                <TableHead className="text-right">Superior</TableHead>
+                                <TableHead className="text-right">Inferior ({((100-confidenceLevel)/2).toFixed(1)}%)</TableHead>
+                                <TableHead className="text-right">Mediana (50%)</TableHead>
+                                <TableHead className="text-right">Superior ({((100+confidenceLevel)/2).toFixed(1)}%)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow>
                                 <TableCell className="font-medium">Prob. Falha (F(t))</TableCell>
-                                <TableCell className="text-right font-mono text-green-400">{transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-purple-400">{transformY(calculation.medianAtT ?? 0).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-yellow-400">{transformY(calculation.upperAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-red-400">{transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-blue-400">{transformY(calculation.medianAtT ?? 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-red-400">{transformY(calculation.upperAtT ?? 0).toFixed(2)}%</TableCell>
                             </TableRow>
                              <TableRow>
                                 <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
-                                <TableCell className="text-right font-mono text-green-400">{(100 - transformY(calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-purple-400">{(100 - transformY(calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
-                                <TableCell className="text-right font-mono text-yellow-400">{(100 - transformY(calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-red-400">{(100 - transformY(calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-blue-400">{(100 - transformY(calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="text-right font-mono text-red-400">{(100 - transformY(calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
@@ -1388,7 +1385,7 @@ interface MonteCarloSimulatorProps {
 export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorProps) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing'>('budget');
+  const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing'>('confidence');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   

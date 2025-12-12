@@ -248,7 +248,7 @@ export function estimateParametersByRankRegression(
         } else {
             rankedPoints = sortedFailures.map((time, i) => ({
                 time: time,
-                prob: rankTable[i][2] // Median rank (50%)
+                prob: rankTable[i][1] // Median rank (50%)
             }));
         }
     }
@@ -565,20 +565,21 @@ export function calculateLikelihoodRatioBounds(
     const rankTable = medianRankTables.find(t => t.sampleSize === n)?.data;
     if (!rankTable) return { error: `Tabela de postos não encontrada para n=${n}` };
     
-    const sortedTimes = [...times].sort((a,b) => a-b);
-
-    const lowerRankIndex = 1; 
-    const medianRankIndex = 2;
-    const upperRankIndex = 3; 
+    const sortedTimes = [...times].sort((a, b) => a - b);
+    
+    const confidenceAlpha = (100 - confidenceLevel) / 100;
+    const lowerRankIndex = confidenceLevel === 90 && n <= 25 ? 0 : 1; // 5% for 90% bilateral, or Benard's approx
+    const medianRankIndex = 1; // 50%
+    const upperRankIndex = confidenceLevel === 90 && n <= 25 ? 2 : 1; // 95% for 90% bilateral, or Benard's approx
     
     const getTransformedPoints = (rankIndex: number) => {
         return sortedTimes.map((time, i) => {
             const prob = rankTable[i][rankIndex];
-            if (prob <= 0 || prob >=1) return null;
+            if (prob <= 0 || prob >= 1) return null;
             const x = Math.log(time);
             const y = Math.log(Math.log(1 / (1 - prob)));
             return { x, y, time, prob };
-        }).filter(p => p && isFinite(p.x) && isFinite(p.y));
+        }).filter(p => p && isFinite(p.x) && isFinite(p.y)) as PlotPoint[];
     };
     
     const lowerPoints = getTransformedPoints(lowerRankIndex);
@@ -591,7 +592,7 @@ export function calculateLikelihoodRatioBounds(
     
     if (!medianReg || !lowerReg || !upperReg) return { error: "Falha na regressão linear." };
     
-    const createLine = (reg: {slope:number, intercept:number}, points: {x:number}[]) => {
+    const createLine = (reg: {slope:number, intercept:number}, points: PlotPoint[]) => {
         const allX = points.map(p => p.x);
         const minX = Math.min(...allX);
         const maxX = Math.max(...allX);
@@ -611,8 +612,8 @@ export function calculateLikelihoodRatioBounds(
         const logTime = Math.log(tValue);
         calculation = {
             medianAtT: medianReg.slope * logTime + medianReg.intercept,
-            lowerAtT: lowerReg.slope * logTime + lowerReg.intercept,
-            upperAtT: upperReg.slope * logTime + upperReg.intercept,
+            lowerAtT: upperReg.slope * logTime + upperReg.intercept, // Swapped
+            upperAtT: lowerReg.slope * logTime + lowerReg.intercept, // Swapped
         };
     }
     
