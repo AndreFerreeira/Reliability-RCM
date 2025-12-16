@@ -15,6 +15,7 @@ import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import ProbabilityPaper from './probability-paper';
 import ProbabilityPlot from './probability-plot';
 import MonteCarloSimulator from './monte-carlo-simulator';
+import LanguageSwitcher from './language-switcher';
 
 const initialSuppliersData = [
   { 
@@ -100,6 +101,9 @@ export default function ReliabilityDashboard() {
           <h1 className="text-3xl font-headline font-bold tracking-tight">
             Reliability RCM
           </h1>
+        </div>
+        <div className="flex items-center space-x-2">
+          <LanguageSwitcher />
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
