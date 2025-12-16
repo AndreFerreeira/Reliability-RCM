@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter, Orbitron } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react';
+import { I18nProvider } from '@/i18n/i18n-provider';
 
 export const metadata: Metadata = {
   title: 'Reliability RCM',
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${inter.variable} ${orbitron.variable} font-body antialiased`}>
-        {children}
+        <I18nProvider>
+          {children}
+        </I18nProvider>
         <Analytics />
         <Toaster />
       </body>

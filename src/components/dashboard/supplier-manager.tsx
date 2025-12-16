@@ -1,7 +1,3 @@
-
-
-
-
 'use client';
 
 import { useForm, useWatch } from 'react-hook-form';
@@ -39,6 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { useI18n } from '@/i18n/i18n-provider';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'O nome do equipamento é obrigatório.' }),
@@ -72,30 +69,30 @@ interface SupplierManagerProps {
   setEstimationMethod: (method: EstimationMethod) => void;
 }
 
-const DataInputInstructions = ({ isGrouped, hasSuspensions }: { isGrouped: boolean, hasSuspensions: boolean }) => {
-    let title = "Tempos até a Falha (TTF)";
-    let placeholder = "Ex: 150, 200, 210, 300";
-    let description = "Insira um valor por linha ou separe por vírgula/espaço.";
+const DataInputInstructions = ({ isGrouped, hasSuspensions, t }: { isGrouped: boolean, hasSuspensions: boolean, t: (key: string) => string }) => {
+    let title = t('dataInstructions.simple.title');
+    let placeholder = t('dataInstructions.simple.placeholder');
+    let description = t('dataInstructions.simple.description');
 
     if (isGrouped && hasSuspensions) {
-        title = "Dados Agrupados com Suspensão";
-        placeholder = "Ex:\n[Tempo] [Qtd Falhas] [Qtd Suspensões]\n1000 10 2\n1500 8 0";
-        description = "Insira em três colunas. Use 0 se não houver falhas ou suspensões em uma linha.";
+        title = t('dataInstructions.groupedSuspensions.title');
+        placeholder = t('dataInstructions.groupedSuspensions.placeholder');
+        description = t('dataInstructions.groupedSuspensions.description');
     } else if (isGrouped) {
-        title = "Dados Agrupados (Tempo e Quantidade)";
-        placeholder = "Ex:\n150 2\n210 5\n300 1";
-        description = "Insira em duas colunas: [Tempo] [Quantidade].";
+        title = t('dataInstructions.grouped.title');
+        placeholder = t('dataInstructions.grouped.placeholder');
+        description = t('dataInstructions.grouped.description');
     } else if (hasSuspensions) {
-        title = "Dados com Suspensão (Tempo e Status)";
-        placeholder = "Ex:\n150 F\n210 S\n300 F";
-        description = "Insira em duas colunas: [Tempo] [F para Falha, S para Suspensão].";
+        title = t('dataInstructions.suspensions.title');
+        placeholder = t('dataInstructions.suspensions.placeholder');
+        description = t('dataInstructions.suspensions.description');
     }
     
     return { title, placeholder, description };
 };
 
 
-const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, onApply: (dist: Distribution) => void }) => {
+const DistributionWizardDialog = ({ supplier, onApply, t }: { supplier: Supplier, onApply: (dist: Distribution) => void, t: (key: string, args?: any) => string }) => {
     const [analysisResults, setAnalysisResults] = useState<DistributionAnalysisResult[]>([]);
     const [bestDist, setBestDist] = useState<Distribution | null>(null);
     const [bestDistExplanation, setBestDistExplanation] = useState('');
@@ -107,9 +104,9 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
 
         const bestResult = results.find(r => r.distribution === best);
         if (best === "Lognormal" && bestResult?.params.lkv) {
-          setBestDistExplanation(`A distribuição Lognormal apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico aos dados de falha e censura deste equipamento. Este modelo captura corretamente a variabilidade e a cauda longa observada nos tempos de falha.`);
+          setBestDistExplanation(t('distributionWizard.explanationLognormal', { lkv: bestResult.logLikelihood.toFixed(2) }));
         } else if (best === "Weibull" && bestResult?.params.lkv) {
-            setBestDistExplanation(`A distribuição Weibull apresentou o maior LKV (${bestResult.logLikelihood.toFixed(2)}), indicando o melhor ajuste estatístico para os dados deste equipamento. O parâmetro beta revela o comportamento da taxa de falha ao longo do tempo.`);
+            setBestDistExplanation(t('distributionWizard.explanationWeibull', { lkv: bestResult.logLikelihood.toFixed(2) }));
         } else {
             setBestDistExplanation('');
         }
@@ -120,30 +117,30 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                     <Wand2 className="mr-2 h-4 w-4" />
-                    Mago da Distribuição
+                    {t('distributionWizard.button')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Mago da Distribuição - {supplier.name}</DialogTitle>
+                    <DialogTitle>{t('distributionWizard.title', { supplierName: supplier.name })}</DialogTitle>
                      <DialogDescription>
-                        Analise qual distribuição de probabilidade melhor se ajusta aos dados do seu equipamento.
+                        {t('distributionWizard.description')}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                    <Button onClick={handleAnalyze}>Analisar Dados</Button>
+                    <Button onClick={handleAnalyze}>{t('distributionWizard.analyzeButton')}</Button>
                     
                     {analysisResults.length > 0 && (
                         <>
                             <Card>
                                 <CardHeader className="pb-4">
-                                     <CardTitle className="text-lg">🔍 Como escolhemos a melhor distribuição</CardTitle>
+                                     <CardTitle className="text-lg">{t('distributionWizard.howTitle')}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="text-sm text-foreground/80 space-y-2">
-                                    <p>A ferramenta avalia diferentes distribuições estatísticas para encontrar qual modelo melhor representa o comportamento de falha do equipamento. O critério principal é:</p>
-                                    <p className="font-semibold text-foreground">LKV – Log-Likelihood Value</p>
-                                    <p>Indica o quão bem o modelo se ajusta aos dados. Valores <strong>maiores</strong> (menos negativos) significam um <strong>ajuste estatístico melhor</strong>.</p>
-                                    <p className="text-xs pt-1">O R² mostrado é apenas <strong>visual</strong>, medido no gráfico de probabilidade, mas <strong>não determina qual distribuição é melhor</strong>. Ele serve apenas para referência gráfica.</p>
+                                    <p>{t('distributionWizard.howIntro')}</p>
+                                    <p className="font-semibold text-foreground">{t('distributionWizard.howCriterion')}</p>
+                                    <p>{t('distributionWizard.howLkv')}</p>
+                                    <p className="text-xs pt-1">{t('distributionWizard.howR2')}</p>
                                 </CardContent>
                             </Card>
 
@@ -152,10 +149,10 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Distribuição</TableHead>
-                                                <TableHead className="text-right">LKV (Ajuste)</TableHead>
-                                                <TableHead className="text-right">R² (Visual)</TableHead>
-                                                <TableHead className="text-right">Ação</TableHead>
+                                                <TableHead>{t('distributionWizard.table.distribution')}</TableHead>
+                                                <TableHead className="text-right">{t('distributionWizard.table.lkv')}</TableHead>
+                                                <TableHead className="text-right">{t('distributionWizard.table.r2')}</TableHead>
+                                                <TableHead className="text-right">{t('distributionWizard.table.action')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -163,13 +160,13 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
                                                 <TableRow key={result.distribution} className={cn(result.distribution === bestDist && 'bg-primary/10')}>
                                                     <TableCell className="font-medium">
                                                         {result.distribution}
-                                                        {result.distribution === bestDist && <Badge variant="secondary" className="ml-2">Melhor</Badge>}
+                                                        {result.distribution === bestDist && <Badge variant="secondary" className="ml-2">{t('distributionWizard.table.best')}</Badge>}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono">{result.logLikelihood.toFixed(2)}</TableCell>
                                                     <TableCell className="text-right font-mono">{result.rSquared.toFixed(4)}</TableCell>
                                                     <TableCell className="text-right">
                                                         <Button variant="ghost" size="sm" onClick={() => onApply(result.distribution)}>
-                                                            {result.distribution === bestDist ? 'Aplicar (Melhor)' : 'Aplicar'}
+                                                            {result.distribution === bestDist ? t('distributionWizard.table.applyBest') : t('distributionWizard.table.apply')}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -182,7 +179,7 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
                             {bestDist && (
                                  <Card>
                                     <CardHeader>
-                                        <CardTitle className="text-lg">🏆 Melhor Distribuição: {bestDist}</CardTitle>
+                                        <CardTitle className="text-lg">{t('distributionWizard.bestDistribution', { bestDist: bestDist })}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <p className="text-sm text-muted-foreground">{bestDistExplanation}</p>
@@ -200,6 +197,8 @@ const DistributionWizardDialog = ({ supplier, onApply }: { supplier: Supplier, o
 
 export default function SupplierManager({ suppliers, setSuppliers, estimationMethod, setEstimationMethod }: SupplierManagerProps) {
   const { toast } = useToast();
+  const { t } = useI18n();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { 
@@ -215,14 +214,14 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
 
   const isGrouped = useWatch({ control: form.control, name: 'isGrouped' });
   const hasSuspensions = useWatch({ control: form.control, name: 'hasSuspensions' });
-  const { title: inputTitle, placeholder: inputPlaceholder, description: inputDescription } = DataInputInstructions({ isGrouped, hasSuspensions });
+  const { title: inputTitle, placeholder: inputPlaceholder, description: inputDescription } = DataInputInstructions({ isGrouped, hasSuspensions, t });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (suppliers.length >= 5) {
       toast({
         variant: 'destructive',
-        title: 'Limite Atingido',
-        description: 'Você pode comparar um máximo de 5 equipamentos por vez.',
+        title: t('toasts.limitReached.title'),
+        description: t('toasts.limitReached.description'),
       });
       return;
     }
@@ -246,10 +245,10 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                         for (let i = 0; i < numFailures; i++) failureTimes.push(time);
                         for (let i = 0; i < numSuspensions; i++) suspensionTimes.push(time);
                     } else {
-                        throw new Error(`Linha de dados inválida: "${line}". Use o formato [Tempo] [Qtd Falhas] [Qtd Suspensões].`);
+                        throw new Error(t('toasts.invalidData.groupedSuspensions', { line }));
                     }
                 } else {
-                    throw new Error(`Linha de dados inválida: "${line}". Use o formato [Tempo] [Qtd Falhas] [Qtd Suspensões].`);
+                    throw new Error(t('toasts.invalidData.groupedSuspensions', { line }));
                 }
             });
         } else if (values.hasSuspensions) {
@@ -269,10 +268,10 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                             suspensionTimes.push(time);
                         }
                     } else {
-                       throw new Error(`Linha inválida encontrada: "${line}". Use o formato [Tempo] [Status].`);
+                       throw new Error(t('toasts.invalidData.suspensions', { line }));
                     }
                 } else {
-                    throw new Error(`Linha inválida encontrada: "${line}". Use o formato [Tempo] [Status].`);
+                    throw new Error(t('toasts.invalidData.suspensions', { line }));
                 }
             });
         } else if (values.isGrouped) {
@@ -286,10 +285,10 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                             failureTimes.push(time);
                         }
                     } else {
-                         throw new Error(`Linha de dados agrupados inválida: "${line}".`);
+                         throw new Error(t('toasts.invalidData.grouped', { line }));
                     }
                 } else {
-                     throw new Error(`Linha de dados agrupados inválida: "${line}". Use o formato [Tempo] [Quantidade].`);
+                     throw new Error(t('toasts.invalidData.grouped', { line }));
                 }
             });
         } else {
@@ -297,14 +296,14 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
         }
 
         if (failureTimes.length === 0 && suspensionTimes.length === 0) {
-            throw new Error('Pelo menos um ponto de dados válido é necessário para a análise.');
+            throw new Error(t('toasts.invalidData.noData'));
         }
 
     } catch (e: any) {
         toast({
             variant: 'destructive',
-            title: 'Erro ao Processar Dados',
-            description: e.message || 'Verifique o formato dos dados de entrada.'
+            title: t('toasts.processingError.title'),
+            description: e.message || t('toasts.processingError.description')
         });
         return;
     }
@@ -387,15 +386,15 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
         return (
           <>
             <div>
-              <Label htmlFor={`beta-${supplier.id}`} className="text-xs text-muted-foreground">β (Beta)</Label>
+              <Label htmlFor={`beta-${supplier.id}`} className="text-xs text-muted-foreground">{t('parameters.beta')}</Label>
               <Input id={`beta-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.beta?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'beta', e.target.value)} />
             </div>
             <div>
-              <Label htmlFor={`eta-${supplier.id}`} className="text-xs text-muted-foreground">η (Eta)</Label>
+              <Label htmlFor={`eta-${supplier.id}`} className="text-xs text-muted-foreground">{t('parameters.eta')}</Label>
               <Input id={`eta-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.eta?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'eta', e.target.value)} />
             </div>
             <div>
-                <Label htmlFor={`rho-${supplier.id}`} className="text-xs text-muted-foreground">ρ (R²)</Label>
+                <Label htmlFor={`rho-${supplier.id}`} className="text-xs text-muted-foreground">{t('parameters.rho')}</Label>
                 <Input id={`rho-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.rho?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'rho', e.target.value)} disabled />
             </div>
           </>
@@ -405,11 +404,11 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
         return (
           <>
             <div>
-              <Label htmlFor={`mean-${supplier.id}`} className="text-xs text-muted-foreground">{supplier.distribution === 'Lognormal' ? 'μ (Log-Média)' : 'μ (Média)'}</Label>
+              <Label htmlFor={`mean-${supplier.id}`} className="text-xs text-muted-foreground">{supplier.distribution === 'Lognormal' ? t('parameters.logMean') : t('parameters.mean')}</Label>
               <Input id={`mean-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.mean?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'mean', e.target.value)} />
             </div>
             <div>
-              <Label htmlFor={`stdDev-${supplier.id}`} className="text-xs text-muted-foreground">{supplier.distribution === 'Lognormal' ? 'σ (Log-DP)' : 'σ (DP)'}</Label>
+              <Label htmlFor={`stdDev-${supplier.id}`} className="text-xs text-muted-foreground">{supplier.distribution === 'Lognormal' ? t('parameters.logStdDev') : t('parameters.stdDev')}</Label>
               <Input id={`stdDev-${supplier.id}`} type="number" step="0.01" className="h-8 text-sm" value={supplier.params.stdDev?.toFixed(2) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'stdDev', e.target.value)} />
             </div>
           </>
@@ -417,7 +416,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
       case 'Exponential':
         return (
           <div className="col-span-2">
-            <Label htmlFor={`lambda-${supplier.id}`} className="text-xs text-muted-foreground">λ (Taxa)</Label>
+            <Label htmlFor={`lambda-${supplier.id}`} className="text-xs text-muted-foreground">{t('parameters.lambda')}</Label>
             <Input id={`lambda-${supplier.id}`} type="number" step="0.001" className="h-8 text-sm" value={supplier.params.lambda?.toPrecision(4) ?? ''} onChange={(e) => handleParamChange(supplier.id, 'lambda', e.target.value)} />
           </div>
         );
@@ -430,8 +429,8 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
     <div className="space-y-6">
       <Card>
         <CardHeader>
-            <CardTitle>Entrada de Dados</CardTitle>
-            <CardDescription>Adicionar um novo equipamento para análise.</CardDescription>
+            <CardTitle>{t('supplierManager.dataInputTitle')}</CardTitle>
+            <CardDescription>{t('supplierManager.dataInputDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -441,9 +440,9 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Equipamento</FormLabel>
+                    <FormLabel>{t('supplierManager.equipmentLabel')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="ex: Equipamento A" {...field} />
+                      <Input placeholder={t('supplierManager.equipmentPlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -452,7 +451,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
 
               <Card className="bg-muted/30">
                   <CardHeader className="pb-4">
-                      <CardTitle className="text-base">Configurações da Análise</CardTitle>
+                      <CardTitle className="text-base">{t('supplierManager.analysisSettingsTitle')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                       <RadioGroup
@@ -466,7 +465,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                           >
                               <RadioGroupItem value="SRM" id="srm" className="sr-only" />
                               SRM
-                              <span className="text-xs text-muted-foreground">Regressão</span>
+                              <span className="text-xs text-muted-foreground">{t('supplierManager.srmLabel')}</span>
                           </Label>
                           <Label
                               htmlFor="mle"
@@ -474,7 +473,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                           >
                               <RadioGroupItem value="MLE" id="mle" className="sr-only" />
                               MLE
-                              <span className="text-xs text-muted-foreground">Verossimilhança</span>
+                              <span className="text-xs text-muted-foreground">{t('supplierManager.mleLabel')}</span>
                           </Label>
                            <Label
                               htmlFor="rrx"
@@ -482,7 +481,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                           >
                               <RadioGroupItem value="RRX" id="rrx" className="sr-only" />
                               RRX
-                              <span className="text-xs text-muted-foreground">Regressão X</span>
+                              <span className="text-xs text-muted-foreground">{t('supplierManager.rrxLabel')}</span>
                           </Label>
                       </RadioGroup>
                   </CardContent>
@@ -490,7 +489,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
 
               <Card className="bg-muted/30">
                 <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Configuração dos Dados</CardTitle>
+                    <CardTitle className="text-base">{t('supplierManager.dataConfigTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <FormField
@@ -498,7 +497,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                       name="units"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Unidades</FormLabel>
+                          <FormLabel>{t('supplierManager.unitsLabel')}</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -506,10 +505,10 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Hora (h)">Hora (h)</SelectItem>
-                              <SelectItem value="Dia">Dia</SelectItem>
-                              <SelectItem value="Ciclo">Ciclo</SelectItem>
-                              <SelectItem value="Km">Km</SelectItem>
+                              <SelectItem value="Hora (h)">{t('units.hour')}</SelectItem>
+                              <SelectItem value="Dia">{t('units.day')}</SelectItem>
+                              <SelectItem value="Ciclo">{t('units.cycle')}</SelectItem>
+                              <SelectItem value="Km">{t('units.km')}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -517,7 +516,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                       )}
                     />
                     <div className="space-y-2 pt-2">
-                        <Label className="text-sm font-medium">Opções para Dados</Label>
+                        <Label className="text-sm font-medium">{t('supplierManager.dataOptionsLabel')}</Label>
                         <FormField
                             control={form.control}
                             name="hasSuspensions"
@@ -533,8 +532,8 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                                         />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel>O conjunto de dados contém suspensões</FormLabel>
-                                        <FormDescription>Dados censurados à direita (itens que não falharam).</FormDescription>
+                                        <FormLabel>{t('supplierManager.hasSuspensionsLabel')}</FormLabel>
+                                        <FormDescription>{t('supplierManager.hasSuspensionsDescription')}</FormDescription>
                                     </div>
                                 </FormItem>
                             )}
@@ -554,8 +553,8 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                                         />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel>Entrar com dados agrupados</FormLabel>
-                                        <FormDescription>Múltiplos itens com o mesmo tempo de falha.</FormDescription>
+                                        <FormLabel>{t('supplierManager.isGroupedLabel')}</FormLabel>
+                                        <FormDescription>{t('supplierManager.isGroupedDescription')}</FormDescription>
                                     </div>
                                 </FormItem>
                             )}
@@ -579,8 +578,8 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                                         />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel>O conjunto de dados contém intervalos (Em breve)</FormLabel>
-                                        <FormDescription>Dados censurados por intervalo e/ou à esquerda.</FormDescription>
+                                        <FormLabel>{t('supplierManager.hasIntervalsLabel')}</FormLabel>
+                                        <FormDescription>{t('supplierManager.hasIntervalsDescription')}</FormDescription>
                                     </div>
                                 </FormItem>
                             )}
@@ -607,11 +606,11 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                 name="distribution"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Distribuição de Probabilidade</FormLabel>
+                    <FormLabel>{t('supplierManager.distributionLabel')}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma distribuição" />
+                          <SelectValue placeholder={t('supplierManager.distributionPlaceholder')} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -622,16 +621,16 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">Adicionar Equipamento</Button>
+              <Button type="submit" className="w-full">{t('supplierManager.addButton')}</Button>
             </form>
           </Form>
         </CardContent>
       </Card>
       
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Equipamentos Atuais</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">{t('supplierManager.currentEquipmentsTitle')}</h3>
         <div className="space-y-2">
-        {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">Nenhum equipamento adicionado ainda.</p>}
+        {suppliers.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">{t('supplierManager.noEquipments')}</p>}
         {suppliers.map(supplier => (
           <div key={supplier.id} className="rounded-md border p-3">
             <div className="flex items-start justify-between">
@@ -642,7 +641,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
                       <span className="text-xs text-muted-foreground">{`${supplier.distribution} / ${supplier.units}`}</span>
                     </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`Remover ${supplier.name}`}>
+                <Button variant="ghost" size="icon" onClick={() => removeSupplier(supplier.id)} aria-label={`${t('supplierManager.removeAriaLabel')} ${supplier.name}`}>
                     <X className="h-4 w-4" />
                 </Button>
             </div>
@@ -659,7 +658,7 @@ export default function SupplierManager({ suppliers, setSuppliers, estimationMet
             <div className="mt-4 grid grid-cols-3 gap-2">
                 {renderParams(supplier)}
             </div>
-             <DistributionWizardDialog supplier={supplier} onApply={(dist) => handleDistributionChange(supplier.id, dist)} />
+             <DistributionWizardDialog supplier={supplier} onApply={(dist) => handleDistributionChange(supplier.id, dist)} t={t} />
           </div>
         ))}
         </div>

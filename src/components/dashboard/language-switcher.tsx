@@ -10,23 +10,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { BrazilFlag, UKFlag, SpainFlag } from '@/components/icons/flags';
 import { Languages } from 'lucide-react';
+import { useI18n } from '@/i18n/i18n-provider';
+import type { Language } from '@/i18n/i18n-provider';
 
-type Language = {
-  code: string;
-  name: string;
-  flag: React.ElementType;
-};
-
-const languages: Language[] = [
+const languageOptions: Language[] = [
   { code: 'pt', name: 'Português', flag: BrazilFlag },
   { code: 'en', name: 'English', flag: UKFlag },
   { code: 'es', name: 'Español', flag: SpainFlag },
 ];
 
 export default function LanguageSwitcher() {
-  const [selectedLanguage, setSelectedLanguage] = React.useState<Language>(
-    languages[0]
-  );
+  const { language, setLanguage } = useI18n();
 
   return (
     <DropdownMenu>
@@ -37,10 +31,10 @@ export default function LanguageSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {languages.map((lang) => (
+        {languageOptions.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
-            onClick={() => setSelectedLanguage(lang)}
+            onClick={() => setLanguage(lang.code)}
             className="flex items-center gap-2"
           >
             <lang.flag className="h-4 w-4" />

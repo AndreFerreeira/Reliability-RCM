@@ -1,0 +1,96 @@
+{
+  "dashboard": {
+    "title": "Reliability RCM"
+  },
+  "tabs": {
+    "reliabilityAnalysis": "Reliability Analysis",
+    "aiAnalysis": "AI Analysis",
+    "monteCarlo": "Monte Carlo Simulator"
+  },
+  "supplierManager": {
+    "cardTitle": "Equipment Data",
+    "cardDescription": "Manage time-to-failure data for each piece of equipment.",
+    "dataInputTitle": "Data Entry",
+    "dataInputDescription": "Add new equipment for analysis.",
+    "equipmentLabel": "Equipment",
+    "equipmentPlaceholder": "e.g., Equipment A",
+    "analysisSettingsTitle": "Analysis Settings",
+    "srmLabel": "Regression",
+    "mleLabel": "Likelihood",
+    "rrxLabel": "X-Regression",
+    "dataConfigTitle": "Data Configuration",
+    "unitsLabel": "Units",
+    "dataOptionsLabel": "Data Options",
+    "hasSuspensionsLabel": "Dataset contains suspensions",
+    "hasSuspensionsDescription": "Right-censored data (items that did not fail).",
+    "isGroupedLabel": "Enter grouped data",
+    "isGroupedDescription": "Multiple items with the same failure time.",
+    "hasIntervalsLabel": "Dataset contains intervals (Soon)",
+    "hasIntervalsDescription": "Interval and/or left-censored data.",
+    "distributionLabel": "Probability Distribution",
+    "distributionPlaceholder": "Select a distribution",
+    "addButton": "Add Equipment",
+    "currentEquipmentsTitle": "Current Equipments",
+    "noEquipments": "No equipment added yet.",
+    "removeAriaLabel": "Remove"
+  },
+  "units": {
+    "hour": "Hour (h)",
+    "day": "Day",
+    "cycle": "Cycle",
+    "km": "Km"
+  },
+  "parameters": {
+    "beta": "β (Beta)",
+    "eta": "η (Eta)",
+    "rho": "ρ (R²)",
+    "logMean": "μ (Log-Mean)",
+    "mean": "μ (Mean)",
+    "logStdDev": "σ (Log-SD)",
+    "stdDev": "σ (SD)",
+    "lambda": "λ (Rate)"
+  },
+  "probabilityPlot": {
+    "cardTitle": "Probability Plot ({{distribution}})",
+    "cardDescription": "Goodness-of-fit analysis. The closer the points are to the fitted line, the better the model fits."
+  },
+  "toasts": {
+    "limitReached": {
+      "title": "Limit Reached",
+      "description": "You can compare a maximum of 5 equipments at a time."
+    },
+    "processingError": {
+      "title": "Error Processing Data",
+      "description": "Check the input data format."
+    },
+    "invalidData": {
+      "groupedSuspensions": "Invalid data row: \"{{line}}\". Use [Time] [Failures] [Suspensions] format.",
+      "suspensions": "Invalid row found: \"{{line}}\". Use [Time] [Status] format.",
+      "grouped": "Invalid grouped data row: \"{{line}}\".",
+      "noData": "At least one valid data point is required for analysis."
+    }
+  },
+  "distributionWizard": {
+    "button": "Distribution Wizard",
+    "title": "Distribution Wizard - {{supplierName}}",
+    "description": "Analyze which probability distribution best fits your equipment data.",
+    "analyzeButton": "Analyze Data",
+    "howTitle": "🔍 How we choose the best distribution",
+    "howIntro": "The tool evaluates different statistical distributions to find which model best represents the equipment's failure behavior. The main criterion is:",
+    "howCriterion": "LKV – Log-Likelihood Value",
+    "howLkv": "Indicates how well the model fits the data. Higher (less negative) values mean a better statistical fit.",
+    "howR2": "The displayed R² is only for visual reference on the probability plot, but it does not determine which distribution is better. It serves only as a graphical reference.",
+    "table": {
+      "distribution": "Distribution",
+      "lkv": "LKV (Fit)",
+      "r2": "R² (Visual)",
+      "action": "Action",
+      "best": "Best",
+      "applyBest": "Apply (Best)",
+      "apply": "Apply"
+    },
+    "bestDistribution": "🏆 Best Distribution: {{bestDist}}",
+    "explanationLognormal": "The Lognormal distribution showed the highest LKV ({{lkv}}), indicating the best statistical fit for this equipment's failure and suspension data. This model correctly captures the variability and long tail observed in the failure times.",
+    "explanationWeibull": "The Weibull distribution showed the highest LKV ({{lkv}}), indicating the best statistical fit for this equipment's data. The beta parameter reveals the failure rate behavior over time."
+  }
+}

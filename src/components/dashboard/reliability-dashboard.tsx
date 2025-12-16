@@ -16,6 +16,7 @@ import ProbabilityPaper from './probability-paper';
 import ProbabilityPlot from './probability-plot';
 import MonteCarloSimulator from './monte-carlo-simulator';
 import LanguageSwitcher from './language-switcher';
+import { useI18n } from '@/i18n/i18n-provider';
 
 const initialSuppliersData = [
   { 
@@ -48,6 +49,7 @@ const initialSuppliers: Supplier[] = initialSuppliersData.map(s => {
 export default function ReliabilityDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [estimationMethod, setEstimationMethod] = useState<EstimationMethod>('MLE');
+  const { t } = useI18n();
 
   const handleSetSuppliers = (updater: (prev: Supplier[]) => Supplier[]) => {
     setSuppliers(prev => {
@@ -99,7 +101,7 @@ export default function ReliabilityDashboard() {
       <div className="flex items-center justify-between space-y-2">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-headline font-bold tracking-tight">
-            Reliability RCM
+            {t('dashboard.title')}
           </h1>
         </div>
         <div className="flex items-center space-x-2">
@@ -108,17 +110,17 @@ export default function ReliabilityDashboard() {
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
         <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
-          <TabsTrigger value="analysis"><LineChartIcon />Análise de Confiabilidade</TabsTrigger>
-          <TabsTrigger value="ai_analysis"><BrainCircuit />Análise com IA</TabsTrigger>
-          <TabsTrigger value="monte_carlo"><TestTube />Simulador Monte Carlo</TabsTrigger>
+          <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
+          <TabsTrigger value="ai_analysis"><BrainCircuit />{t('tabs.aiAnalysis')}</TabsTrigger>
+          <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="col-span-full lg:col-span-2">
               <CardHeader>
-                <CardTitle>Dados do Equipamento</CardTitle>
+                <CardTitle>{t('supplierManager.cardTitle')}</CardTitle>
                 <CardDescription>
-                  Gerencie os dados de tempo até a falha para cada equipamento.
+                  {t('supplierManager.cardDescription')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="pl-2 pr-2 sm:pl-6 sm:pr-6">
@@ -135,9 +137,9 @@ export default function ReliabilityDashboard() {
                {suppliers.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Gráfico de Probabilidade ({plotDistributionType})</CardTitle>
+                      <CardTitle>{t('probabilityPlot.cardTitle', { distribution: plotDistributionType })}</CardTitle>
                       <CardDescription>
-                        Análise de aderência dos dados. Quanto mais próximos os pontos da linha de ajuste, melhor a aderência do modelo.
+                        {t('probabilityPlot.cardDescription')}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="-mt-4">

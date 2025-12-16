@@ -1,0 +1,96 @@
+{
+  "dashboard": {
+    "title": "Reliability RCM"
+  },
+  "tabs": {
+    "reliabilityAnalysis": "Análisis de Confiabilidad",
+    "aiAnalysis": "Análisis con IA",
+    "monteCarlo": "Simulador Monte Carlo"
+  },
+  "supplierManager": {
+    "cardTitle": "Datos del Equipo",
+    "cardDescription": "Gestione los datos de tiempo hasta el fallo para cada equipo.",
+    "dataInputTitle": "Entrada de Datos",
+    "dataInputDescription": "Añadir un nuevo equipo para análisis.",
+    "equipmentLabel": "Equipo",
+    "equipmentPlaceholder": "ej: Equipo A",
+    "analysisSettingsTitle": "Configuración de Análisis",
+    "srmLabel": "Regresión",
+    "mleLabel": "Verosimilitud",
+    "rrxLabel": "Regresión X",
+    "dataConfigTitle": "Configuración de Datos",
+    "unitsLabel": "Unidades",
+    "dataOptionsLabel": "Opciones de Datos",
+    "hasSuspensionsLabel": "El conjunto de datos contiene suspensiones",
+    "hasSuspensionsDescription": "Datos censurados a la derecha (elementos que no fallaron).",
+    "isGroupedLabel": "Introducir datos agrupados",
+    "isGroupedDescription": "Múltiples elementos con el mismo tiempo de fallo.",
+    "hasIntervalsLabel": "El conjunto de datos contiene intervalos (Pronto)",
+    "hasIntervalsDescription": "Datos censurados por intervalo y/o a la izquierda.",
+    "distributionLabel": "Distribución de Probabilidad",
+    "distributionPlaceholder": "Seleccione una distribución",
+    "addButton": "Añadir Equipo",
+    "currentEquipmentsTitle": "Equipos Actuales",
+    "noEquipments": "Aún no se han añadido equipos.",
+    "removeAriaLabel": "Eliminar"
+  },
+  "units": {
+    "hour": "Hora (h)",
+    "day": "Día",
+    "cycle": "Ciclo",
+    "km": "Km"
+  },
+  "parameters": {
+    "beta": "β (Beta)",
+    "eta": "η (Eta)",
+    "rho": "ρ (R²)",
+    "logMean": "μ (Log-Media)",
+    "mean": "μ (Media)",
+    "logStdDev": "σ (Log-DE)",
+    "stdDev": "σ (DE)",
+    "lambda": "λ (Tasa)"
+  },
+  "probabilityPlot": {
+    "cardTitle": "Gráfico de Probabilidad ({{distribution}})",
+    "cardDescription": "Análisis de bondad de ajuste. Cuanto más cerca estén los puntos de la línea de ajuste, mejor se ajusta el modelo."
+  },
+  "toasts": {
+    "limitReached": {
+      "title": "Límite Alcanzado",
+      "description": "Puede comparar un máximo de 5 equipos a la vez."
+    },
+    "processingError": {
+      "title": "Error al Procesar Datos",
+      "description": "Verifique el formato de los datos de entrada."
+    },
+    "invalidData": {
+      "groupedSuspensions": "Fila de datos inválida: \"{{line}}\". Use el formato [Tiempo] [Fallos] [Suspensiones].",
+      "suspensions": "Fila inválida encontrada: \"{{line}}\". Use el formato [Tiempo] [Estado].",
+      "grouped": "Fila de datos agrupados inválida: \"{{line}}\".",
+      "noData": "Se requiere al menos un punto de datos válido para el análisis."
+    }
+  },
+  "distributionWizard": {
+    "button": "Asistente de Distribución",
+    "title": "Asistente de Distribución - {{supplierName}}",
+    "description": "Analice qué distribución de probabilidad se ajusta mejor a los datos de su equipo.",
+    "analyzeButton": "Analizar Datos",
+    "howTitle": "🔍 Cómo elegimos la mejor distribución",
+    "howIntro": "La herramienta evalúa diferentes distribuciones estadísticas para encontrar qué modelo representa mejor el comportamiento de fallo del equipo. El criterio principal es:",
+    "howCriterion": "LKV – Valor de Log-Verosimilitud",
+    "howLkv": "Indica qué tan bien se ajusta el modelo a los datos. Valores más altos (menos negativos) significan un mejor ajuste estadístico.",
+    "howR2": "El R² mostrado es solo para referencia visual en el gráfico de probabilidad, pero no determina qué distribución es mejor. Sirve solo como referencia gráfica.",
+    "table": {
+      "distribution": "Distribución",
+      "lkv": "LKV (Ajuste)",
+      "r2": "R² (Visual)",
+      "action": "Acción",
+      "best": "Mejor",
+      "applyBest": "Aplicar (Mejor)",
+      "apply": "Aplicar"
+    },
+    "bestDistribution": "🏆 Mejor Distribución: {{bestDist}}",
+    "explanationLognormal": "La distribución Lognormal mostró el LKV más alto ({{lkv}}), lo que indica el mejor ajuste estadístico para los datos de fallo y suspensión de este equipo. Este modelo captura correctamente la variabilidad y la cola larga observada en los tiempos de fallo.",
+    "explanationWeibull": "La distribución Weibull mostró el LKV más alto ({{lkv}}), lo que indica el mejor ajuste estadístico para los datos de este equipo. El parámetro beta revela el comportamiento de la tasa de fallos a lo largo del tiempo."
+  }
+}
