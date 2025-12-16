@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useI18n } from '@/i18n/i18n-provider';
 
 interface BathtubCurveAnalysisProps {
   failureTimes: number[];
@@ -14,7 +15,7 @@ interface Point {
   time: number;
 }
 
-const BathtubCurveSVG = ({ points }: { points: Point[] }) => (
+const BathtubCurveSVG = ({ points, t }: { points: Point[], t: (key: string) => string }) => (
   <div className="relative">
     <svg viewBox="0 0 500 200" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
       {/* Grid lines */}
@@ -30,13 +31,13 @@ const BathtubCurveSVG = ({ points }: { points: Point[] }) => (
       <line x1="340" y1="10" x2="340" y2="190" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4" />
 
       {/* Phase Labels */}
-      <text x="80" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">Mortalidade Infantil</text>
-      <text x="250" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">Vida Útil</text>
-      <text x="420" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">Desgaste</text>
+      <text x="80" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">{t('bathtub.infantMortality')}</text>
+      <text x="250" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">{t('bathtub.usefulLife')}</text>
+      <text x="420" y="175" textAnchor="middle" className="text-xs font-semibold fill-muted-foreground">{t('bathtub.wearOut')}</text>
 
       {/* Axis Labels */}
-      <text x="-15" y="100" transform="rotate(-90 -15,100)" textAnchor="middle" className="text-xs font-semibold fill-foreground">Taxa de falhas</text>
-      <text x="250" y="198" textAnchor="middle" className="text-xs font-semibold fill-foreground">Tempo</text>
+      <text x="-15" y="100" transform="rotate(-90 -15,100)" textAnchor="middle" className="text-xs font-semibold fill-foreground">{t('bathtub.failureRate')}</text>
+      <text x="250" y="198" textAnchor="middle" className="text-xs font-semibold fill-foreground">{t('charts.time')}</text>
     </svg>
 
     <div className="absolute top-0 left-0 w-full h-full">
@@ -52,7 +53,7 @@ const BathtubCurveSVG = ({ points }: { points: Point[] }) => (
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Tempo de Falha: {point.time}</p>
+              <p>{t('bathtub.failureTime')}: {point.time}</p>
             </TooltipContent>
           </Tooltip>
         ))}
@@ -112,6 +113,7 @@ const mapTimeToPoint = (time: number, minTime: number, maxTime: number): Point =
 export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnalysisProps) {
   const [points, setPoints] = useState<Point[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     setIsClient(true);
@@ -133,13 +135,13 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Análise da Curva da Banheira</CardTitle>
+          <CardTitle>{t('bathtub.cardTitle')}</CardTitle>
           <CardDescription>
-            Visualize os pontos de falha ao longo do ciclo de vida do componente.
+            {t('bathtub.cardDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-48">
-          <p className="text-muted-foreground">Adicione dados de equipamentos para ver a análise.</p>
+          <p className="text-muted-foreground">{t('bathtub.noData')}</p>
         </CardContent>
       </Card>
     );
@@ -148,13 +150,13 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Análise da Curva da Banheira</CardTitle>
+        <CardTitle>{t('bathtub.cardTitle')}</CardTitle>
         <CardDescription>
-          Visualize os pontos de falha ao longo do ciclo de vida do componente.
+          {t('bathtub.cardDescription')}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
-        {isClient ? <BathtubCurveSVG points={points} /> : <div className="h-[205px] w-full animate-pulse rounded-md bg-muted" />}
+        {isClient ? <BathtubCurveSVG points={points} t={t} /> : <div className="h-[205px] w-full animate-pulse rounded-md bg-muted" />}
       </CardContent>
     </Card>
   );

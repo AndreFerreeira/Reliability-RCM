@@ -4,29 +4,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Supplier } from '@/lib/types';
 import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import React from 'react';
+import { useI18n } from '@/i18n/i18n-provider';
 
 interface WeibullParameterAnalysisProps {
     suppliers: Supplier[];
 }
 
-const BetaAnalysis = ({ beta }: { beta: number }) => {
+const BetaAnalysis = ({ beta, t }: { beta: number, t: (key: string) => string }) => {
     let interpretation, Icon, colorClass, phase;
 
     if (beta < 1) {
-        interpretation = "Foco em melhorar a qualidade, comissionamento e testes de aceitação.";
+        interpretation = t('weibullAnalysis.beta.infantMortality.interpretation');
         Icon = TrendingDown;
         colorClass = "text-green-500";
-        phase = "Mortalidade Infantil";
+        phase = t('weibullAnalysis.beta.infantMortality.phase');
     } else if (beta > 0.95 && beta < 1.05) {
-        interpretation = "Considere Manutenção Preventiva (PM) baseada no tempo ou análises de custo-benefício.";
+        interpretation = t('weibullAnalysis.beta.usefulLife.interpretation');
         Icon = Minus;
         colorClass = "text-yellow-500";
-        phase = "Vida Útil";
+        phase = t('weibullAnalysis.beta.usefulLife.phase');
     } else { // beta > 1
-        interpretation = "Cenário ideal para Manutenção Preditiva (PdM), pois há um padrão de desgaste claro.";
+        interpretation = t('weibullAnalysis.beta.wearOut.interpretation');
         Icon = TrendingUp;
         colorClass = "text-red-500";
-        phase = "Desgaste";
+        phase = t('weibullAnalysis.beta.wearOut.phase');
     }
 
     return (
@@ -37,7 +38,7 @@ const BetaAnalysis = ({ beta }: { beta: number }) => {
                 </div>
                 <div>
                     <p className="font-bold text-lg">{beta.toFixed(2)}</p>
-                    <p className="text-sm font-medium text-muted-foreground">Parâmetro de Forma (β)</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('parameters.beta')}</p>
                 </div>
             </div>
             <p className="text-xs text-muted-foreground pl-1">
@@ -47,7 +48,7 @@ const BetaAnalysis = ({ beta }: { beta: number }) => {
     );
 };
 
-const EtaAnalysis = ({ eta }: { eta: number }) => {
+const EtaAnalysis = ({ eta, t }: { eta: number, t: (key: string) => string }) => {
     return (
         <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -56,17 +57,19 @@ const EtaAnalysis = ({ eta }: { eta: number }) => {
                 </div>
                 <div>
                     <p className="font-bold text-lg">{Math.round(eta)}</p>
-                    <p className="text-sm font-medium text-muted-foreground">Vida Característica (η)</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('parameters.eta')}</p>
                 </div>
             </div>
             <p className="text-xs text-muted-foreground pl-1">
-                Este é o tempo em que <strong className="font-semibold text-foreground">63.2%</strong> da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento.
+                {t('weibullAnalysis.eta.description')}
             </p>
         </div>
     );
 };
 
 export default function WeibullParameterAnalysis({ suppliers }: WeibullParameterAnalysisProps) {
+    const { t } = useI18n();
+
     if (suppliers.length === 0) {
         return null;
     }
@@ -74,9 +77,9 @@ export default function WeibullParameterAnalysis({ suppliers }: WeibullParameter
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Analisador de Parâmetros Weibull (β & η)</CardTitle>
+                <CardTitle>{t('weibullAnalysis.cardTitle')}</CardTitle>
                 <CardDescription>
-                    Interprete os parâmetros Beta (forma) e Eta (vida) para entender o modo de falha e a vida útil de seus equipamentos.
+                    {t('weibullAnalysis.cardDescription')}
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -85,8 +88,8 @@ export default function WeibullParameterAnalysis({ suppliers }: WeibullParameter
                         <Card key={supplier.id} className="p-4" style={{ borderLeft: `4px solid ${supplier.color}` }}>
                             <h3 className="font-bold text-foreground mb-4">{supplier.name}</h3>
                             <div className="space-y-6">
-                                {supplier.params.beta != null && <BetaAnalysis beta={supplier.params.beta} />}
-                                {supplier.params.eta != null && <EtaAnalysis eta={supplier.params.eta} />}
+                                {supplier.params.beta != null && <BetaAnalysis beta={supplier.params.beta} t={t} />}
+                                {supplier.params.eta != null && <EtaAnalysis eta={supplier.params.eta} t={t} />}
                             </div>
                         </Card>
                     ))}

@@ -3,6 +3,7 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Supplier, Distribution } from '@/lib/types';
+import { useI18n } from '@/i18n/i18n-provider';
 
 interface ProbabilityPlotProps {
     suppliers?: Supplier[]; // Allow undefined
@@ -31,7 +32,7 @@ function normalInverse(p: number): number {
 }
 
 export default function ProbabilityPlot({ suppliers = [], paperType }: React.PropsWithChildren<ProbabilityPlotProps>) {
-    
+    const { t } = useI18n();
     const validSuppliers = (suppliers || []).filter(s => s && s.plotData && s.plotData.points?.median && s.plotData.points.median.length > 0 && s.distribution === paperType);
 
     if (validSuppliers.length === 0) {
@@ -39,8 +40,8 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full min-h-[450px]">
                     <div className="text-center text-muted-foreground">
-                        <p className="font-semibold">Aguardando dados...</p>
-                        <p className="text-sm mt-2">Adicione ou selecione equipamentos com a distribuição "{paperType}" para ver o gráfico.</p>
+                        <p className="font-semibold">{t('probabilityPlot.waiting')}</p>
+                        <p className="text-sm mt-2">{t('probabilityPlot.noData', { paperType })}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -93,7 +94,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             },
             {
                 type: 'line',
-                name: `${name} (Ajuste)`,
+                name: `${name} (${t('probabilityPlot.fit')})`,
                 data: transformedLine,
                 showSymbol: false,
                 lineStyle: { width: 2, color: color }
@@ -130,7 +131,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             type: 'value',
             min: finalMinY,
             max: finalMaxY,
-            name: "Probabilidade Cumulativa (%)",
+            name: t('probabilityPlot.yAxis'),
             nameLocation: 'middle',
             nameGap: 55,
             axisLabel: {
@@ -159,7 +160,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             type: 'value',
             min: finalMinY,
             max: finalMaxY,
-            name: 'Probabilidade Cumulativa (%)',
+            name: t('probabilityPlot.yAxis'),
             nameLocation: 'middle',
             nameGap: 55,
             axisLabel: {
@@ -185,7 +186,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             type: 'value',
             min: finalMinY,
             max: finalMaxY,
-            name: "Probabilidade (%)",
+            name: t('probabilityPlot.yAxis'),
             nameLocation: 'middle',
             nameGap: 55,
             axisLabel: { color: "hsl(var(--foreground))" },
@@ -196,10 +197,10 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
     const xAxisSettings = {
         Weibull: { name: 'ln(Tempo)', type: 'value', min: finalMinX, max: finalMaxX },
         Lognormal: { name: 'ln(Tempo)', type: 'value', min: finalMinX, max: finalMaxX },
-        Normal: { name: 'Tempo', type: 'value', min: finalMinX, max: finalMaxX },
-        Exponential: { name: 'Tempo', type: 'value', min: finalMinX, max: finalMaxX },
+        Normal: { name: t('charts.time'), type: 'value', min: finalMinX, max: finalMaxX },
+        Exponential: { name: t('charts.time'), type: 'value', min: finalMinX, max: finalMaxX },
         Loglogistic: { name: 'ln(Tempo)', type: 'value', min: finalMinX, max: finalMaxX },
-        Gumbel: { name: 'Tempo', type: 'value', min: finalMinX, max: finalMaxX }
+        Gumbel: { name: t('charts.time'), type: 'value', min: finalMinX, max: finalMaxX }
     };
     
     // ECharts option object
@@ -228,7 +229,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
             icon: 'circle',
             selected: validSuppliers.reduce((acc, s) => {
                 acc[s.name] = true;
-                acc[`${s.name} (Ajuste)`] = true;
+                acc[`${s.name} (${t('probabilityPlot.fit')})`] = true;
                 return acc;
             }, {} as Record<string, boolean>),
         },
@@ -270,7 +271,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                         probVal = 'N/A'; // Need CDF for others
                     }
 
-                    return `Tempo: ${timeVal}<br/>Prob. Estimada: ${probVal.toFixed(2)}%`;
+                    return `${t('charts.time')}: ${timeVal}<br/>${t('probabilityPlot.estimatedProb')}: ${probVal.toFixed(2)}%`;
                 }
                 
                 const supplier = validSuppliers.find(s => s.name === pointParam.seriesName);
@@ -279,7 +280,7 @@ export default function ProbabilityPlot({ suppliers = [], paperType }: React.Pro
                 const originalPoint = supplier.plotData.points.median[pointParam.dataIndex];
                 if (!originalPoint) return '';
 
-                let tooltip = `<strong>${supplier.name}</strong><br/>Tempo: ${originalPoint.time.toFixed(0)}<br/>Prob. Falha: ${(originalPoint.prob * 100).toFixed(2)}%`;
+                let tooltip = `<strong>${supplier.name}</strong><br/>${t('charts.time')}: ${originalPoint.time.toFixed(0)}<br/>${t('probabilityPlot.failureProb')}: ${(originalPoint.prob * 100).toFixed(2)}%`;
 
                 if (supplier.params.rho != null) {
                     tooltip += `<br/>R²: ${supplier.params.rho.toFixed(3)}`;

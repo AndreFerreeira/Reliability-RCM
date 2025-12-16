@@ -4,17 +4,18 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ReliabilityData, Supplier } from '@/lib/types';
+import { useI18n } from '@/i18n/i18n-provider';
 
 interface ReliabilityChartsProps {
   chartData: ReliabilityData;
   suppliers: Supplier[];
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, t }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
-        <div className="font-bold mb-2 text-foreground">{`Tempo: ${Math.round(label)}`}</div>
+        <div className="font-bold mb-2 text-foreground">{`${t('charts.time')}: ${Math.round(label)}`}</div>
           <div className="grid gap-1.5">
             {payload.map((entry: any, index: number) => (
                <div key={`item-${index}`} className="flex items-center justify-between gap-4 text-sm">
@@ -36,12 +37,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityChartsProps) {
   const hasData = suppliers.length > 0;
+  const { t } = useI18n();
 
-  const renderChart = (title: string, description: string, dataKey: keyof ReliabilityData, yDomain: any) => (
+  const renderChart = (titleKey: string, descriptionKey: string, dataKey: keyof ReliabilityData, yDomain: any) => (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>{t(titleKey)}</CardTitle>
+        <CardDescription>{t(descriptionKey)}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-72 w-full">
@@ -56,7 +58,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
                 tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                 domain={['dataMin', 'dataMax']} 
-                name="Time" 
+                name={t('charts.time')}
               />
               <YAxis 
                 stroke="hsl(var(--muted-foreground))"
@@ -68,7 +70,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
                     return tick.toPrecision(2);
                 }}
               />
-              <Tooltip content={<CustomTooltip />} wrapperClassName="!border-border !bg-background !shadow-lg" />
+              <Tooltip content={<CustomTooltip t={t} />} wrapperClassName="!border-border !bg-background !shadow-lg" />
               <Legend wrapperStyle={{fontSize: "0.8rem"}} iconType="line" />
               {suppliers.map(supplier => (
                 <Line
@@ -85,7 +87,7 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
-            Adicione dados do equipamento para ver os gráficos.
+            {t('charts.noData')}
           </div>
         )}
         </div>
@@ -96,10 +98,10 @@ export default function ReliabilityCharts({ chartData, suppliers }: ReliabilityC
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {renderChart('Confiabilidade: R(t)', 'Probabilidade de funcionar corretamente até o tempo t.', 'Rt', [0, 1])}
-        {renderChart('Probabilidade de Falha: F(t)', 'Probabilidade de falhar antes do tempo t.', 'Ft', [0, 1])}
-        {renderChart('Densidade de Probabilidade: f(t)', 'Probabilidade relativa de falha no tempo t.', 'ft', [0, 'dataMax * 1.2'])}
-        {renderChart('Taxa de Falha: λ(t)', 'Probabilidade instantânea de falha no tempo t.', 'lambda_t', [0, 'dataMax * 1.2'])}
+        {renderChart('charts.reliability.title', 'charts.reliability.description', 'Rt', [0, 1])}
+        {renderChart('charts.failureProb.title', 'charts.failureProb.description', 'Ft', [0, 1])}
+        {renderChart('charts.pdf.title', 'charts.pdf.description', 'ft', [0, 'dataMax * 1.2'])}
+        {renderChart('charts.failureRate.title', 'charts.failureRate.description', 'lambda_t', [0, 'dataMax * 1.2'])}
       </div>
     </div>
   );

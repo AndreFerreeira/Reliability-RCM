@@ -52,7 +52,12 @@
   },
   "probabilityPlot": {
     "cardTitle": "Gráfico de Probabilidade ({{distribution}})",
-    "cardDescription": "Análise de aderência dos dados. Quanto mais próximos os pontos da linha de ajuste, melhor a aderência do modelo."
+    "cardDescription": "Análise de aderência dos dados. Quanto mais próximos os pontos da linha de ajuste, melhor a aderência do modelo.",
+    "waiting": "Aguardando dados...",
+    "noData": "Adicione ou selecione equipamentos com a distribuição \"{{paperType}}\" para ver o gráfico.",
+    "fit": "Ajuste",
+    "estimatedProb": "Prob. Estimada",
+    "failureProb": "Prob. Falha"
   },
   "toasts": {
     "limitReached": {
@@ -92,5 +97,114 @@
     "bestDistribution": "🏆 Melhor Distribuição: {{bestDist}}",
     "explanationLognormal": "A distribuição Lognormal apresentou o maior LKV ({{lkv}}), indicando o melhor ajuste estatístico aos dados de falha e censura deste equipamento. Este modelo captura corretamente a variabilidade e a cauda longa observada nos tempos de falha.",
     "explanationWeibull": "A distribuição Weibull apresentou o maior LKV ({{lkv}}), indicando o melhor ajuste estatístico para os dados deste equipamento. O parâmetro beta revela o comportamento da taxa de falha ao longo do tempo."
+  },
+  "charts": {
+    "time": "Tempo",
+    "noData": "Adicione dados do equipamento para ver os gráficos.",
+    "reliability": {
+      "title": "Confiabilidade: R(t)",
+      "description": "Probabilidade de funcionar corretamente até o tempo t."
+    },
+    "failureProb": {
+      "title": "Probabilidade de Falha: F(t)",
+      "description": "Probabilidade de falhar antes do tempo t."
+    },
+    "pdf": {
+      "title": "Densidade de Probabilidade: f(t)",
+      "description": "Probabilidade relativa de falha no tempo t."
+    },
+    "failureRate": {
+      "title": "Taxa de Falha: λ(t)",
+      "description": "Probabilidade instantânea de falha no tempo t."
+    }
+  },
+  "weibullAnalysis": {
+    "cardTitle": "Analisador de Parâmetros Weibull (β & η)",
+    "cardDescription": "Interprete os parâmetros Beta (forma) e Eta (vida) para entender o modo de falha e a vida útil de seus equipamentos.",
+    "beta": {
+      "infantMortality": {
+        "phase": "Mortalidade Infantil",
+        "interpretation": "Foco em melhorar a qualidade, comissionamento e testes de aceitação."
+      },
+      "usefulLife": {
+        "phase": "Vida Útil",
+        "interpretation": "Considere Manutenção Preventiva (PM) baseada no tempo ou análises de custo-benefício."
+      },
+      "wearOut": {
+        "phase": "Desgaste",
+        "interpretation": "Cenário ideal para Manutenção Preditiva (PdM), pois há um padrão de desgaste claro."
+      }
+    },
+    "eta": {
+      "description": "Este é o tempo em que 63.2% da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento."
+    }
+  },
+  "bathtub": {
+    "cardTitle": "Análise da Curva da Banheira",
+    "cardDescription": "Visualize os pontos de falha ao longo do ciclo de vida do componente.",
+    "noData": "Adicione dados de equipamentos para ver a análise.",
+    "infantMortality": "Mortalidade Infantil",
+    "usefulLife": "Vida Útil",
+    "wearOut": "Desgaste",
+    "failureRate": "Taxa de falhas",
+    "failureTime": "Tempo de Falha"
+  },
+  "aiAnalysis": {
+    "addEquipment": "Adicione dados de equipamentos para habilitar a análise.",
+    "error": {
+      "title": "Erro na Análise"
+    },
+    "risk": {
+      "cardTitle": "Previsor de Risco de Falha com IA",
+      "cardDescription": "Use dados históricos de falha para identificar os fatores de risco mais significativos que contribuem para falhas.",
+      "button": "Prever Fatores de Risco",
+      "pending": "Analisando dados históricos... Isso pode levar um momento.",
+      "summaryTitle": "Resumo da Análise de Risco",
+      "factorsTitle": "Fatores de Risco Identificados",
+      "noFactors": "Nenhum fator de risco significativo foi identificado.",
+      "factorLabel": "Fator de Risco #{{index}}",
+      "importanceLabel": "IMPORTÂNCIA"
+    },
+    "comprehensive": {
+      "cardTitle": "Relatório Abrangente com IA",
+      "cardDescription": "Gere uma análise técnica detalhada comparando todos os equipamentos nos quatro principais gráficos de confiabilidade.",
+      "button": "Gerar Análise Abrangente",
+      "pending": "Gerando análise comparativa... Isso pode levar um momento.",
+      "doneTitle": "Análise da IA Concluída",
+      "doneDescription": "Abaixo está uma análise técnica para cada gráfico, comparando o desempenho dos equipamentos selecionados."
+    }
+  },
+  "monteCarlo": {
+    "cardTitle": "Simulador Monte Carlo",
+    "cardDescription": "Selecione o tipo de simulação que deseja realizar.",
+    "confidence": "Limites de Confiança",
+    "dispersion": "Dispersão de Parâmetros",
+    "contour": "Gráfico de Contorno",
+    "budget": "Orçamento de Sobressalentes",
+    "competing": "Modos Competitivos",
+    "pending": "Executando simulação...",
+    "waiting": "Aguardando parâmetros para iniciar a simulação."
+  },
+  "dataInstructions": {
+    "simple": {
+      "title": "Tempos até a Falha (TTF)",
+      "placeholder": "Ex: 500, 900, 1200...",
+      "description": "Insira valores separados por vírgula, espaço ou nova linha."
+    },
+    "suspensions": {
+      "title": "Dados de Falha/Suspensão",
+      "placeholder": "Ex:\n1100 S\n1250 F",
+      "description": "Use [Tempo] [F/S]. 'F' para Falha, 'S' para Suspensão."
+    },
+    "grouped": {
+      "title": "Dados de Falha Agrupados",
+      "placeholder": "Ex:\n1000 10\n1200 5",
+      "description": "Use [Tempo] [Quantidade]."
+    },
+    "groupedSuspensions": {
+      "title": "Dados Agrupados de Falha/Suspensão",
+      "placeholder": "Ex:\n1000 10 2\n1200 5 1",
+      "description": "Use [Tempo] [Qtd Falhas] [Qtd Suspensões]."
+    }
   }
 }

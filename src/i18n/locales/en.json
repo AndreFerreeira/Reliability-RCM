@@ -5,7 +5,7 @@
   "tabs": {
     "reliabilityAnalysis": "Reliability Analysis",
     "aiAnalysis": "AI Analysis",
-    "monteCarlo": "Monte Carlo Simulator"
+    "monteCarlo": "Monte Carlo"
   },
   "supplierManager": {
     "cardTitle": "Equipment Data",
@@ -52,7 +52,12 @@
   },
   "probabilityPlot": {
     "cardTitle": "Probability Plot ({{distribution}})",
-    "cardDescription": "Goodness-of-fit analysis. The closer the points are to the fitted line, the better the model fits."
+    "cardDescription": "Goodness-of-fit analysis. The closer the points are to the fitted line, the better the model fits.",
+    "waiting": "Waiting for data...",
+    "noData": "Add or select equipment with the \"{{paperType}}\" distribution to see the chart.",
+    "fit": "Fit",
+    "estimatedProb": "Estimated Prob.",
+    "failureProb": "Failure Prob."
   },
   "toasts": {
     "limitReached": {
@@ -92,5 +97,114 @@
     "bestDistribution": "🏆 Best Distribution: {{bestDist}}",
     "explanationLognormal": "The Lognormal distribution showed the highest LKV ({{lkv}}), indicating the best statistical fit for this equipment's failure and suspension data. This model correctly captures the variability and long tail observed in the failure times.",
     "explanationWeibull": "The Weibull distribution showed the highest LKV ({{lkv}}), indicating the best statistical fit for this equipment's data. The beta parameter reveals the failure rate behavior over time."
+  },
+  "charts": {
+    "time": "Time",
+    "noData": "Add equipment data to see the charts.",
+    "reliability": {
+      "title": "Reliability: R(t)",
+      "description": "Probability of operating correctly until time t."
+    },
+    "failureProb": {
+      "title": "Failure Probability: F(t)",
+      "description": "Probability of failing before time t."
+    },
+    "pdf": {
+      "title": "Probability Density: f(t)",
+      "description": "Relative probability of failure at time t."
+    },
+    "failureRate": {
+      "title": "Failure Rate: λ(t)",
+      "description": "Instantaneous probability of failure at time t."
+    }
+  },
+  "weibullAnalysis": {
+    "cardTitle": "Weibull Parameter Analyzer (β & η)",
+    "cardDescription": "Interpret Beta (shape) and Eta (life) parameters to understand the failure mode and lifespan of your equipment.",
+    "beta": {
+      "infantMortality": {
+        "phase": "Infant Mortality",
+        "interpretation": "Focus on improving quality, commissioning, and acceptance testing."
+      },
+      "usefulLife": {
+        "phase": "Useful Life",
+        "interpretation": "Consider time-based Preventive Maintenance (PM) or cost-benefit analyses."
+      },
+      "wearOut": {
+        "phase": "Wear-Out",
+        "interpretation": "Ideal scenario for Predictive Maintenance (PdM) as there is a clear wear pattern."
+      }
+    },
+    "eta": {
+      "description": "This is the time at which 63.2% of the component population will have failed. It's a crucial reliability milestone for planning."
+    }
+  },
+  "bathtub": {
+    "cardTitle": "Bathtub Curve Analysis",
+    "cardDescription": "Visualize failure points throughout the component's life cycle.",
+    "noData": "Add equipment data to see the analysis.",
+    "infantMortality": "Infant Mortality",
+    "usefulLife": "Useful Life",
+    "wearOut": "Wear-Out",
+    "failureRate": "Failure Rate",
+    "failureTime": "Failure Time"
+  },
+  "aiAnalysis": {
+    "addEquipment": "Add equipment data to enable analysis.",
+    "error": {
+      "title": "Analysis Error"
+    },
+    "risk": {
+      "cardTitle": "AI Failure Risk Predictor",
+      "cardDescription": "Use historical failure data to identify the most significant risk factors contributing to failures.",
+      "button": "Predict Risk Factors",
+      "pending": "Analyzing historical data... This may take a moment.",
+      "summaryTitle": "Risk Analysis Summary",
+      "factorsTitle": "Identified Risk Factors",
+      "noFactors": "No significant risk factors were identified.",
+      "factorLabel": "Risk Factor #{{index}}",
+      "importanceLabel": "IMPORTANCE"
+    },
+    "comprehensive": {
+      "cardTitle": "Comprehensive AI Report",
+      "cardDescription": "Generate a detailed technical analysis comparing all equipment across the four main reliability charts.",
+      "button": "Generate Comprehensive Analysis",
+      "pending": "Generating comparative analysis... This may take a moment.",
+      "doneTitle": "AI Analysis Complete",
+      "doneDescription": "Below is a technical analysis for each chart, comparing the performance of the selected equipment."
+    }
+  },
+  "monteCarlo": {
+    "cardTitle": "Monte Carlo Simulator",
+    "cardDescription": "Select the type of simulation you want to perform.",
+    "confidence": "Confidence Bounds",
+    "dispersion": "Parameter Dispersion",
+    "contour": "Contour Plot",
+    "budget": "Spares Budget",
+    "competing": "Competing Modes",
+    "pending": "Running simulation...",
+    "waiting": "Waiting for parameters to start the simulation."
+  },
+  "dataInstructions": {
+    "simple": {
+      "title": "Failure Times (TTF)",
+      "placeholder": "e.g., 500, 900, 1200...",
+      "description": "Enter values separated by comma, space, or new line."
+    },
+    "suspensions": {
+      "title": "Failure/Suspension Data",
+      "placeholder": "e.g.,\n1100 S\n1250 F",
+      "description": "Use [Time] [F/S]. 'F' for Failure, 'S' for Suspension."
+    },
+    "grouped": {
+      "title": "Grouped Failure Data",
+      "placeholder": "e.g.,\n1000 10\n1200 5",
+      "description": "Use [Time] [Quantity]."
+    },
+    "groupedSuspensions": {
+      "title": "Grouped Failure/Suspension Data",
+      "placeholder": "e.g.,\n1000 10 2\n1200 5 1",
+      "description": "Use [Time] [Failures] [Suspensions]."
+    }
   }
 }
