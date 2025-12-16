@@ -73,6 +73,33 @@
       "suspensions": "Linha inválida encontrada: \"{{line}}\". Use o formato [Tempo] [Status].",
       "grouped": "Linha de dados agrupados inválida: \"{{line}}\".",
       "noData": "Pelo menos um ponto de dados válido é necessário para a análise."
+    },
+    "insufficientData": {
+      "title": "Dados Insuficientes",
+      "description": "Por favor, insira pelo menos dois tempos de falha válidos.",
+      "budgetSource": "São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Beta e Eta."
+    },
+    "missingParams": {
+      "title": "Parâmetros Faltando",
+      "dispersion": "Por favor, preencha todos os campos para a simulação de dispersão.",
+      "budget": "Por favor, preencha todos os campos para o cálculo do orçamento.",
+      "competing": "Adicione pelo menos um modo de falha e preencha o período de previsão."
+    },
+    "calculationError": {
+      "title": "Erro de Cálculo",
+      "budgetParams": "Não foi possível estimar Beta e Eta a partir dos dados de origem."
+    },
+    "emptyPopulation": {
+      "title": "População Vazia",
+      "description": "Nenhum item na população em serviço para calcular o orçamento."
+    },
+    "emptyMode": {
+      "title": "Modo de Falha Vazio",
+      "description": "Todos os modos de falha devem ter pelo menos um tempo de falha."
+    },
+    "simulationError": {
+      "title": "Erro na Simulação",
+      "description": "Ocorreu um erro inesperado."
     }
   },
   "distributionWizard": {
@@ -177,13 +204,163 @@
   "monteCarlo": {
     "cardTitle": "Simulador Monte Carlo",
     "cardDescription": "Selecione o tipo de simulação que deseja realizar.",
-    "confidence": "Limites de Confiança",
-    "dispersion": "Dispersão de Parâmetros",
-    "contour": "Gráfico de Contorno",
-    "budget": "Orçamento de Sobressalentes",
-    "competing": "Modos Competitivos",
+    "loading": "Carregando simulador...",
     "pending": "Executando simulação...",
-    "waiting": "Aguardando parâmetros para iniciar a simulação."
+    "calculating": "Calculando...",
+    "simulating": "Simulando...",
+    "waiting": "Aguardando parâmetros para iniciar a simulação.",
+    "confidenceLevel": "Nível de Confiança: {{level}}%",
+    "errors": {
+      "confidence": "Não foi possível calcular os limites de confiança.",
+      "contour": "Não foi possível calcular o contorno de confiança. Verifique se os dados são adequados para uma análise Weibull.",
+      "competing": "Não foi possível analisar os modos competitivos. Verifique os dados de entrada."
+    },
+    "confidence": {
+      "title": "Limites de Confiança",
+      "cardTitle": "Limites de Confiança",
+      "cardDescription": "Calcule os limites com base em dados de falha inseridos manualmente.",
+      "dataLabel": "Tempos de Falha (Manual)",
+      "levelLabel": "Nível de Confiança (%)",
+      "timeLabel": "Tempo para Cálculo (t)",
+      "button": "Calcular Limites",
+      "chartTitle": "Limites de Confiança (Postos de Plotagem)",
+      "lowerBound": "Limite Inferior {{level}}%",
+      "upperBound": "Limite Superior {{level}}%",
+      "medianFit": "Ajuste Mediano",
+      "medianRank": "Dados (Posto Mediano)",
+      "lowerRank": "Dados (Posto 5%)",
+      "upperRank": "Dados (Posto 95%)",
+      "valueAtT": "Valor no t",
+      "data": "Dados",
+      "results": {
+        "title": "Valores Calculados para t = {{time}}",
+        "description": "Estimativas pontuais e limites de confiança para Confiabilidade e Probabilidade de Falha.",
+        "metric": "Métrica",
+        "lower": "Inferior ({{level}}%)",
+        "median": "Mediana (50%)",
+        "upper": "Superior ({{level}}%)",
+        "failureProb": "Prob. Falha (F(t))",
+        "reliability": "Confiabilidade (R(t))",
+        "interpretationTitle": "Interpretando os Resultados",
+        "interpretation1": "Para um tempo de <strong>{{time}} horas</strong>, a probabilidade de falha estimada (melhor palpite) é de {{prob}}.",
+        "interpretation2": "O intervalo de confiança de <strong>{{level}}%</strong> significa que podemos afirmar com essa certeza que a <strong>verdadeira probabilidade de falha</strong> do equipamento está entre {{lower}} (cenário otimista) e {{upper}} (cenário pessimista).",
+        "interpretation3": "Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.",
+        "interpretationError": "Não foi possível calcular a interpretação. Verifique os dados de entrada e os limites de confiança."
+      }
+    },
+    "dispersion": {
+      "title": "Dispersão de Parâmetros",
+      "cardTitle": "Dispersão de Parâmetros",
+      "cardDescription": "Simule a variabilidade dos parâmetros Beta e Eta.",
+      "betaDescription": "Define o modo de falha. <1: prematuras; ≈1: aleatórias; >1: por desgaste.",
+      "etaDescription": "O tempo em que 63.2% da população terá falhado. Indica a vida útil.",
+      "sampleSizeLabel": "Tamanho da Amostra (N)",
+      "sampleSizeDescription": "Nº de pontos de dados em cada teste. Amostras maiores geram estimativas mais estáveis.",
+      "simulationCountLabel": "Número de Simulações",
+      "simulationCountDescription": "Nº de vezes que a simulação é executada. Aumentar reduz a incerteza do resultado.",
+      "button": "Iniciar Simulação",
+      "chartTitle": "Dispersão de Parâmetros — {{count}} Simulações",
+      "yAxis": "Probabilidade de Falha, F(t)%",
+      "simulation": "Simulação ({{count}})",
+      "simulationLabel": "Simulação",
+      "originalCurve": "Curva Original",
+      "meanCurve": "Média das Simulações",
+      "range": "Faixa P5–P95",
+      "rangeBase": "Faixa P5–P95 (base)"
+    },
+    "contour": {
+      "title": "Gráfico de Contorno",
+      "cardTitle": "Gráfico de Contorno",
+      "cardDescription": "Calcule a elipse de confiança da razão de verossimilhança.",
+      "button": "Calcular Contorno",
+      "chartTitle": "Gráfico de Contorno da Razão de Verossimilhança",
+      "mleEstimate": "Estimativa MLE",
+      "confidenceContour": "Contorno de Confiança de {{level}}%",
+      "betaLower": "Beta Inferior",
+      "betaUpper": "Beta Superior",
+      "etaLower": "Eta Inferior",
+      "etaUpper": "Eta Superior",
+      "lowerAbbr": "inf",
+      "upperAbbr": "sup",
+      "results": {
+        "title": "Limites de Confiança dos Parâmetros",
+        "description": "Estimativa de Máxima Verossimilhança (MLE) e os limites de confiança para cada parâmetro.",
+        "parameter": "Parâmetro",
+        "lowerBound": "Lim. Inferior",
+        "mle": "Estimativa (MLE)",
+        "upperBound": "Lim. Superior"
+      }
+    },
+    "budget": {
+      "title": "Orçamento de Sobressalentes",
+      "cardTitle": "Orçamento de Sobressalentes",
+      "cardDescription": "Estime falhas futuras e custos para uma população de itens em serviço.",
+      "sourceDataLabel": "1. Dados de Falha e Suspensão",
+      "sourceDataDescription": "Dados para estimar os parâmetros Beta e Eta. Use [Tempo] [F/S].",
+      "populationDataLabel": "2. População em Serviço",
+      "populationDataDescription": "Itens atualmente em operação. Use [Idade] [Quantidade].",
+      "extractButton": "Extrair Suspensões dos Dados Acima",
+      "extractToastTitle": "População Extraída",
+      "extractToastDescription": "Os itens de suspensão foram adicionados à população em serviço.",
+      "periodLabel": "Período de Previsão",
+      "costLabel": "Custo Unitário (R$)",
+      "button": "Calcular Orçamento",
+      "results": {
+        "paramsTitle": "Parâmetros Weibull Calculados (MLE)",
+        "paramsDescription": "Estes são os parâmetros de forma (Beta) e escala (Eta) calculados a partir dos seus dados.",
+        "budgetTitle": "Resultados do Orçamento",
+        "budgetDescription": "Quantidade de falhas esperadas e custos associados para a população em serviço no período definido.",
+        "metric": "Métrica",
+        "lowerBound": "Limite Inferior (LI)",
+        "median": "Mediana",
+        "upperBound": "Limite Superior (LS)",
+        "expectedFailures": "Falhas Esperadas",
+        "budgetCost": "Custo do Orçamento",
+        "footer": "Planeje seu orçamento com base no Limite Superior (LS) para garantir um nível de serviço de {{level}}%.",
+        "interpretationTitle": "Interpretando a Previsão de Falhas",
+        "interpretation1": "A <strong>Mediana</strong> é a sua melhor estimativa, o número mais provável de falhas com base nos dados. É o ponto de partida para o planejamento.",
+        "interpretation2": "Os <strong>Limites de Confiança (LI e LS)</strong> quantificam a incerteza da previsão, com base no nível de confiança de <strong>{{level}}%</strong>. Eles definem um intervalo onde o número real de falhas provavelmente se encontrará.",
+        "interpretation3": "<strong>Limite Inferior (LI):</strong> O cenário otimista. Há uma baixa probabilidade de que o número de falhas seja menor que este valor.",
+        "interpretation4": "<strong>Limite Superior (LS):</strong> O cenário pessimista e o mais importante para o orçamento. Para garantir um nível de serviço adequado e evitar falta de estoque, planeje seu orçamento de sobressalentes com base neste valor.",
+        "interpretation5": "A largura do intervalo (diferença entre LS e LI) reflete a qualidade dos seus dados. Dados mais consistentes e em maior volume geralmente resultam em um intervalo de confiança mais estreito e uma previsão mais precisa.",
+        "detailsTitle": "Tabela Detalhada de Falhas por Item",
+        "detailsDescription": "Esta é a previsão de falhas para cada grupo de itens da sua população em serviço.",
+        "detailsAge": "Idade Atual",
+        "detailsQty": "Qtd. Itens",
+        "detailsFailuresLower": "Falhas (LI)",
+        "detailsFailuresMedian": "Falhas (Mediana)",
+        "detailsFailuresUpper": "Falhas (LS)"
+      }
+    },
+    "competing": {
+      "title": "Modos Competitivos",
+      "cardTitle": "Modos de Falha Competitivos",
+      "cardDescription": "Analise a confiabilidade de um sistema com múltiplos modos de falha.",
+      "modeNameLabel": "Nome do Modo #{{index}}",
+      "modeNamePlaceholder": "Ex: Quebra",
+      "failureTimesLabel": "Tempos de Falha",
+      "addButton": "Adicionar Modo de Falha",
+      "analysisTimeLabel": "Tempo para Análise (t)",
+      "button": "Analisar Modos Competitivos",
+      "analyzing": "Analisando...",
+      "system": "Sistema",
+      "chartTitle": "Confiabilidade do Sistema (Modos Competitivos)",
+      "analysisPeriod": "Período de Análise: {{period}}",
+      "yAxis": "Confiabilidade R(t), %",
+      "results": {
+        "analysisTitle": "Análise dos Modos de Falha",
+        "analysisDescription": "Parâmetros Weibull (MLE) calculados para cada modo de falha competitivo.",
+        "mode": "Modo de Falha",
+        "probTitle": "Probabilidade de Falha em t = {{period}}",
+        "probDescription": "Probabilidade de falha individual para cada modo no tempo especificado.",
+        "probLabel": "Probabilidade F(t)",
+        "criticalMode": "O modo de falha {{mode}} é o mais crítico, com a maior probabilidade de ocorrência.",
+        "tablesTitle": "Tabelas de Dados da Análise",
+        "tablesDescription": "Veja como os dados são tratados para cada análise individual de modo de falha. 'F' indica uma falha do modo em análise, e 'S' indica uma suspensão (uma falha de um modo competitivo).",
+        "analyzing": "Analisando - {{mode}}",
+        "status": "Status"
+      }
+    }
   },
   "dataInstructions": {
     "simple": {

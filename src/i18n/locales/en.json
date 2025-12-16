@@ -73,6 +73,33 @@
       "suspensions": "Invalid row found: \"{{line}}\". Use [Time] [Status] format.",
       "grouped": "Invalid grouped data row: \"{{line}}\".",
       "noData": "At least one valid data point is required for analysis."
+    },
+    "insufficientData": {
+      "title": "Insufficient Data",
+      "description": "Please enter at least two valid failure times.",
+      "budgetSource": "At least 2 failure points (F) are required to calculate Beta and Eta parameters."
+    },
+    "missingParams": {
+      "title": "Missing Parameters",
+      "dispersion": "Please fill in all fields for the dispersion simulation.",
+      "budget": "Please fill in all fields for the budget calculation.",
+      "competing": "Add at least one failure mode and fill in the forecast period."
+    },
+    "calculationError": {
+      "title": "Calculation Error",
+      "budgetParams": "Could not estimate Beta and Eta from the source data."
+    },
+    "emptyPopulation": {
+      "title": "Empty Population",
+      "description": "No items in the in-service population to calculate the budget."
+    },
+    "emptyMode": {
+      "title": "Empty Failure Mode",
+      "description": "All failure modes must have at least one failure time."
+    },
+    "simulationError": {
+      "title": "Simulation Error",
+      "description": "An unexpected error occurred."
     }
   },
   "distributionWizard": {
@@ -177,17 +204,168 @@
   "monteCarlo": {
     "cardTitle": "Monte Carlo Simulator",
     "cardDescription": "Select the type of simulation you want to perform.",
-    "confidence": "Confidence Bounds",
-    "dispersion": "Parameter Dispersion",
-    "contour": "Contour Plot",
-    "budget": "Spares Budget",
-    "competing": "Competing Modes",
+    "loading": "Loading simulator...",
     "pending": "Running simulation...",
-    "waiting": "Waiting for parameters to start the simulation."
+    "calculating": "Calculating...",
+    "simulating": "Simulating...",
+    "waiting": "Waiting for parameters to start the simulation.",
+    "confidenceLevel": "Confidence Level: {{level}}%",
+    "errors": {
+      "confidence": "Could not calculate confidence bounds.",
+      "contour": "Could not calculate confidence contour. Check if the data is suitable for a Weibull analysis.",
+      "competing": "Could not analyze competing modes. Check the input data."
+    },
+    "confidence": {
+      "title": "Confidence Bounds",
+      "cardTitle": "Confidence Bounds",
+      "cardDescription": "Calculate the bounds based on manually entered failure data.",
+      "dataLabel": "Failure Times (Manual)",
+      "levelLabel": "Confidence Level (%)",
+      "timeLabel": "Time for Calculation (t)",
+      "button": "Calculate Bounds",
+      "chartTitle": "Confidence Bounds (Plotting Positions)",
+      "lowerBound": "Lower Bound {{level}}%",
+      "upperBound": "Upper Bound {{level}}%",
+      "medianFit": "Median Fit",
+      "medianRank": "Data (Median Rank)",
+      "lowerRank": "Data (5% Rank)",
+      "upperRank": "Data (95% Rank)",
+      "valueAtT": "Value at t",
+      "data": "Data",
+      "results": {
+        "title": "Calculated Values for t = {{time}}",
+        "description": "Point estimates and confidence bounds for Reliability and Failure Probability.",
+        "metric": "Metric",
+        "lower": "Lower ({{level}}%)",
+        "median": "Median (50%)",
+        "upper": "Upper ({{level}}%)",
+        "failureProb": "Failure Prob. (F(t))",
+        "reliability": "Reliability (R(t))",
+        "interpretationTitle": "Interpreting the Results",
+        "interpretation1": "For a time of <strong>{{time}} hours</strong>, the estimated failure probability (best guess) is {{prob}}.",
+        "interpretation2": "The <strong>{{level}}%</strong> confidence interval means we can state with this certainty that the <strong>true failure probability</strong> of the equipment is between {{lower}} (optimistic scenario) and {{upper}} (pessimistic scenario).",
+        "interpretation3": "A wide confidence interval suggests greater uncertainty, often due to a small sample size.",
+        "interpretationError": "Could not calculate interpretation. Check the input data and confidence bounds."
+      }
+    },
+    "dispersion": {
+      "title": "Parameter Dispersion",
+      "cardTitle": "Parameter Dispersion",
+      "cardDescription": "Simulate the variability of the Beta and Eta parameters.",
+      "betaDescription": "Defines the failure mode. <1: early; ≈1: random; >1: wear-out.",
+      "etaDescription": "The time at which 63.2% of the population will have failed. Indicates useful life.",
+      "sampleSizeLabel": "Sample Size (N)",
+      "sampleSizeDescription": "No. of data points in each test. Larger samples yield more stable estimates.",
+      "simulationCountLabel": "Number of Simulations",
+      "simulationCountDescription": "No. of times the simulation is run. Increasing reduces result uncertainty.",
+      "button": "Start Simulation",
+      "chartTitle": "Parameter Dispersion — {{count}} Simulations",
+      "yAxis": "Failure Probability, F(t)%",
+      "simulation": "Simulation ({{count}})",
+      "simulationLabel": "Simulation",
+      "originalCurve": "Original Curve",
+      "meanCurve": "Mean of Simulations",
+      "range": "P5–P95 Range",
+      "rangeBase": "P5–P95 Range (base)"
+    },
+    "contour": {
+      "title": "Contour Plot",
+      "cardTitle": "Contour Plot",
+      "cardDescription": "Calculate the likelihood ratio confidence ellipse.",
+      "button": "Calculate Contour",
+
+      "chartTitle": "Likelihood Ratio Contour Plot",
+      "mleEstimate": "MLE Estimate",
+      "confidenceContour": "{{level}}% Confidence Contour",
+      "betaLower": "Beta Lower",
+      "betaUpper": "Beta Upper",
+      "etaLower": "Eta Lower",
+      "etaUpper": "Eta Upper",
+      "lowerAbbr": "low",
+      "upperAbbr": "up",
+      "results": {
+        "title": "Parameter Confidence Bounds",
+        "description": "Maximum Likelihood Estimate (MLE) and the confidence bounds for each parameter.",
+        "parameter": "Parameter",
+        "lowerBound": "Lower Bound",
+        "mle": "Estimate (MLE)",
+        "upperBound": "Upper Bound"
+      }
+    },
+    "budget": {
+      "title": "Spares Budget",
+      "cardTitle": "Spares Budget",
+      "cardDescription": "Estimate future failures and costs for a population of in-service items.",
+      "sourceDataLabel": "1. Failure and Suspension Data",
+      "sourceDataDescription": "Data to estimate Beta and Eta parameters. Use [Time] [F/S].",
+      "populationDataLabel": "2. In-Service Population",
+      "populationDataDescription": "Items currently in operation. Use [Age] [Quantity].",
+      "extractButton": "Extract Suspensions from Data Above",
+      "extractToastTitle": "Population Extracted",
+      "extractToastDescription": "Suspension items have been added to the in-service population.",
+      "periodLabel": "Forecast Period",
+      "costLabel": "Unit Cost ($)",
+      "button": "Calculate Budget",
+      "results": {
+        "paramsTitle": "Calculated Weibull Parameters (MLE)",
+        "paramsDescription": "These are the shape (Beta) and scale (Eta) parameters calculated from your data.",
+        "budgetTitle": "Budget Results",
+        "budgetDescription": "Number of expected failures and associated costs for the in-service population over the defined period.",
+        "metric": "Metric",
+        "lowerBound": "Lower Bound (LB)",
+        "median": "Median",
+        "upperBound": "Upper Bound (UB)",
+        "expectedFailures": "Expected Failures",
+        "budgetCost": "Budget Cost",
+        "footer": "Plan your budget based on the Upper Bound (UB) to ensure a service level of {{level}}%.",
+        "interpretationTitle": "Interpreting the Failure Forecast",
+        "interpretation1": "The <strong>Median</strong> is your best estimate, the most likely number of failures based on the data. It's the starting point for planning.",
+        "interpretation2": "The <strong>Confidence Bounds (LB and UB)</strong> quantify the forecast's uncertainty, based on the <strong>{{level}}%</strong> confidence level. They define a range where the actual number of failures is likely to fall.",
+        "interpretation3": "<strong>Lower Bound (LB):</strong> The optimistic scenario. There is a low probability that the number of failures will be less than this value.",
+        "interpretation4": "<strong>Upper Bound (UB):</strong> The pessimistic scenario and the most important for budgeting. To ensure an adequate service level and avoid stockouts, plan your spares budget based on this value.",
+        "interpretation5": "The width of the interval (difference between UB and LB) reflects the quality of your data. More consistent and larger volumes of data generally result in a narrower confidence interval and a more precise forecast.",
+        "detailsTitle": "Detailed Failure Table by Item",
+        "detailsDescription": "This is the failure forecast for each group of items in your in-service population.",
+        "detailsAge": "Current Age",
+        "detailsQty": "Qty. Items",
+        "detailsFailuresLower": "Failures (LB)",
+        "detailsFailuresMedian": "Failures (Median)",
+        "detailsFailuresUpper": "Failures (UB)"
+      }
+    },
+    "competing": {
+      "title": "Competing Modes",
+      "cardTitle": "Competing Failure Modes",
+      "cardDescription": "Analyze the reliability of a system with multiple failure modes.",
+      "modeNameLabel": "Mode Name #{{index}}",
+      "modeNamePlaceholder": "e.g., Breakage",
+      "failureTimesLabel": "Failure Times",
+      "addButton": "Add Failure Mode",
+      "analysisTimeLabel": "Time for Analysis (t)",
+      "button": "Analyze Competing Modes",
+      "analyzing": "Analyzing...",
+      "system": "System",
+      "chartTitle": "System Reliability (Competing Modes)",
+      "analysisPeriod": "Analysis Period: {{period}}",
+      "yAxis": "Reliability R(t), %",
+      "results": {
+        "analysisTitle": "Failure Mode Analysis",
+        "analysisDescription": "Weibull parameters (MLE) calculated for each competing failure mode.",
+        "mode": "Failure Mode",
+        "probTitle": "Failure Probability at t = {{period}}",
+        "probDescription": "Individual failure probability for each mode at the specified time.",
+        "probLabel": "Probability F(t)",
+        "criticalMode": "The failure mode {{mode}} is the most critical, with the highest probability of occurrence.",
+        "tablesTitle": "Analysis Data Tables",
+        "tablesDescription": "See how data is treated for each individual failure mode analysis. 'F' indicates a failure of the mode under analysis, and 'S' indicates a suspension (a failure of a competing mode).",
+        "analyzing": "Analyzing - {{mode}}",
+        "status": "Status"
+      }
+    }
   },
   "dataInstructions": {
     "simple": {
-      "title": "Failure Times (TTF)",
+      "title": "Times to Failure (TTF)",
       "placeholder": "e.g., 500, 900, 1200...",
       "description": "Enter values separated by comma, space, or new line."
     },

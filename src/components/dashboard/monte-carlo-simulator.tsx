@@ -23,6 +23,7 @@ import { Slider } from '@/components/ui/slider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { invNormalCdf } from '@/lib/reliability';
+import { useI18n } from '@/i18n/i18n-provider';
 
 const competingModeSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -61,7 +62,7 @@ interface SimulationResult {
   budgetParams?: { beta: number, eta: number };
 }
 
-const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeForCalc?: number }) => {
+const FisherMatrixPlot = ({ data, timeForCalc, t }: { data?: LRBoundsResult, timeForCalc?: number, t: (key: string) => string }) => {
     if (!data || !data.medianLine) return null;
 
     const {
@@ -87,7 +88,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
 
     
     const lowerSeries = {
-        name: `Limite Inferior ${confidenceLevel}%`,
+        name: t('monteCarlo.confidence.lowerBound', { level: confidenceLevel }),
         type: 'line',
         data: lowerData,
         showSymbol: false,
@@ -97,7 +98,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
 
     const upperSeries = {
-        name: `Limite Superior ${confidenceLevel}%`,
+        name: t('monteCarlo.confidence.upperBound', { level: confidenceLevel }),
         type: 'line',
         data: upperData,
         showSymbol: false,
@@ -107,7 +108,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
 
      const medianSeries = {
-        name: `Ajuste Mediano`,
+        name: t('monteCarlo.confidence.medianFit'),
         type: 'line',
         data: medianData,
         showSymbol: false,
@@ -117,7 +118,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
 
     const scatterSeries = {
-        name: 'Dados (Posto Mediano)',
+        name: t('monteCarlo.confidence.medianRank'),
         type: 'scatter',
         data: scatterData,
         symbolSize: 8,
@@ -125,14 +126,14 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
     };
 
     const lowerScatterSeries = {
-        name: 'Dados (Posto 5%)',
+        name: t('monteCarlo.confidence.lowerRank'),
         type: 'scatter',
         data: lowerScatterData,
         symbolSize: 8,
         itemStyle: { color: 'rgba(200,200,200,0.8)' }
     };
      const upperScatterSeries = {
-        name: 'Dados (Posto 95%)',
+        name: t('monteCarlo.confidence.upperRank'),
         type: 'scatter',
         data: upperScatterData,
         symbolSize: 8,
@@ -154,11 +155,11 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             silent: true,
             symbol: 'none',
             lineStyle: { color: 'rgba(255,215,102,0.9)', type: 'dashed', width: 2 },
-            data: [{ xAxis: timeLog, name: 'Tempo t' }]
+            data: [{ xAxis: timeLog, name: t('charts.time') }]
         };
         
          const calculatedPointsSeries = {
-            name: "Valor no t",
+            name: t('monteCarlo.confidence.valueAtT'),
             type: "scatter",
             data: [
                 [timeLog, calculation.medianAtT],
@@ -183,7 +184,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
         backgroundColor: "transparent",
         grid: { left: 65, right: 40, top: 70, bottom: 60 },
         title: {
-            text: 'Limites de Confiança (Postos de Plotagem)',
+            text: t('monteCarlo.confidence.chartTitle'),
             subtext: `β: ${beta.toFixed(2)} | η: ${eta.toFixed(0)} | N: ${points.median.length}`,
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))', fontSize: 16 },
@@ -195,9 +196,9 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
               if (!params || params.length === 0) return '';
               const logTime = params[0].axisValue;
               const time = Math.exp(logTime);
-              let tooltip = `<strong>Tempo:</strong> ${time.toLocaleString()}<br/>`;
+              let tooltip = `<strong>${t('charts.time')}:</strong> ${time.toLocaleString()}<br/>`;
               params.forEach(p => {
-                  if (p.seriesName && !p.seriesName.includes('Base') && !p.seriesName.includes('Faixa') && !p.seriesName.includes('Dados')) {
+                  if (p.seriesName && !p.seriesName.includes('Base') && !p.seriesName.includes('Faixa') && !p.seriesName.includes(t('monteCarlo.confidence.data'))) {
                       const loglogY = p.value[1];
                       if(typeof loglogY === 'number') {
                          const prob = (1 - Math.exp(-Math.exp(loglogY))) * 100;
@@ -209,7 +210,7 @@ const FisherMatrixPlot = ({ data, timeForCalc }: { data?: LRBoundsResult, timeFo
             }
         },
         legend: {
-            data: series.map(s => s.name).filter(name => name && !name.includes('Dados') && !name.includes('Valor no t')),
+            data: series.map(s => s.name).filter(name => name && !name.includes(t('monteCarlo.confidence.data')) && !name.includes(t('monteCarlo.confidence.valueAtT'))),
             bottom: 0,
             textStyle: { color: 'hsl(var(--muted-foreground))', fontSize: 13 },
             itemGap: 20,
@@ -285,9 +286,9 @@ function percentile(values: number[], p: number) {
   return arr[lo] * (1-t) + arr[hi] * t;
 }
 
-const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300 }: { original?: PlotData; simulations?: PlotData[]; simulationCount: number; maxLines?: number }) => {
+const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300, t }: { original?: PlotData; simulations?: PlotData[]; simulationCount: number; maxLines?: number, t: (key: string, args?: any) => string }) => {
   if (!original || !simulations || simulations.length === 0) {
-    return <Card className="flex items-center justify-center min-h-[450px]"><p className="text-muted-foreground">Aguardando dados da simulação...</p></Card>;
+    return <Card className="flex items-center justify-center min-h-[450px]"><p className="text-muted-foreground">{t('monteCarlo.waiting')}</p></Card>;
   }
 
   const allTimes = original.line.map(p => Math.exp(p.x));
@@ -334,7 +335,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
       const ys = sim.line.map(p => (1 - Math.exp(-Math.exp(p.y))) * 100);
       const pairs = xs.map((x,i) => [x, ys[i]]);
       thinSimSeries.push({
-          name: `Simulação (${simulationCount})`,
+          name: t('monteCarlo.dispersion.simulation', { count: simulationCount }),
           type: 'line',
           data: pairs,
           showSymbol: false,
@@ -356,7 +357,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     backgroundColor: 'transparent',
     grid: { left: 80, right: 40, top: 70, bottom: 80 },
     title: {
-      text: `Dispersão de Parâmetros — ${simulationCount} Simulações`,
+      text: t('monteCarlo.dispersion.chartTitle', { count: simulationCount }),
       left: 'center',
       textStyle: { 
         color: 'hsl(var(--foreground))',
@@ -366,13 +367,13 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     },
     xAxis: {
       type: 'log',
-      name: 'Tempo',
+      name: t('charts.time'),
       axisLabel: { color: 'hsl(var(--muted-foreground))' },
       splitLine: { show: true, lineStyle: { type: 'dashed', color: 'rgba(255,255,255,0.04)' } }
     },
     yAxis: {
       type: 'value',
-      name: 'Probabilidade de Falha, F(t)%',
+      name: t('monteCarlo.dispersion.yAxis'),
       axisLabel: { color: 'hsl(var(--muted-foreground))', formatter: (v: number) => `${v.toFixed(0)}%` },
       min: 0,
       max: 100,
@@ -382,10 +383,10 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
       trigger: 'axis',
       formatter: (params: any[]) => {
         const axisValue = params[0]?.value?.[0] ?? params[0]?.axisValue;
-        let out = `<b>Tempo:</b> ${Number(axisValue).toLocaleString()}<br/>`;
+        let out = `<b>${t('charts.time')}:</b> ${Number(axisValue).toLocaleString()}<br/>`;
         params.forEach(p => {
-          if (p.seriesName && p.seriesName.includes('Faixa')) return;
-          if (p.seriesName.includes('Simulação') && params.length > 5) return;
+          if (p.seriesName && p.seriesName.includes(t('monteCarlo.dispersion.range'))) return;
+          if (p.seriesName.includes(t('monteCarlo.dispersion.simulationLabel')) && params.length > 5) return;
           const val = (p.value && p.value[1] !== undefined) ? p.value[1] : p.value;
           if (isFinite(val)) out += `<span style="color:${p.color}">●</span> ${p.seriesName}: ${Number(val).toFixed(2)}%<br/>`;
         });
@@ -394,9 +395,9 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     },
     legend: {
       data: [
-        `Simulação (${simulationCount})`,
-        'Curva Original',
-        'Média das Simulações',
+        t('monteCarlo.dispersion.simulation', { count: simulationCount }),
+        t('monteCarlo.dispersion.originalCurve'),
+        t('monteCarlo.dispersion.meanCurve'),
         ...(simulations.length > 0 ? ['P5', 'P95'] : [])
       ],
       bottom: 0,
@@ -405,7 +406,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
     series: [
       ...thinSimSeries,
       {
-        name: 'Faixa P5–P95',
+        name: t('monteCarlo.dispersion.range'),
         type: 'line',
         data: bandUpper.map((p,i) => [p[0], Math.max(0, p[1]-(bandLower[i] ? bandLower[i][1] : 0))]),
         lineStyle: { width: 0 },
@@ -415,7 +416,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
         z: 2,
       },
       {
-        name: 'Faixa P5–P95 (base)',
+        name: t('monteCarlo.dispersion.rangeBase'),
         type: 'line',
         data: bandLower,
         lineStyle: { width: 0 },
@@ -425,7 +426,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
         silent: true
       },
       {
-        name: 'Média das Simulações',
+        name: t('monteCarlo.dispersion.meanCurve'),
         type: 'line',
         data: meanCurve,
         showSymbol: false,
@@ -449,7 +450,7 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
         z: 5
       },
       {
-        name: 'Curva Original',
+        name: t('monteCarlo.dispersion.originalCurve'),
         type: 'line',
         data: originalProbCurve,
         showSymbol: false,
@@ -463,14 +464,14 @@ const DispersionPlot = ({ original, simulations, simulationCount, maxLines = 300
 };
 
 
-const ContourPlot = ({ data }: { data?: ContourData }) => {
+const ContourPlot = ({ data, t }: { data?: ContourData, t: (key: string, args?: any) => string }) => {
     if (!data) return null;
 
     const { center, ellipse, confidenceLevel, limits, bounds } = data;
 
     const series = [
         {
-            name: 'Estimativa MLE',
+            name: t('monteCarlo.contour.mleEstimate'),
             type: 'scatter',
             data: [[center.eta, center.beta]],
             symbolSize: 10,
@@ -483,10 +484,10 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
                     color: 'hsl(var(--muted-foreground))'
                 },
                 data: [
-                    { name: 'Beta Lower', yAxis: bounds.beta_lower, label: { formatter: `β inf: ${bounds.beta_lower.toFixed(2)}` } },
-                    { name: 'Beta Upper', yAxis: bounds.beta_upper, label: { formatter: `β sup: ${bounds.beta_upper.toFixed(2)}` } },
-                    { name: 'Eta Lower', xAxis: bounds.eta_lower, label: { formatter: `η inf: ${bounds.eta_lower.toFixed(0)}` } },
-                    { name: 'Eta Upper', xAxis: bounds.eta_upper, label: { position: 'insideEndTop', formatter: `η sup: ${bounds.eta_upper.toFixed(0)}` } }
+                    { name: t('monteCarlo.contour.betaLower'), yAxis: bounds.beta_lower, label: { formatter: `β ${t('monteCarlo.contour.lowerAbbr')}: ${bounds.beta_lower.toFixed(2)}` } },
+                    { name: t('monteCarlo.contour.betaUpper'), yAxis: bounds.beta_upper, label: { formatter: `β ${t('monteCarlo.contour.upperAbbr')}: ${bounds.beta_upper.toFixed(2)}` } },
+                    { name: t('monteCarlo.contour.etaLower'), xAxis: bounds.eta_lower, label: { formatter: `η ${t('monteCarlo.contour.lowerAbbr')}: ${bounds.eta_lower.toFixed(0)}` } },
+                    { name: t('monteCarlo.contour.etaUpper'), xAxis: bounds.eta_upper, label: { position: 'insideEndTop', formatter: `η ${t('monteCarlo.contour.upperAbbr')}: ${bounds.eta_upper.toFixed(0)}` } }
                 ],
                  label: {
                     position: 'end',
@@ -496,7 +497,7 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
             }
         },
         {
-            name: `Contorno de Confiança ${confidenceLevel}%`,
+            name: t('monteCarlo.contour.confidenceContour', { level: confidenceLevel }),
             type: 'line',
             data: ellipse,
             symbol: 'none',
@@ -510,8 +511,8 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
     const option = {
         backgroundColor: 'transparent',
         title: {
-            text: 'Gráfico de Contorno da Razão de Verossimilhança',
-            subtext: `Nível de Confiança: ${confidenceLevel}%`,
+            text: t('monteCarlo.contour.chartTitle'),
+            subtext: t('monteCarlo.confidenceLevel', { level: confidenceLevel }),
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))' },
             subtextStyle: { color: 'hsl(var(--muted-foreground))' },
@@ -520,10 +521,10 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
         tooltip: {
             trigger: 'item',
             formatter: ({ seriesName, data }: any) => {
-                if (seriesName === 'Estimativa MLE') {
+                if (seriesName === t('monteCarlo.contour.mleEstimate')) {
                     return `<b>${seriesName}</b><br/>Eta (η): ${data[0].toFixed(2)}<br/>Beta (β): ${data[1].toFixed(2)}`;
                 }
-                return `Contorno de ${confidenceLevel}%`;
+                return t('monteCarlo.contour.confidenceContour', { level: confidenceLevel });
             }
         },
         xAxis: {
@@ -558,24 +559,24 @@ const ContourPlot = ({ data }: { data?: ContourData }) => {
     );
 };
 
-const CompetingModesPlot = ({ result }: { result?: CompetingModesAnalysis }) => {
+const CompetingModesPlot = ({ result, t }: { result?: CompetingModesAnalysis, t: (key: string, args?: any) => string }) => {
     if (!result) return null;
     const { analyses, reliabilityData } = result;
 
-    const legendData = analyses.map(a => a.name).concat('Sistema');
+    const legendData = analyses.map(a => a.name).concat(t('monteCarlo.competing.system'));
     const series = legendData.map(name => ({
         name: name,
         type: 'line',
         data: reliabilityData.map(d => [d.time, d[name]! * 100]),
         showSymbol: false,
-        lineStyle: { width: name === 'Sistema' ? 3 : 2 },
+        lineStyle: { width: name === t('monteCarlo.competing.system') ? 3 : 2 },
     }));
 
     const option = {
         backgroundColor: 'transparent',
         title: {
-            text: 'Confiabilidade do Sistema (Modos Competitivos)',
-            subtext: `Período de Análise: ${result.period}`,
+            text: t('monteCarlo.competing.chartTitle'),
+            subtext: t('monteCarlo.competing.analysisPeriod', { period: result.period }),
             left: 'center',
             textStyle: { color: 'hsl(var(--foreground))' },
             subtextStyle: { color: 'hsl(var(--muted-foreground))' },
@@ -584,7 +585,7 @@ const CompetingModesPlot = ({ result }: { result?: CompetingModesAnalysis }) => 
         tooltip: {
             trigger: 'axis',
             formatter: (params: any[]) => {
-                let tooltip = `<b>Tempo: ${params[0].axisValue.toFixed(0)}</b><br/>`;
+                let tooltip = `<b>${t('charts.time')}: ${params[0].axisValue.toFixed(0)}</b><br/>`;
                 params.forEach(p => {
                     tooltip += `<span style="color: ${p.color}">●</span> ${p.seriesName}: ${p.value[1].toFixed(2)}%<br/>`;
                 });
@@ -598,7 +599,7 @@ const CompetingModesPlot = ({ result }: { result?: CompetingModesAnalysis }) => 
         },
         xAxis: {
             type: 'value',
-            name: 'Tempo',
+            name: t('charts.time'),
             nameLocation: 'middle',
             nameGap: 30,
             axisLabel: { color: 'hsl(var(--muted-foreground))' },
@@ -606,7 +607,7 @@ const CompetingModesPlot = ({ result }: { result?: CompetingModesAnalysis }) => 
         },
         yAxis: {
             type: 'value',
-            name: 'Confiabilidade R(t), %',
+            name: t('monteCarlo.competing.yAxis'),
             nameLocation: 'middle',
             nameGap: 50,
             min: 0,
@@ -621,11 +622,11 @@ const CompetingModesPlot = ({ result }: { result?: CompetingModesAnalysis }) => 
 };
 
 
-const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
+const ConfidenceControls = ({ form, isSimulating, onSubmit, t }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void, t: (key: string) => string }) => (
     <Card>
         <CardHeader>
-            <CardTitle>Limites de Confiança</CardTitle>
-            <CardDescription>Calcule os limites com base em dados de falha inseridos manualmente.</CardDescription>
+            <CardTitle>{t('monteCarlo.confidence.cardTitle')}</CardTitle>
+            <CardDescription>{t('monteCarlo.confidence.cardDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -635,7 +636,7 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="manualData"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Tempos de Falha (Manual)</FormLabel>
+                                <FormLabel>{t('monteCarlo.confidence.dataLabel')}</FormLabel>
                                 <FormControl>
                                     <Textarea
                                         placeholder="Ex: 150, 200, 210, 300..."
@@ -653,7 +654,7 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="confidenceLevel"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Nível de confiança (%)</FormLabel>
+                                <FormLabel>{t('monteCarlo.confidence.levelLabel')}</FormLabel>
                                 <FormControl>
                                   <Slider
                                       value={[field.value ?? 90]}
@@ -676,7 +677,7 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="timeForCalc"
                         render={({ field }) => (
                            <FormItem>
-                               <FormLabel>Tempo para Cálculo (t)</FormLabel>
+                               <FormLabel>{t('monteCarlo.confidence.timeLabel')}</FormLabel>
                                <FormControl>
                                    <Input type="number" placeholder="Ex: 700" {...field} value={field.value ?? ''}/>
                                </FormControl>
@@ -686,7 +687,7 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                     />
 
                     <Button type="submit" disabled={isSimulating} className="w-full">
-                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Limites'}
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('monteCarlo.calculating')}</> : t('monteCarlo.confidence.button')}
                     </Button>
                 </form>
             </Form>
@@ -694,11 +695,11 @@ const ConfidenceControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
     </Card>
 )
 
-const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void }) => (
+const DispersionControls = ({ form, isSimulating, onSubmit, t }: { form: any, isSimulating: boolean, onSubmit: (data: FormData) => void, t: (key: string) => string }) => (
      <Card>
         <CardHeader>
-            <CardTitle>Dispersão de Parâmetros</CardTitle>
-            <CardDescription>Simule a variabilidade dos parâmetros Beta e Eta.</CardDescription>
+            <CardTitle>{t('monteCarlo.dispersion.cardTitle')}</CardTitle>
+            <CardDescription>{t('monteCarlo.dispersion.cardDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -708,9 +709,9 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="beta"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Beta (β - Parâmetro de Forma)</FormLabel>
+                                <FormLabel>{t('parameters.beta')}</FormLabel>
                                 <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
-                                <FormDescription>Define o modo de falha. &lt;1: prematuras; ≈1: aleatórias; &gt;1: por desgaste.</FormDescription>
+                                <FormDescription>{t('monteCarlo.dispersion.betaDescription')}</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -720,9 +721,9 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="eta"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Eta (η - Vida Característica)</FormLabel>
+                                <FormLabel>{t('parameters.eta')}</FormLabel>
                                 <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                                <FormDescription>O tempo em que 63.2% da população terá falhado. Indica a vida útil.</FormDescription>
+                                <FormDescription>{t('monteCarlo.dispersion.etaDescription')}</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -732,9 +733,9 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="sampleSize"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Tamanho da Amostra (N)</FormLabel>
+                                <FormLabel>{t('monteCarlo.dispersion.sampleSizeLabel')}</FormLabel>
                                 <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                                <FormDescription>Nº de pontos de dados em cada teste. Amostras maiores geram estimativas mais estáveis.</FormDescription>
+                                <FormDescription>{t('monteCarlo.dispersion.sampleSizeDescription')}</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -744,16 +745,16 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
                         name="simulationCount"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Número de Simulações</FormLabel>
+                                <FormLabel>{t('monteCarlo.dispersion.simulationCountLabel')}</FormLabel>
                                 <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                                <FormDescription>Nº de vezes que a simulação é executada. Aumentar reduz a incerteza do resultado.</FormDescription>
+                                <FormDescription>{t('monteCarlo.dispersion.simulationCountDescription')}</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
 
                     <Button type="submit" disabled={isSimulating} className="w-full">
-                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Simulando...</> : 'Iniciar Simulação'}
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('monteCarlo.simulating')}</> : t('monteCarlo.dispersion.button')}
                     </Button>
                 </form>
             </Form>
@@ -761,11 +762,11 @@ const DispersionControls = ({ form, isSimulating, onSubmit }: { form: any, isSim
     </Card>
 )
 
-const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => (
+const ContourControls = ({ form, isSimulating, onSubmit, t }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; t: (key: string) => string }) => (
     <Card>
         <CardHeader>
-            <CardTitle>Gráfico de Contorno</CardTitle>
-            <CardDescription>Calcule a elipse de confiança da razão de verossimilhança.</CardDescription>
+            <CardTitle>{t('monteCarlo.contour.cardTitle')}</CardTitle>
+            <CardDescription>{t('monteCarlo.contour.cardDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -775,7 +776,7 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
                         name="manualData"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Tempos de Falha (Manual)</FormLabel>
+                                <FormLabel>{t('monteCarlo.confidence.dataLabel')}</FormLabel>
                                 <FormControl>
                                     <Textarea
                                         placeholder="Ex: 150, 200, 210, 300..."
@@ -792,7 +793,7 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
                         name="confidenceLevel"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Nível de confiança (%)</FormLabel>
+                                <FormLabel>{t('monteCarlo.confidence.levelLabel')}</FormLabel>
                                 <FormControl>
                                     <Slider
                                         value={[field.value ?? 90]}
@@ -810,7 +811,7 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
                         )}
                     />
                     <Button type="submit" disabled={isSimulating} className="w-full">
-                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Contorno'}
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('monteCarlo.calculating')}</> : t('monteCarlo.contour.button')}
                     </Button>
                 </form>
             </Form>
@@ -818,11 +819,11 @@ const ContourControls = ({ form, isSimulating, onSubmit }: { form: any; isSimula
     </Card>
 );
 
-const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; onExtract: () => void; }) => (
+const BudgetControls = ({ form, isSimulating, onSubmit, onExtract, t }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; onExtract: () => void; t: (key: string) => string; }) => (
     <Card>
         <CardHeader>
-            <CardTitle>Orçamento de Sobressalentes</CardTitle>
-            <CardDescription>Estime falhas futuras e custos para uma população de itens em serviço.</CardDescription>
+            <CardTitle>{t('monteCarlo.budget.cardTitle')}</CardTitle>
+            <CardDescription>{t('monteCarlo.budget.cardDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -832,7 +833,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                         name="budgetSourceData"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>1. Dados de Falha e Suspensão</FormLabel>
+                                <FormLabel>{t('monteCarlo.budget.sourceDataLabel')}</FormLabel>
                                 <FormControl>
                                     <Textarea
                                         placeholder={"Ex:\n150 F\n210 S"}
@@ -840,7 +841,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                                         {...field}
                                     />
                                 </FormControl>
-                                <FormDescription>Dados para estimar os parâmetros Beta e Eta. Use [Tempo] [F/S].</FormDescription>
+                                <FormDescription>{t('monteCarlo.budget.sourceDataDescription')}</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -850,7 +851,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                         name="budgetPopulationData"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>2. População em Serviço</FormLabel>
+                                <FormLabel>{t('monteCarlo.budget.populationDataLabel')}</FormLabel>
                                 <FormControl>
                                     <Textarea
                                         placeholder={"Ex:\n0 133\n5 1\n33 1"}
@@ -858,9 +859,9 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                                         {...field}
                                     />
                                 </FormControl>
-                                <FormDescription>Itens atualmente em operação. Use [Idade] [Quantidade].</FormDescription>
+                                <FormDescription>{t('monteCarlo.budget.populationDataDescription')}</FormDescription>
                                 <Button type="button" variant="outline" size="sm" onClick={onExtract} className="mt-2 w-full">
-                                    Extrair Suspensões dos Dados Acima
+                                    {t('monteCarlo.budget.extractButton')}
                                 </Button>
                                 <FormMessage />
                             </FormItem>
@@ -872,7 +873,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                             name="budgetPeriod"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Período de Previsão</FormLabel>
+                                    <FormLabel>{t('monteCarlo.budget.periodLabel')}</FormLabel>
                                     <FormControl><Input type="number" placeholder="Ex: 365" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -883,7 +884,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                             name="budgetItemCost"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Custo Unitário (R$)</FormLabel>
+                                    <FormLabel>{t('monteCarlo.budget.costLabel')}</FormLabel>
                                     <FormControl><Input type="number" step="0.01" placeholder="Ex: 2500" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -895,7 +896,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                         name="confidenceLevel"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Nível de confiança (%)</FormLabel>
+                                <FormLabel>{t('monteCarlo.confidence.levelLabel')}</FormLabel>
                                 <FormControl>
                                   <Slider
                                       value={[field.value ?? 90]}
@@ -913,7 +914,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
                         )}
                     />
                     <Button type="submit" disabled={isSimulating} className="w-full">
-                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Calculando...</> : 'Calcular Orçamento'}
+                        {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('monteCarlo.calculating')}</> : t('monteCarlo.budget.button')}
                     </Button>
                 </form>
             </Form>
@@ -921,7 +922,7 @@ const BudgetControls = ({ form, isSimulating, onSubmit, onExtract }: { form: any
     </Card>
 );
 
-const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; }) => {
+const CompetingModesControls = ({ form, isSimulating, onSubmit, t }: { form: any; isSimulating: boolean; onSubmit: (data: FormData) => void; t: (key: string) => string; }) => {
     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "competingModes",
@@ -930,8 +931,8 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Modos de Falha Competitivos</CardTitle>
-                <CardDescription>Analise a confiabilidade de um sistema com múltiplos modos de falha.</CardDescription>
+                <CardTitle>{t('monteCarlo.competing.cardTitle')}</CardTitle>
+                <CardDescription>{t('monteCarlo.competing.cardDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -945,9 +946,9 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
                                             name={`competingModes.${index}.name`}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Nome do Modo #{index + 1}</FormLabel>
+                                                    <FormLabel>{t('monteCarlo.competing.modeNameLabel', { index: index + 1 })}</FormLabel>
                                                     <FormControl>
-                                                        <Input placeholder="Ex: Quebra" {...field} />
+                                                        <Input placeholder={t('monteCarlo.competing.modeNamePlaceholder')} {...field} />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
@@ -958,7 +959,7 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
                                             name={`competingModes.${index}.times`}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Tempos de Falha</FormLabel>
+                                                    <FormLabel>{t('monteCarlo.competing.failureTimesLabel')}</FormLabel>
                                                     <FormControl>
                                                         <Textarea placeholder="500, 900, 1200..." rows={4} {...field} />
                                                     </FormControl>
@@ -987,7 +988,7 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
                             onClick={() => append({ name: '', times: '' })}
                         >
                             <Plus className="mr-2 h-4 w-4" />
-                            Adicionar Modo de Falha
+                            {t('monteCarlo.competing.addButton')}
                         </Button>
                         
                         <FormField
@@ -995,14 +996,14 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
                             name="competingModesPeriod"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Tempo para Análise (t)</FormLabel>
+                                    <FormLabel>{t('monteCarlo.competing.analysisTimeLabel')}</FormLabel>
                                     <FormControl><Input type="number" placeholder="Ex: 2000" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                         <Button type="submit" disabled={isSimulating} className="w-full">
-                            {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analisando...</> : 'Analisar Modos Competitivos'}
+                            {isSimulating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('monteCarlo.competing.analyzing')}</> : t('monteCarlo.competing.button')}
                         </Button>
                     </form>
                 </Form>
@@ -1012,7 +1013,7 @@ const CompetingModesControls = ({ form, isSimulating, onSubmit }: { form: any; i
 };
 
 
-const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, timeForCalc?: number }) => {
+const ResultsDisplay = ({ result, timeForCalc, t }: { result: SimulationResult, timeForCalc?: number, t: (key: string, args?: any) => string }) => {
     if (!result?.boundsData?.calculation || timeForCalc === undefined) return null;
     
     const { calculation, confidenceLevel } = result.boundsData;
@@ -1023,30 +1024,30 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Valores Calculados para t = {timeForCalc}</CardTitle>
+                    <CardTitle>{t('monteCarlo.confidence.results.title', { time: timeForCalc })}</CardTitle>
                     <CardDescription>
-                        Estimativas pontuais e limites de confiança para Confiabilidade e Probabilidade de Falha.
+                        {t('monteCarlo.confidence.results.description')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Métrica</TableHead>
-                                <TableHead className="text-right">Inferior ({((100-confidenceLevel)/2).toFixed(1)}%)</TableHead>
-                                <TableHead className="text-right">Mediana (50%)</TableHead>
-                                <TableHead className="text-right">Superior ({((100+confidenceLevel)/2).toFixed(1)}%)</TableHead>
+                                <TableHead>{t('monteCarlo.confidence.results.metric')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.confidence.results.lower', { level: ((100-confidenceLevel)/2).toFixed(1) })}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.confidence.results.median')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.confidence.results.upper', { level: ((100+confidenceLevel)/2).toFixed(1) })}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow>
-                                <TableCell className="font-medium">Prob. Falha (F(t))</TableCell>
+                                <TableCell className="font-medium">{t('monteCarlo.confidence.results.failureProb')}</TableCell>
                                 <TableCell className="text-right font-mono text-red-400">{transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right font-mono text-blue-400">{transformY(calculation.medianAtT ?? 0).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right font-mono text-red-400">{transformY(calculation.upperAtT ?? 0).toFixed(2)}%</TableCell>
                             </TableRow>
                              <TableRow>
-                                <TableCell className="font-medium">Confiabilidade (R(t))</TableCell>
+                                <TableCell className="font-medium">{t('monteCarlo.confidence.results.reliability')}</TableCell>
                                 <TableCell className="text-right font-mono text-red-400">{(100 - transformY(calculation.upperAtT ?? 0)).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right font-mono text-blue-400">{(100 - transformY(calculation.medianAtT ?? 0)).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right font-mono text-red-400">{(100 - transformY(calculation.lowerAtT ?? 0)).toFixed(2)}%</TableCell>
@@ -1057,23 +1058,17 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle>Interpretando os Resultados</CardTitle>
+                    <CardTitle>{t('monteCarlo.confidence.results.interpretationTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground space-y-4">
                      {isFinite(calculation.medianAtT ?? NaN) && timeForCalc ? (
                         <>
-                            <p>
-                                Para um tempo de <strong className="text-foreground">{timeForCalc} horas</strong>, a probabilidade de falha estimada (melhor palpite) é de <strong className="text-primary">{transformY(calculation.medianAtT ?? 0).toFixed(2)}%</strong>.
-                            </p>
-                            <p>
-                                O intervalo de confiança de <strong className="text-foreground">{confidenceLevel}%</strong> significa que podemos afirmar com essa certeza que a <strong className="text-foreground">verdadeira probabilidade de falha</strong> do equipamento está entre <strong className="text-primary">{transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</strong> (cenário otimista) e <strong className="text-primary">{transformY(calculation.upperAtT ?? 0).toFixed(2)}%</strong> (cenário pessimista).
-                            </p>
-                             <p>
-                                Um intervalo de confiança largo sugere maior incerteza, muitas vezes devido a um tamanho de amostra pequeno.
-                            </p>
+                            <p dangerouslySetInnerHTML={{ __html: t('monteCarlo.confidence.results.interpretation1', { time: timeForCalc, prob: `<strong>${transformY(calculation.medianAtT ?? 0).toFixed(2)}%</strong>` }) }} />
+                            <p dangerouslySetInnerHTML={{ __html: t('monteCarlo.confidence.results.interpretation2', { level: `<strong>${confidenceLevel}%</strong>`, lower: `<strong>${transformY(calculation.lowerAtT ?? 0).toFixed(2)}%</strong>`, upper: `<strong>${transformY(calculation.upperAtT ?? 0).toFixed(2)}%</strong>` }) }} />
+                            <p>{t('monteCarlo.confidence.results.interpretation3')}</p>
                         </>
                     ) : (
-                        <p>Não foi possível calcular a interpretação. Verifique os dados de entrada e os limites de confiança.</p>
+                        <p>{t('monteCarlo.confidence.results.interpretationError')}</p>
                     )}
                 </CardContent>
             </Card>
@@ -1081,37 +1076,37 @@ const ResultsDisplay = ({ result, timeForCalc }: { result: SimulationResult, tim
     );
 };
 
-const ContourResultsDisplay = ({ result }: { result: SimulationResult }) => {
+const ContourResultsDisplay = ({ result, t }: { result: SimulationResult, t: (key: string) => string }) => {
     if (!result.contourData) return null;
     const { center, bounds } = result.contourData;
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Limites de Confiança dos Parâmetros</CardTitle>
+                <CardTitle>{t('monteCarlo.contour.results.title')}</CardTitle>
                 <CardDescription>
-                    Estimativa de Máxima Verossimilhança (MLE) e os limites de confiança para cada parâmetro.
+                    {t('monteCarlo.contour.results.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Parâmetro</TableHead>
-                            <TableHead className="text-right">Lim. Inferior</TableHead>
-                            <TableHead className="text-right">Estimativa (MLE)</TableHead>
-                            <TableHead className="text-right">Lim. Superior</TableHead>
+                            <TableHead>{t('monteCarlo.contour.results.parameter')}</TableHead>
+                            <TableHead className="text-right">{t('monteCarlo.contour.results.lowerBound')}</TableHead>
+                            <TableHead className="text-right">{t('monteCarlo.contour.results.mle')}</TableHead>
+                            <TableHead className="text-right">{t('monteCarlo.contour.results.upperBound')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         <TableRow>
-                            <TableCell className="font-medium">Beta (β)</TableCell>
+                            <TableCell className="font-medium">{t('parameters.beta')}</TableCell>
                             <TableCell className="text-right font-mono">{Math.max(0, bounds.beta_lower).toFixed(3)}</TableCell>
                             <TableCell className="text-right font-mono">{center.beta.toFixed(3)}</TableCell>
                             <TableCell className="text-right font-mono">{bounds.beta_upper.toFixed(3)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium">Eta (η)</TableCell>
+                            <TableCell className="font-medium">{t('parameters.eta')}</TableCell>
                             <TableCell className="text-right font-mono">{bounds.eta_lower.toFixed(0)}</TableCell>
                             <TableCell className="text-right font-mono">{center.eta.toFixed(0)}</TableCell>
                             <TableCell className="text-right font-mono">{bounds.eta_upper.toFixed(0)}</TableCell>
@@ -1123,7 +1118,7 @@ const ContourResultsDisplay = ({ result }: { result: SimulationResult }) => {
     );
 };
 
-const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: SimulationResult, itemCost: number, confidenceLevel: number }) => {
+const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel, t }: { result: SimulationResult, itemCost: number, confidenceLevel: number, t: (key: string, args?: any) => string }) => {
     if (!result.budgetResult) return null;
     const { totals } = result.budgetResult;
     const formatCurrency = (value: number) => {
@@ -1135,19 +1130,19 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
              {result.budgetParams && (
                  <Card>
                     <CardHeader>
-                        <CardTitle>Parâmetros Weibull Calculados (MLE)</CardTitle>
+                        <CardTitle>{t('monteCarlo.budget.results.paramsTitle')}</CardTitle>
                         <CardDescription>
-                           Estes são os parâmetros de forma (Beta) e escala (Eta) calculados a partir dos seus dados.
+                           {t('monteCarlo.budget.results.paramsDescription')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                          <div className="grid grid-cols-2 gap-4">
                             <div className="rounded-md border p-4">
-                                <p className="text-sm text-muted-foreground">Beta (β)</p>
+                                <p className="text-sm text-muted-foreground">{t('parameters.beta')}</p>
                                 <p className="text-2xl font-bold">{result.budgetParams.beta.toFixed(3)}</p>
                             </div>
                             <div className="rounded-md border p-4">
-                                <p className="text-sm text-muted-foreground">Eta (η)</p>
+                                <p className="text-sm text-muted-foreground">{t('parameters.eta')}</p>
                                 <p className="text-2xl font-bold">{result.budgetParams.eta.toFixed(0)}</p>
                             </div>
                         </div>
@@ -1156,30 +1151,30 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
              )}
             <Card>
                 <CardHeader>
-                    <CardTitle>Resultados do Orçamento</CardTitle>
+                    <CardTitle>{t('monteCarlo.budget.results.budgetTitle')}</CardTitle>
                     <CardDescription>
-                        Quantidade de falhas esperadas e custos associados para a população em serviço no período definido.
+                        {t('monteCarlo.budget.results.budgetDescription')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Métrica</TableHead>
-                                <TableHead className="text-right">Inferior (LI)</TableHead>
-                                <TableHead className="text-right">Mediana</TableHead>
-                                <TableHead className="text-right">Superior (LS)</TableHead>
+                                <TableHead>{t('monteCarlo.budget.results.metric')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.budget.results.lowerBound')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.budget.results.median')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.budget.results.upperBound')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow>
-                                <TableCell className="font-medium">Falhas Esperadas</TableCell>
+                                <TableCell className="font-medium">{t('monteCarlo.budget.results.expectedFailures')}</TableCell>
                                 <TableCell className="text-right font-mono">{totals.li.toFixed(2)}</TableCell>
                                 <TableCell className="text-right font-mono">{totals.median.toFixed(2)}</TableCell>
                                 <TableCell className="text-right font-mono">{totals.ls.toFixed(2)}</TableCell>
                             </TableRow>
                              <TableRow>
-                                <TableCell className="font-medium">Custo do Orçamento</TableCell>
+                                <TableCell className="font-medium">{t('monteCarlo.budget.results.budgetCost')}</TableCell>
                                 <TableCell className="text-right font-mono text-green-400">{formatCurrency(totals.li * itemCost)}</TableCell>
                                 <TableCell className="text-right font-mono text-purple-400">{formatCurrency(totals.median * itemCost)}</TableCell>
                                 <TableCell className="text-right font-mono text-yellow-400">{formatCurrency(totals.ls * itemCost)}</TableCell>
@@ -1189,46 +1184,40 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
                 </CardContent>
                  <CardFooter>
                     <p className="text-sm text-muted-foreground">
-                        Planeje seu orçamento com base no Limite Superior (LS) para garantir um nível de serviço de {confidenceLevel}%.
+                        {t('monteCarlo.budget.results.footer', { level: confidenceLevel })}
                     </p>
                  </CardFooter>
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Interpretando a Previsão de Falhas</CardTitle>
+                    <CardTitle>{t('monteCarlo.budget.results.interpretationTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground space-y-4">
-                     <p>
-                        A <strong className="text-foreground">Mediana</strong> é a sua melhor estimativa, o número mais provável de falhas com base nos dados. É o ponto de partida para o planejamento.
-                    </p>
-                    <p>
-                        Os <strong className="text-foreground">Limites de Confiança (LI e LS)</strong> quantificam a incerteza da previsão, com base no nível de confiança de <strong className="text-foreground">{confidenceLevel}%</strong>. Eles definem um intervalo onde o número real de falhas provavelmente se encontrará.
-                    </p>
-                    <ul className="list-disc pl-5 space-y-2">
-                        <li><strong className="text-green-400">Limite Inferior (LI):</strong> O cenário otimista. Há uma baixa probabilidade de que o número de falhas seja menor que este valor.</li>
-                        <li><strong className="text-yellow-400">Limite Superior (LS):</strong> O cenário pessimista e o mais importante para o orçamento. Para garantir um nível de serviço adequado e evitar falta de estoque, planeje seu orçamento de sobressalentes com base neste valor.</li>
+                     <p dangerouslySetInnerHTML={{ __html: t('monteCarlo.budget.results.interpretation1') }} />
+                     <p dangerouslySetInnerHTML={{ __html: t('monteCarlo.budget.results.interpretation2', { level: `<strong>${confidenceLevel}%</strong>`}) }} />
+                     <ul className="list-disc pl-5 space-y-2">
+                        <li dangerouslySetInnerHTML={{ __html: t('monteCarlo.budget.results.interpretation3') }} />
+                        <li dangerouslySetInnerHTML={{ __html: t('monteCarlo.budget.results.interpretation4') }} />
                     </ul>
-                     <p className="pt-2">
-                       A largura do intervalo (diferença entre LS e LI) reflete a qualidade dos seus dados. Dados mais consistentes e em maior volume geralmente resultam em um intervalo de confiança mais estreito e uma previsão mais precisa.
-                    </p>
+                     <p className="pt-2" dangerouslySetInnerHTML={{ __html: t('monteCarlo.budget.results.interpretation5') }} />
                 </CardContent>
             </Card>
             
             <Card>
                 <CardHeader>
-                    <CardTitle>Tabela Detalhada de Falhas por Item</CardTitle>
-                     <CardDescription>Esta é a previsão de falhas para cada grupo de itens da sua população em serviço.</CardDescription>
+                    <CardTitle>{t('monteCarlo.budget.results.detailsTitle')}</CardTitle>
+                     <CardDescription>{t('monteCarlo.budget.results.detailsDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent className="max-h-80 overflow-y-auto">
                     <Table>
                         <TableHeader>
                            <TableRow>
-                                <TableHead>Idade Atual</TableHead>
-                                <TableHead>Qtd. Itens</TableHead>
-                                <TableHead className="text-right">Falhas (LI)</TableHead>
-                                <TableHead className="text-right">Falhas (Mediana)</TableHead>
-                                <TableHead className="text-right">Falhas (LS)</TableHead>
+                                <TableHead>{t('monteCarlo.budget.results.detailsAge')}</TableHead>
+                                <TableHead>{t('monteCarlo.budget.results.detailsQty')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.budget.results.detailsFailuresLower')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.budget.results.detailsFailuresMedian')}</TableHead>
+                                <TableHead className="text-right">{t('monteCarlo.budget.results.detailsFailuresUpper')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1249,7 +1238,7 @@ const BudgetResultsDisplay = ({ result, itemCost, confidenceLevel }: { result: S
     );
 };
 
-const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) => {
+const CompetingModesResultsDisplay = ({ result, t }: { result: SimulationResult, t: (key: string, args?: any) => string }) => {
     if (!result.competingModesResult) return null;
     const { analyses, failureProbabilities, period, tables } = result.competingModesResult;
     const criticalMode = failureProbabilities?.[0];
@@ -1258,18 +1247,18 @@ const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) 
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Análise dos Modos de Falha</CardTitle>
+                    <CardTitle>{t('monteCarlo.competing.results.analysisTitle')}</CardTitle>
                     <CardDescription>
-                        Parâmetros Weibull (MLE) calculados para cada modo de falha competitivo.
+                        {t('monteCarlo.competing.results.analysisDescription')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Modo de Falha</TableHead>
-                                <TableHead className="text-right">Beta (β)</TableHead>
-                                <TableHead className="text-right">Eta (η)</TableHead>
+                                <TableHead>{t('monteCarlo.competing.results.mode')}</TableHead>
+                                <TableHead className="text-right">{t('parameters.beta')}</TableHead>
+                                <TableHead className="text-right">{t('parameters.eta')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1287,15 +1276,15 @@ const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) 
              {failureProbabilities && (
                  <Card>
                     <CardHeader>
-                        <CardTitle>Probabilidade de Falha em t = {period}</CardTitle>
-                        <CardDescription>Probabilidade de falha individual para cada modo no tempo especificado.</CardDescription>
+                        <CardTitle>{t('monteCarlo.competing.results.probTitle', { period: period })}</CardTitle>
+                        <CardDescription>{t('monteCarlo.competing.results.probDescription')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Modo de Falha</TableHead>
-                                    <TableHead className="text-right">Probabilidade F(t)</TableHead>
+                                    <TableHead>{t('monteCarlo.competing.results.mode')}</TableHead>
+                                    <TableHead className="text-right">{t('monteCarlo.competing.results.probLabel')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1317,7 +1306,7 @@ const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) 
                         {criticalMode && (
                            <CardFooter className="pt-4">
                                 <p className="text-sm text-muted-foreground">
-                                    O modo de falha <strong className="text-primary">{criticalMode.name}</strong> é o mais crítico, com a maior probabilidade de ocorrência.
+                                    {t('monteCarlo.competing.results.criticalMode', { mode: `<strong className="text-primary">${criticalMode.name}</strong>` })}
                                 </p>
                            </CardFooter>
                         )}
@@ -1326,36 +1315,36 @@ const CompetingModesResultsDisplay = ({ result }: { result: SimulationResult }) 
             )}
             <Card>
                  <CardContent className="pt-6">
-                    <CompetingModesPlot result={result.competingModesResult} />
+                    <CompetingModesPlot result={result.competingModesResult} t={t} />
                 </CardContent>
             </Card>
 
-            {tables && tables.length > 0 && <CompetingModesTablesDisplay tables={tables} />}
+            {tables && tables.length > 0 && <CompetingModesTablesDisplay tables={tables} t={t} />}
         </div>
     );
 };
 
-const CompetingModesTablesDisplay = ({ tables }: { tables: AnalysisTableData[] }) => {
+const CompetingModesTablesDisplay = ({ tables, t }: { tables: AnalysisTableData[], t: (key: string, args?: any) => string }) => {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Tabelas de Dados da Análise</CardTitle>
+                <CardTitle>{t('monteCarlo.competing.results.tablesTitle')}</CardTitle>
                 <CardDescription>
-                    Veja como os dados são tratados para cada análise individual de modo de falha. 'F' indica uma falha do modo em análise, e 'S' indica uma suspensão (uma falha de um modo competitivo).
+                    {t('monteCarlo.competing.results.tablesDescription')}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {tables.map(table => (
                         <div key={table.modeName}>
-                            <h3 className="font-semibold text-center mb-2">Analisando - {table.modeName}</h3>
+                            <h3 className="font-semibold text-center mb-2">{t('monteCarlo.competing.results.analyzing', { mode: table.modeName })}</h3>
                             <div className="max-h-80 overflow-y-auto rounded-md border">
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                                         <TableRow>
-                                            <TableHead>Tempo</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Modo de Falha</TableHead>
+                                            <TableHead>{t('charts.time')}</TableHead>
+                                            <TableHead>{t('monteCarlo.competing.results.status')}</TableHead>
+                                            <TableHead>{t('monteCarlo.competing.results.mode')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -1388,7 +1377,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const [simulationType, setSimulationType] = useState<'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing'>('confidence');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
-  
+  const { t } = useI18n();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -1451,8 +1440,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         
     form.setValue('budgetPopulationData', existingLines.concat(populationString.split('\n')).join('\n'));
     toast({
-      title: 'População Extraída',
-      description: 'Os itens de suspensão foram adicionados à população em serviço.'
+      title: t('monteCarlo.budget.extractToastTitle'),
+      description: t('monteCarlo.budget.extractToastDescription')
     })
   };
 
@@ -1462,8 +1451,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     if (failureTimes.length < 2) {
         toast({
             variant: 'destructive',
-            title: 'Dados Insuficientes',
-            description: 'Por favor, insira pelo menos dois tempos de falha válidos.',
+            title: t('toasts.insufficientData.title'),
+            description: t('toasts.insufficientData.description'),
         });
         setIsSimulating(false);
         return;
@@ -1476,7 +1465,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     });
 
     if (!boundsData || boundsData.error) {
-        throw new Error(boundsData?.error || "Não foi possível calcular os limites de confiança.");
+        throw new Error(boundsData?.error || t('monteCarlo.errors.confidence'));
     }
     setResult({ boundsData });
   }
@@ -1484,7 +1473,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const runDispersionSimulation = (data: FormData) => {
       const { beta, eta, sampleSize, simulationCount } = data;
       if (!beta || !eta || !sampleSize || !simulationCount) {
-          toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para a simulação de dispersão.' });
+          toast({ variant: 'destructive', title: t('toasts.missingParams.title'), description: t('toasts.missingParams.dispersion') });
           setIsSimulating(false);
           return;
       }
@@ -1516,15 +1505,15 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     if (failureTimes.length < 2) {
         toast({
             variant: 'destructive',
-            title: 'Dados Insuficientes',
-            description: 'Por favor, insira pelo menos dois tempos de falha válidos.',
+            title: t('toasts.insufficientData.title'),
+            description: t('toasts.insufficientData.description'),
         });
         return;
     }
 
     const contourData = calculateLikelihoodRatioContour(failureTimes, [], data.confidenceLevel);
     if (!contourData) {
-        throw new Error("Não foi possível calcular o contorno de confiança. Verifique se os dados são adequados para uma análise Weibull.");
+        throw new Error(t('monteCarlo.errors.contour'));
     }
     setResult({ contourData });
   };
@@ -1532,7 +1521,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
   const runBudgetSimulation = (data: FormData) => {
     const { budgetSourceData, budgetPopulationData, budgetPeriod, budgetItemCost, confidenceLevel } = data;
     if (!budgetSourceData || !budgetPeriod || !budgetItemCost || !confidenceLevel || !budgetPopulationData) {
-        toast({ variant: 'destructive', title: 'Parâmetros Faltando', description: 'Por favor, preencha todos os campos para o cálculo do orçamento.' });
+        toast({ variant: 'destructive', title: t('toasts.missingParams.title'), description: t('toasts.missingParams.budget') });
         return;
     }
 
@@ -1554,13 +1543,13 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     });
 
     if (censoredData.filter(d => d.event === 1).length < 2) {
-        toast({ variant: 'destructive', title: 'Dados de Origem Insuficientes', description: 'São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Beta e Eta.' });
+        toast({ variant: 'destructive', title: t('toasts.insufficientData.title'), description: t('toasts.insufficientData.budgetSource') });
         return;
     }
 
     const mleParams = fitWeibullMLE(censoredData);
     if (!mleParams?.beta || !mleParams?.eta) {
-        toast({ variant: 'destructive', title: 'Erro de Cálculo de Parâmetros', description: 'Não foi possível estimar Beta e Eta a partir dos dados de origem.' });
+        toast({ variant: 'destructive', title: t('toasts.calculationError.title'), description: t('toasts.calculationError.budgetParams') });
         return;
     }
 
@@ -1578,7 +1567,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     });
     
     if (items.length === 0) {
-        toast({ variant: 'destructive', title: 'População Vazia', description: 'Nenhum item na população em serviço para calcular o orçamento.' });
+        toast({ variant: 'destructive', title: t('toasts.emptyPopulation.title'), description: t('toasts.emptyPopulation.description') });
         return;
     }
 
@@ -1598,7 +1587,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     const runCompetingModesSimulation = (data: FormData) => {
         const { competingModes, competingModesPeriod } = data;
         if (!competingModes || competingModes.length === 0 || !competingModesPeriod) {
-            toast({ variant: 'destructive', title: 'Dados Incompletos', description: 'Adicione pelo menos um modo de falha e preencha o período de previsão.' });
+            toast({ variant: 'destructive', title: t('toasts.missingParams.title'), description: t('toasts.missingParams.competing') });
             return;
         }
 
@@ -1608,13 +1597,13 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         }));
 
         if (modes.some(m => m.times.length === 0)) {
-             toast({ variant: 'destructive', title: 'Modo de Falha Vazio', description: 'Todos os modos de falha devem ter pelo menos um tempo de falha.' });
+             toast({ variant: 'destructive', title: t('toasts.emptyMode.title'), description: t('toasts.emptyMode.description') });
             return;
         }
 
         const competingModesResult = analyzeCompetingFailureModes(modes, competingModesPeriod);
         if (!competingModesResult) {
-            throw new Error("Não foi possível analisar os modos competitivos. Verifique os dados de entrada.");
+            throw new Error(t('monteCarlo.errors.competing'));
         }
         setResult({ competingModesResult });
     };
@@ -1640,8 +1629,8 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         } catch (error: any) {
              toast({
                 variant: 'destructive',
-                title: 'Erro na Simulação',
-                description: error.message || 'Ocorreu um erro inesperado.',
+                title: t('toasts.simulationError.title'),
+                description: error.message || t('toasts.simulationError.description'),
             });
         } finally {
             setIsSimulating(false);
@@ -1672,7 +1661,7 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     return (
       <Card className="flex flex-col items-center justify-center min-h-[500px]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Carregando simulador...</p>
+        <p className="mt-4 text-lg text-muted-foreground">{t('monteCarlo.loading')}</p>
       </Card>
     );
   }
@@ -1681,35 +1670,35 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
     <div className="space-y-6">
         <Card>
             <CardHeader>
-                <CardTitle>Simulador Monte Carlo</CardTitle>
-                <CardDescription>Selecione o tipo de simulação que deseja realizar.</CardDescription>
+                <CardTitle>{t('monteCarlo.cardTitle')}</CardTitle>
+                <CardDescription>{t('monteCarlo.cardDescription')}</CardDescription>
             </CardHeader>
              <CardContent>
                 <RadioGroup defaultValue={simulationType} onValueChange={(v) => handleSimulationTypeChange(v as 'confidence' | 'dispersion' | 'contour' | 'budget' | 'competing')} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       <Label htmlFor="confidence" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'confidence' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="confidence" id="confidence" className="sr-only" />
                           <TestTube className="mb-3 h-6 w-6" />
-                          Limites de Confiança
+                          {t('monteCarlo.confidence.title')}
                       </Label>
                       <Label htmlFor="dispersion" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'dispersion' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="dispersion" id="dispersion" className="sr-only" />
                            <TestTube className="mb-3 h-6 w-6" />
-                          Dispersão de Parâmetros
+                          {t('monteCarlo.dispersion.title')}
                       </Label>
                       <Label htmlFor="contour" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'contour' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="contour" id="contour" className="sr-only" />
                            <TestTube className="mb-3 h-6 w-6" />
-                          Gráfico de Contorno
+                          {t('monteCarlo.contour.title')}
                       </Label>
                       <Label htmlFor="budget" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'budget' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="budget" id="budget" className="sr-only" />
                            <TestTube className="mb-3 h-6 w-6" />
-                          Orçamento de Sobressalentes
+                          {t('monteCarlo.budget.title')}
                       </Label>
                        <Label htmlFor="competing" className={`flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer ${simulationType === 'competing' ? 'border-primary' : 'border-muted'}`}>
                           <RadioGroupItem value="competing" id="competing" className="sr-only" />
                            <TestTube className="mb-3 h-6 w-6" />
-                          Modos Competitivos
+                          {t('monteCarlo.competing.title')}
                       </Label>
               </RadioGroup>
             </CardContent>
@@ -1717,19 +1706,19 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
                 {simulationType === 'confidence' &&
-                    <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    <ConfidenceControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} t={t} />
                 }
                 {simulationType === 'dispersion' &&
-                    <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    <DispersionControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} t={t} />
                 }
                 {simulationType === 'contour' &&
-                    <ContourControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    <ContourControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} t={t} />
                 }
                  {simulationType === 'budget' &&
-                    <BudgetControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} onExtract={handleExtractSuspensions} />
+                    <BudgetControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} onExtract={handleExtractSuspensions} t={t} />
                 }
                  {simulationType === 'competing' &&
-                    <CompetingModesControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} />
+                    <CompetingModesControls form={form} isSimulating={isSimulating} onSubmit={onSubmit} t={t} />
                 }
             </div>
 
@@ -1737,43 +1726,43 @@ export default function MonteCarloSimulator({ suppliers }: MonteCarloSimulatorPr
                 {isSimulating && (
                     <Card className="flex flex-col items-center justify-center min-h-[500px]">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                        <p className="mt-4 text-lg text-muted-foreground">Executando simulação...</p>
+                        <p className="mt-4 text-lg text-muted-foreground">{t('monteCarlo.pending')}</p>
                     </Card>
                 )}
 
                 {!isSimulating && !result && (
                      <Card className="flex flex-col items-center justify-center min-h-[500px]">
                         <TestTube className="h-16 w-16 text-muted-foreground/50" />
-                        <p className="mt-4 text-lg text-center text-muted-foreground">Aguardando parâmetros para iniciar a simulação.</p>
+                        <p className="mt-4 text-lg text-center text-muted-foreground">{t('monteCarlo.waiting')}</p>
                     </Card>
                 )}
 
                 {result?.boundsData && simulationType === 'confidence' && (
-                    <FisherMatrixPlot data={result.boundsData} timeForCalc={form.getValues('timeForCalc')} />
+                    <FisherMatrixPlot data={result.boundsData} timeForCalc={form.getValues('timeForCalc')} t={t} />
                 )}
 
                 {result?.dispersionData && result.simulationCount && simulationType === 'dispersion' && (
-                    <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} simulationCount={result.simulationCount} />
+                    <DispersionPlot original={result.originalPlot} simulations={result.dispersionData} simulationCount={result.simulationCount} t={t} />
                 )}
 
                 {result?.contourData && simulationType === 'contour' && (
-                    <ContourPlot data={result.contourData} />
+                    <ContourPlot data={result.contourData} t={t} />
                 )}
                 
                 {result?.competingModesResult && simulationType === 'competing' && (
-                  <CompetingModesResultsDisplay result={result} />
+                  <CompetingModesResultsDisplay result={result} t={t} />
                 )}
 
                 {result?.budgetResult && simulationType === 'budget' && budgetItemCost && confidenceLevel && (
-                  <BudgetResultsDisplay result={result} itemCost={budgetItemCost} confidenceLevel={confidenceLevel} />
+                  <BudgetResultsDisplay result={result} itemCost={budgetItemCost} confidenceLevel={confidenceLevel} t={t} />
                 )}
 
                 {!isSimulating && result?.boundsData && simulationType === 'confidence' && (
-                    <ResultsDisplay result={result} timeForCalc={form.getValues('timeForCalc')} />
+                    <ResultsDisplay result={result} timeForCalc={form.getValues('timeForCalc')} t={t} />
                 )}
 
                 {!isSimulating && result?.contourData && simulationType === 'contour' && (
-                  <ContourResultsDisplay result={result} />
+                  <ContourResultsDisplay result={result} t={t} />
                 )}
             </div>
         </div>
