@@ -12,7 +12,6 @@ import { Bot, LineChart as LineChartIcon, BrainCircuit, TestTube } from '@/compo
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
-import ProbabilityPaper from './probability-paper';
 import ProbabilityPlot from './probability-plot';
 import MonteCarloSimulator from './monte-carlo-simulator';
 import LanguageSwitcher from './language-switcher';
@@ -109,9 +108,8 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
           <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
-          <TabsTrigger value="ai_analysis"><BrainCircuit />{t('tabs.aiAnalysis')}</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
         </TabsList>
         <TabsContent value="analysis" className="space-y-4">
@@ -149,12 +147,10 @@ export default function ReliabilityDashboard() {
                )}
               <WeibullParameterAnalysis suppliers={weibullSuppliers} />
               <BathtubCurveAnalysis failureTimes={allFailureTimes} />
+              <AiRiskPredictor suppliers={suppliers} />
+              <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
             </div>
           </div>
-        </TabsContent>
-         <TabsContent value="ai_analysis" className="space-y-4">
-          <AiRiskPredictor suppliers={suppliers} />
-          <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
         </TabsContent>
         <TabsContent value="monte_carlo" className="space-y-4">
           <MonteCarloSimulator suppliers={suppliers} />
