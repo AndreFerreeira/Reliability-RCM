@@ -423,8 +423,8 @@
       "intensity": "Intensidade Manut./GBV",
       "intensityBenchmark": "Benchmark da Indústria: 2-3%",
       "stable": "Estável",
-      "totalValue": "Valor Total do Ativo",
-      "totalValueSub": "Custo de Reposição (GBV)"
+      "gbv": "GBV Total da Frota",
+      "gbvSub": "Valor Contábil Bruto dos Ativos"
     },
     "inventory": {
       "title": "Inventário de Confiabilidade da Frota",

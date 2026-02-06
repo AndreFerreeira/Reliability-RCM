@@ -491,7 +491,7 @@ export default function MaintenanceDashboard() {
                 <KpiCard title={t('performance.kpi.revenueLoss')} value={formatCurrency(kpiValues.totalDowntimeLoss)} subtitle={t('performance.kpi.revenueLossPeriod')} icon={DollarSign} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
                 <KpiCard title={t('performance.kpi.maintenanceCost')} value={formatCurrency(kpiValues.totalMaintenanceCost)} subtitle={t('performance.kpi.maintenanceCostPeriod')} icon={Wrench} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
                 <KpiCard title={t('performance.kpi.intensity')} value={`${kpiValues.maintIntensity.toFixed(2)}%`} subtitle={t('performance.kpi.intensityBenchmark')} icon={TrendingUp} trend={t('performance.kpi.stable')} trendDirection="stable" trendColor="gray" />
-                <KpiCard title={t('performance.kpi.totalValue')} value={formatCurrency(kpiValues.totalGbv)} subtitle={t('performance.kpi.totalValueSub')} icon={Cog} />
+                <KpiCard title={t('performance.kpi.gbv')} value={formatCurrency(kpiValues.totalGbv)} subtitle={t('performance.kpi.gbvSub')} icon={Cog} />
             </div>
 
             <Card>

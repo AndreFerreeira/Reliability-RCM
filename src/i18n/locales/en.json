@@ -424,8 +424,8 @@
       "intensity": "Maint / GBV Intensity",
       "intensityBenchmark": "Industry Benchmark: 2-3%",
       "stable": "Stable",
-      "totalValue": "Total Asset Value",
-      "totalValueSub": "Replacement Cost (GBV)"
+      "gbv": "Total Fleet GBV",
+      "gbvSub": "Gross Book Value of Assets"
     },
     "inventory": {
       "title": "Fleet Reliability Inventory",

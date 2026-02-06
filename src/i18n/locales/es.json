@@ -423,8 +423,8 @@
       "intensity": "Intensidad Mant./GBV",
       "intensityBenchmark": "Benchmark de la Industria: 2-3%",
       "stable": "Estable",
-      "totalValue": "Valor Total del Activo",
-      "totalValueSub": "Costo de Reemplazo (GBV)"
+      "gbv": "GBV Total de la Flota",
+      "gbvSub": "Valor Contable Bruto de los Activos"
     },
     "inventory": {
       "title": "Inventario de Fiabilidad de la Flota",
