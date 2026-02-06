@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '../ui/textarea';
+import { estimateParameters } from '@/lib/reliability';
 
 function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setAssets: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -68,11 +69,45 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
   const handleInputChange = (id: string, field: keyof AssetData, value: any) => {
     setEditableAssets(prev => prev.map(asset => {
         if (asset.id === id) {
+            const updatedAsset = { ...asset };
+
             const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mttr'];
             if (numericFields.includes(field)) {
-                return { ...asset, [field]: parseFloat(value) || 0 };
+                updatedAsset[field] = parseFloat(value) || 0;
+            } else {
+                updatedAsset[field] = value;
             }
-            return { ...asset, [field]: value };
+            
+            // NEW: Automatically calculate lifecycle based on failure times
+            if (field === 'failureTimes') {
+                const failureTimesArray = (value || '').split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
+                
+                // Only calculate if we have enough data points for a meaningful estimation
+                if (failureTimesArray.length >= 3) {
+                    try {
+                        const { params } = estimateParameters({
+                            dist: 'Weibull',
+                            failureTimes: failureTimesArray,
+                            method: 'MLE', // MLE is generally better for parameter estimation
+                        });
+                        
+                        if (params.beta) {
+                            if (params.beta < 0.95) { // Infant mortality
+                                updatedAsset.lifecycle = 'infant';
+                            } else if (params.beta > 1.05) { // Wear-out
+                                updatedAsset.lifecycle = 'wearOut';
+                            } else { // Useful life
+                                updatedAsset.lifecycle = 'stable';
+                            }
+                        }
+                    } catch (e) {
+                        // Could fail if data is not good, just keep the old value
+                        console.error("Could not calculate lifecycle", e);
+                    }
+                }
+            }
+            
+            return updatedAsset;
         }
         return asset;
     }));
@@ -134,16 +169,12 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor={`lifecycle-${asset.id}`}>{t('assetEditor.fields.lifecycle')}</Label>
-                            <Select value={asset.lifecycle} onValueChange={(value) => handleInputChange(asset.id, 'lifecycle', value)}>
-                                <SelectTrigger id={`lifecycle-${asset.id}`}>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="wearOut">{t('performance.lifecycle.wearOut')}</SelectItem>
-                                    <SelectItem value="stable">{t('performance.lifecycle.stable')}</SelectItem>
-                                    <SelectItem value="infant">{t('performance.lifecycle.infant')}</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Input
+                                id={`lifecycle-${asset.id}`}
+                                value={t(`performance.lifecycle.${asset.lifecycle}`)}
+                                disabled
+                                className="font-medium text-foreground"
+                            />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor={`pdmHealth-${asset.id}`}>{t('assetEditor.fields.pdmHealth')}</Label>
