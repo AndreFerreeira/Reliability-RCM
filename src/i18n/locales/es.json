@@ -491,7 +491,7 @@
       "healthIndex": "ÍNDICE DE SALUD DINÁMICA",
       "noData": "Esperando datos de optimización...",
       "timeSinceFailure": "Días desde la última falla",
-      "countdown": "CUENTA ATRÁS PARA CAMBIO",
+      "countdown": "CUENTA ATRÁS PARA MANTENIMIENTO",
       "footer": "La puntuación de salud se calcula en función del tiempo transcurrido frente al intervalo de reemplazo óptimo."
     },
     "decisionEngine": {
