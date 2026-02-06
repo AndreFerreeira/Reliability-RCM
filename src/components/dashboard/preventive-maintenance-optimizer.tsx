@@ -22,8 +22,15 @@ const formSchema = z.object({
   costCu: z.coerce.number().min(1, 'O custo deve ser maior que zero.'),
 });
 
+interface CalculationResult {
+  costCurve: { time: number; cost: number; }[];
+  optimalInterval: number;
+  minCost: number;
+}
+
 interface OptimizerProps {
   asset: AssetData;
+  onCalculationComplete?: (result: { optimalInterval: number; minCost: number; }) => void;
 }
 
 const BetaAnalysis = ({ beta, t }: { beta: number, t: (key: string) => string }) => {
@@ -84,7 +91,7 @@ const EtaAnalysis = ({ eta, t }: { eta: number, t: (key: string) => string }) =>
 };
 
 
-export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps) {
+export default function PreventiveMaintenanceOptimizer({ asset, onCalculationComplete }: OptimizerProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const { t } = useI18n();
@@ -114,20 +121,16 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
             const steps = 200;
             const timePoints = Array.from({ length: steps + 1 }, (_, i) => (i / steps) * maxTime);
 
-            const mttf_curve = [];
             let cumulativeIntegral = 0;
-            for (let i = 1; i < timePoints.length; i++) {
-                const t_i = timePoints[i];
-                const t_prev = timePoints[i-1];
-                const dt = t_i - t_prev;
-                const R_avg = (weibullSurvival(t_i, beta, eta) + weibullSurvival(t_prev, beta, eta)) / 2;
-                cumulativeIntegral += R_avg * dt;
-                mttf_curve.push({ time: t_i, mttf: cumulativeIntegral });
-            }
-
-            const costCurve = mttf_curve.map(point => {
-                const t_i = point.time;
-                const mttf_t = point.mttf;
+            const costCurve = timePoints.map((t_i, i) => {
+                if (i > 0) {
+                    const t_prev = timePoints[i-1];
+                    const dt = t_i - t_prev;
+                    const R_avg = (weibullSurvival(t_i, beta, eta) + weibullSurvival(t_prev, beta, eta)) / 2;
+                    cumulativeIntegral += R_avg * dt;
+                }
+                
+                const mttf_t = cumulativeIntegral;
                 if (t_i < 1 || mttf_t < 1e-9) return null;
 
                 const R_t = weibullSurvival(t_i, beta, eta);
@@ -151,6 +154,9 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
             });
 
             setResult({ costCurve, optimalInterval, minCost });
+            if (onCalculationComplete) {
+                onCalculationComplete({ optimalInterval, minCost });
+            }
         } catch (error) {
              toast({
                 variant: 'destructive',
@@ -161,7 +167,7 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
             setIsCalculating(false);
         }
     }, 50);
-  }, [asset.beta, asset.eta, costCp, costCu, t, toast]);
+  }, [asset.beta, asset.eta, costCp, costCu, t, toast, onCalculationComplete]);
   
   useEffect(() => {
     if (asset.beta && asset.eta) {
@@ -223,7 +229,6 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
                                     </FormItem>
                                 )}
                             />
-                            {/* The button is removed as calculation is now automatic on value change */}
                         </form>
                     </Form>
                 </div>

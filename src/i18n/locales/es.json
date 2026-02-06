@@ -486,13 +486,13 @@
       "title": "Análisis Weibull y Optimización de MP",
       "description": "Interprete los parámetros de fallo del activo y utilícelos para encontrar el intervalo de mantenimiento preventivo de menor coste."
     },
-    "pdmScore": {
-      "title": "Puntuación de Mantenimiento Predictivo",
-      "healthIndex": "ÍNDICE DE SALUD DEL ACTIVO PdM",
-      "mttrTrend": "TENDENCIA MTTR",
-      "rpn": "PESO DE RIESGO (RPN)",
-      "severity": "SEVERIDAD",
-      "footer": "Puntuación calculada dinámicamente usando RPN, Severidad y Análisis de Tendencia de MTTR."
+    "dynamicHealth": {
+      "title": "Puntuación de Salud Dinámica y Contexto de MP",
+      "healthIndex": "ÍNDICE DE SALUD DINÁMICA",
+      "noData": "Esperando datos de optimización...",
+      "timeSinceFailure": "TIEMPO DESDE EL ÚLTIMO FALLO",
+      "optimalReplacement": "REEMPLAZO ÓPTIMO EN",
+      "footer": "La puntuación de salud se calcula en función del tiempo transcurrido frente al intervalo de reemplazo óptimo."
     },
     "decisionEngine": {
       "button": "Generar Informe RCA Completo"

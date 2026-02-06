@@ -487,13 +487,13 @@
       "title": "Weibull Analysis & PM Optimization",
       "description": "Interpret the asset's failure parameters and use them to find the lowest-cost preventive maintenance interval."
     },
-    "pdmScore": {
-      "title": "Predictive Maintenance Score",
-      "healthIndex": "PdM ASSET HEALTH INDEX",
-      "mttrTrend": "MTTR TREND",
-      "rpn": "RISK WEIGHT (RPN)",
-      "severity": "SEVERITY",
-      "footer": "Score dynamically calculated using RPN, Severity, and MTTR Trend Analysis."
+    "dynamicHealth": {
+      "title": "Dynamic Health Score & PM Context",
+      "healthIndex": "DYNAMIC HEALTH INDEX",
+      "noData": "Awaiting optimization data...",
+      "timeSinceFailure": "TIME SINCE LAST FAILURE",
+      "optimalReplacement": "OPTIMAL REPLACEMENT AT",
+      "footer": "Health score is calculated based on time elapsed versus the optimal replacement interval."
     },
     "decisionEngine": {
       "button": "Generate Full RCA Report"

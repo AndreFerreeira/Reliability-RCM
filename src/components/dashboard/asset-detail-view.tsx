@@ -5,7 +5,7 @@ import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, TrendingUp, ShieldCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, Gem, Lightbulb, TrendingUp, ShieldCheck, Loader2 } from 'lucide-react';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -35,14 +35,60 @@ const InfoCard = ({ title, value, icon: Icon, unit }: { title: string, value: st
     </Card>
 );
 
+function parseDate(dateStr: string): Date | null {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+    let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):?(\d{2})?/);
+    if (parts) {
+        const [, day, month, year, hour, minute, second] = parts;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), second ? parseInt(second) : 0);
+    }
+    parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (parts) {
+        const [, day, month, year] = parts;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    return null;
+}
+
 export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [isReportOpen, setIsReportOpen] = React.useState(false);
   const [reportContent, setReportContent] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
+  const [optimalInterval, setOptimalInterval] = React.useState<number | null>(null);
+  const [dynamicHealth, setDynamicHealth] = React.useState<{ score: number, daysSinceFailure: number } | null>(null);
 
   const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? [];
+
+  React.useEffect(() => {
+    if (optimalInterval === null || !asset.events || asset.events.length === 0) {
+      setDynamicHealth(null);
+      return;
+    }
+
+    const failureEvents = asset.events
+      .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
+      .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+    
+    if (failureEvents.length === 0) {
+        setDynamicHealth(null);
+        return;
+    }
+
+    const lastFailureDate = failureEvents[0].date;
+    const now = new Date();
+    const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
+    
+    const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / optimalInterval)));
+
+    setDynamicHealth({
+      score: Math.round(score),
+      daysSinceFailure: Math.round(hoursSinceLastFailure / 24),
+    });
+
+  }, [optimalInterval, asset.events]);
 
   const calculatedMtbf = React.useMemo(() => {
     if (failureTimes.length < 2) {
@@ -112,49 +158,59 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                 <InfoCard title="Custo / Hora de Downtime" value={`$${downtimeCostPerHour.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
             </div>
 
-            {/* Predictive Maintenance Score */}
             <Card className="bg-card shadow-lg">
                 <CardHeader>
-                    <CardTitle>{t('assetDetail.pdmScore.title')}</CardTitle>
+                    <CardTitle>{t('assetDetail.dynamicHealth.title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="text-center">
-                        <div className={cn("text-7xl font-bold", asset.pdmHealth < 50 ? 'text-red-400' : 'text-green-400')}>{asset.pdmHealth}%</div>
-                        <div className="text-sm text-muted-foreground">{t('assetDetail.pdmScore.healthIndex')}</div>
+                        {dynamicHealth !== null ? (
+                            <>
+                                <div className={cn("text-7xl font-bold", dynamicHealth.score < 50 ? 'text-red-400' : dynamicHealth.score < 75 ? 'text-yellow-400' : 'text-green-400')}>
+                                    {dynamicHealth.score}%
+                                </div>
+                                <div className="text-sm text-muted-foreground">{t('assetDetail.dynamicHealth.healthIndex')}</div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="text-7xl font-bold text-muted-foreground">--%</div>
+                                <div className="text-sm text-muted-foreground">{t('assetDetail.dynamicHealth.noData')}</div>
+                            </>
+                        )}
                     </div>
                     <div className="h-24 border-r border-dashed border-border hidden md:block" />
                     <div className="flex flex-1 justify-around gap-4 text-center">
                         <div>
-                            <div className="text-xs text-muted-foreground">{t('assetDetail.pdmScore.mttrTrend')}</div>
-                            <div className="flex items-center justify-center gap-1 text-2xl font-semibold text-red-400">
-                                <TrendingUp className="h-5 w-5" /> 33%
+                            <div className="text-xs text-muted-foreground">{t('assetDetail.dynamicHealth.timeSinceFailure')}</div>
+                            <div className="text-2xl font-semibold">
+                                {dynamicHealth !== null ? dynamicHealth.daysSinceFailure : '--'} <span className="text-base text-muted-foreground">dias</span>
                             </div>
                         </div>
                         <div>
-                            <div className="text-xs text-muted-foreground">{t('assetDetail.pdmScore.rpn')}</div>
-                            <div className="text-2xl font-semibold">{asset.rpn}</div>
-                        </div>
-                         <div>
-                            <div className="text-xs text-muted-foreground">{t('assetDetail.pdmScore.severity')}</div>
-                            <div className="text-2xl font-semibold">{asset.severity}/10</div>
+                            <div className="text-xs text-muted-foreground">{t('assetDetail.dynamicHealth.optimalReplacement')}</div>
+                            <div className="text-2xl font-semibold text-primary">
+                                {optimalInterval !== null ? Math.round(optimalInterval / 24) : '--'} <span className="text-base text-muted-foreground">dias</span>
+                            </div>
                         </div>
                     </div>
-                     <div className="w-48 hidden lg:block">
-                        <BrainCircuit className="h-full w-full text-primary/10" />
-                     </div>
+                    <div className="w-48 hidden lg:block">
+                        <Gem className="h-full w-full text-primary/10" />
+                    </div>
                 </CardContent>
                 <div className="border-t border-border/50 bg-muted/30 px-6 py-3 text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-green-500" />
-                        <span>{t('assetDetail.pdmScore.footer')}</span>
+                        <Lightbulb className="h-4 w-4 text-yellow-500" />
+                        <span>{t('assetDetail.dynamicHealth.footer')}</span>
                     </div>
                 </div>
             </Card>
 
-            {/* Reliability & Cost Dynamics */}
              <BathtubCurveAnalysis failureTimes={failureTimes} />
 
-             <PreventiveMaintenanceOptimizer asset={asset} />
+             <PreventiveMaintenanceOptimizer
+                asset={asset}
+                onCalculationComplete={(result) => setOptimalInterval(result.optimalInterval)}
+             />
 
              <AssetReliabilityCharts asset={asset} />
 
