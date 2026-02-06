@@ -114,96 +114,90 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
   };
 
   return (
-    <div className="p-1">
-        <CardHeader className="px-0">
-            <CardTitle>{t('assetDetail.optimizePM.title')}</CardTitle>
-            <CardDescription>{t('assetDetail.optimizePM.description')}</CardDescription>
-        </CardHeader>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1">
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField
-                            control={form.control}
-                            name="costCp"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('assetDetail.optimizePM.costCpLabel')}</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="costCu"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('assetDetail.optimizePM.costCuLabel')}</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <Button type="submit" disabled={isCalculating} className="w-full">
-                            {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            {isCalculating ? t('assetDetail.optimizePM.calculating') : t('assetDetail.optimizePM.calculateButton')}
-                        </Button>
-                    </form>
-                </Form>
-            </div>
-             <div className="md:col-span-2">
-                {isCalculating && (
-                    <div className="flex items-center justify-center h-full min-h-[300px] bg-muted rounded-md">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                )}
-                {!isCalculating && !result && (
-                     <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted rounded-md text-center p-4">
-                        <p className="text-sm text-muted-foreground">{t('assetDetail.optimizePM.noWeibull')}</p>
-                    </div>
-                )}
-                {result && (
-                    <div className="space-y-4">
-                        <Alert>
-                            <AlertTitle>{t('assetDetail.optimizePM.resultTitle')}</AlertTitle>
-                            <AlertDescription className="grid grid-cols-2 gap-4 mt-2">
-                                <div>
-                                    <p className="text-xs text-muted-foreground">{t('assetDetail.optimizePM.optimalInterval')}</p>
-                                    <p className="text-xl font-bold text-primary">{Math.round(result.optimalInterval).toLocaleString()} {asset.units}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground">{t('assetDetail.optimizePM.minimumCost')}</p>
-                                    <p className="text-xl font-bold text-primary">${result.minCost.toFixed(2)}</p>
-                                </div>
-                            </AlertDescription>
-                        </Alert>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">{t('assetDetail.optimizePM.chartTitle')}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                 <ResponsiveContainer width="100%" height={250}>
-                                    <LineChart data={result.costCurve} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="time" type="number" domain={['dataMin', 'dataMax']} tickFormatter={(tick) => tick.toLocaleString()} />
-                                        <YAxis dataKey="cost" name={t('assetDetail.optimizePM.yAxis')} domain={['dataMin', 'dataMax']} tickFormatter={(tick) => `$${tick.toPrecision(2)}`} />
-                                        <Tooltip
-                                            formatter={(value: number, name, props) => [`$${value.toFixed(2)}`, t('assetDetail.optimizePM.yAxis')]}
-                                            labelFormatter={(label) => `${t('charts.time')}: ${Math.round(label)}`}
-                                        />
-                                        <Line type="monotone" dataKey="cost" stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
-                                        {result.optimalInterval > 0 && (
-                                            <ReferenceLine x={result.optimalInterval} stroke="hsl(var(--destructive))" strokeDasharray="3 3" />
-                                        )}
-                                        <ReferenceDot x={result.optimalInterval} y={result.minCost} r={5} fill="hsl(var(--destructive))" stroke="white" />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-            </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div className="md:col-span-1">
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="costCp"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>{t('assetDetail.optimizePM.costCpLabel')}</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="costCu"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>{t('assetDetail.optimizePM.costCuLabel')}</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" disabled={isCalculating} className="w-full">
+                        {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {isCalculating ? t('assetDetail.optimizePM.calculating') : t('assetDetail.optimizePM.calculateButton')}
+                    </Button>
+                </form>
+            </Form>
+        </div>
+         <div className="md:col-span-2">
+            {isCalculating && (
+                <div className="flex items-center justify-center h-full min-h-[300px] bg-muted rounded-md">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            )}
+            {!isCalculating && !result && (
+                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted rounded-md text-center p-4">
+                    <p className="text-sm text-muted-foreground">{t('assetDetail.optimizePM.noWeibull')}</p>
+                </div>
+            )}
+            {result && (
+                <div className="space-y-4">
+                    <Alert>
+                        <AlertTitle>{t('assetDetail.optimizePM.resultTitle')}</AlertTitle>
+                        <AlertDescription className="grid grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <p className="text-xs text-muted-foreground">{t('assetDetail.optimizePM.optimalInterval')}</p>
+                                <p className="text-xl font-bold text-primary">{Math.round(result.optimalInterval).toLocaleString()} {asset.units}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">{t('assetDetail.optimizePM.minimumCost')}</p>
+                                <p className="text-xl font-bold text-primary">${result.minCost.toFixed(2)}</p>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">{t('assetDetail.optimizePM.chartTitle')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={result.costCurve} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="time" type="number" domain={['dataMin', 'dataMax']} tickFormatter={(tick) => tick.toLocaleString()} />
+                                    <YAxis dataKey="cost" name={t('assetDetail.optimizePM.yAxis')} domain={['dataMin', 'dataMax']} tickFormatter={(tick) => `$${tick.toPrecision(2)}`} />
+                                    <Tooltip
+                                        formatter={(value: number, name, props) => [`$${value.toFixed(2)}`, t('assetDetail.optimizePM.yAxis')]}
+                                        labelFormatter={(label) => `${t('charts.time')}: ${Math.round(label)}`}
+                                    />
+                                    <Line type="monotone" dataKey="cost" stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
+                                    {result.optimalInterval > 0 && (
+                                        <ReferenceLine x={result.optimalInterval} stroke="hsl(var(--destructive))" strokeDasharray="3 3" />
+                                    )}
+                                    <ReferenceDot x={result.optimalInterval} y={result.minCost} r={5} fill="hsl(var(--destructive))" stroke="white" />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     </div>
   );

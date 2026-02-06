@@ -186,6 +186,10 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
        <Dialog open={isOptimizerOpen} onOpenChange={setIsOptimizerOpen}>
         <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>{t('assetDetail.optimizePM.title')}</DialogTitle>
+                <DialogDescription>{t('assetDetail.optimizePM.description')}</DialogDescription>
+            </DialogHeader>
             <PreventiveMaintenanceOptimizer asset={asset} />
         </DialogContent>
       </Dialog>
