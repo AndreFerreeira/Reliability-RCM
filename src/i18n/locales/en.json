@@ -122,7 +122,8 @@
     "tsvError": {
       "title": "Error processing data",
       "description": "Check the format of the pasted data. Details: {{error}}",
-      "structure": "Data appears to be empty or in an invalid format. Ensure you include the header row."
+      "structure": "Data appears to be empty or in an invalid format. Ensure you include the header row.",
+      "missingHeaders": "The following required headers were not found: {{headers}}"
     }
   },
   "distributionWizard": {
@@ -428,7 +429,7 @@
       "description": "Asset Inventory & Health Data",
       "searchPlaceholder": "Search assets...",
       "export": "Export CSV",
-      "manageAssets": "Manage Assets"
+      "importData": "Import Data"
     },
     "table": {
       "assetId": "Asset ID",
@@ -436,7 +437,7 @@
       "lifecycle": "Lifecycle",
       "pdmHealth": "PdM Health",
       "availability": "Availability",
-      "maintGbv": "Maint/GBV (%)",
+      "maintGbv": "Maint./GBV (%)",
       "downtimeLoss": "Downtime Loss",
       "action": "Action",
       "analyze": "Analyze"
@@ -448,28 +449,15 @@
     }
   },
   "assetEditor": {
-    "title": "Asset Editor",
-    "description": "Add, edit, or remove assets from your fleet.",
-    "save": "Save Changes",
-    "addAsset": "Add New Asset",
-    "removeAsset": "Remove Asset",
-    "fields": {
-      "id": "ID",
-      "name": "Name",
-      "location": "Location",
-      "criticality": "Criticality",
-      "lifecycle": "Lifecycle",
-      "pdmHealth": "PdM Health (%)",
-      "availability": "Availability (%)",
-      "maintenanceCost": "Maintenance Cost",
-      "gbv": "GBV (Gross Book Value)",
-      "downtimeLoss": "Downtime Loss",
-      "failureTimes": "Failure Times",
-      "failureTimesPlaceholder": "e.g., 8500, 9200, 9800",
-      "rpn": "RPN",
-      "severity": "Severity",
-      "mtbf": "MTBF (h)",
-      "mttr": "MTTR (h)"
+    "titleBulk": "Bulk Asset Data Import",
+    "descriptionBulk": "Paste data from a spreadsheet (e.g., Excel) to add or update assets in bulk.",
+    "importButton": "Import Data",
+    "pastePlaceholder": "Paste your data here, including the header row...",
+    "instructions": {
+      "title": "Instructions",
+      "step1": "Copy your data from the spreadsheet, including the header row.",
+      "step2": "Paste the copied data into the text area below.",
+      "requiredHeaders": "Required Headers"
     }
   },
   "assetDetail": {

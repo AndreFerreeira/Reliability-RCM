@@ -122,7 +122,8 @@
     "tsvError": {
       "title": "Erro ao processar os dados",
       "description": "Verifique o formato dos dados colados. Detalhes: {{error}}",
-      "structure": "Os dados parecem estar vazios ou em um formato inválido. Certifique-se de incluir a linha de cabeçalho."
+      "structure": "Os dados parecem estar vazios ou em um formato inválido. Certifique-se de incluir a linha de cabeçalho.",
+      "missingHeaders": "Os seguintes cabeçalhos obrigatórios não foram encontrados: {{headers}}"
     }
   },
   "distributionWizard": {
@@ -427,7 +428,7 @@
       "description": "Dados de Inventário e Saúde dos Ativos",
       "searchPlaceholder": "Buscar ativos...",
       "export": "Exportar CSV",
-      "manageAssets": "Gerenciar Ativos"
+      "importData": "Importar Dados"
     },
     "table": {
       "assetId": "ID do Ativo",
@@ -447,28 +448,15 @@
     }
   },
   "assetEditor": {
-    "title": "Editor de Ativos",
-    "description": "Adicione, edite ou remova ativos da sua frota.",
-    "save": "Salvar Alterações",
-    "addAsset": "Adicionar Novo Ativo",
-    "removeAsset": "Remover Ativo",
-    "fields": {
-      "id": "ID",
-      "name": "Nome",
-      "location": "Localização",
-      "criticality": "Criticidade",
-      "lifecycle": "Ciclo de Vida",
-      "pdmHealth": "Saúde PdM (%)",
-      "availability": "Disponibilidade (%)",
-      "maintenanceCost": "Custo de Manutenção",
-      "gbv": "GBV (Valor Contábil)",
-      "downtimeLoss": "Perda por Downtime",
-      "failureTimes": "Tempos de Falha",
-      "failureTimesPlaceholder": "ex: 8500, 9200, 9800",
-      "rpn": "RPN",
-      "severity": "Severidade",
-      "mtbf": "MTBF (h)",
-      "mttr": "MTTR (h)"
+    "titleBulk": "Importação em Massa de Dados de Ativos",
+    "descriptionBulk": "Cole os dados de uma planilha (ex: Excel) para adicionar ou atualizar ativos em massa.",
+    "importButton": "Importar Dados",
+    "pastePlaceholder": "Cole seus dados aqui, incluindo a linha de cabeçalho...",
+    "instructions": {
+      "title": "Instruções",
+      "step1": "Copie seus dados da planilha, incluindo a linha de cabeçalho.",
+      "step2": "Cole os dados copiados na área de texto abaixo.",
+      "requiredHeaders": "Cabeçalhos Necessários"
     }
   },
   "assetDetail": {

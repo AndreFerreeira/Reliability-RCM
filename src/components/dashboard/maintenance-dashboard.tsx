@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, Trash2, TrendingUp, Plus } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, Trash2, TrendingUp, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,215 +15,191 @@ import assetData from '@/lib/asset-data.json';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '../ui/textarea';
 import { estimateParameters } from '@/lib/reliability';
 
-function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setAssets: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
+const headerMapping: Record<string, keyof AssetData> = {
+    // Portuguese
+    'id do equipamento': 'id',
+    'id': 'id',
+    'descrição': 'name',
+    'nome': 'name',
+    'localização': 'location',
+    'criticidade': 'criticality',
+    'ciclo de vida': 'lifecycle',
+    'saúde pdm': 'pdmHealth',
+    'saude pdm': 'pdmHealth',
+    'pdm health': 'pdmHealth',
+    'disponibilidade': 'availability',
+    'custo de manutenção': 'maintenanceCost',
+    'custo r&m': 'maintenanceCost',
+    'gbv': 'gbv',
+    'perda por downtime': 'downtimeLoss',
+    'perdas por parada': 'downtimeLoss',
+    'tempos de falha': 'failureTimes',
+    'rpn': 'rpn',
+    'severidade': 'severity',
+    'mttr': 'mttr',
+
+    // English
+    'asset id': 'id',
+    'description': 'name',
+    'name': 'name',
+    'location': 'location',
+    'criticality': 'criticality',
+    'lifecycle': 'lifecycle',
+    'pdm health': 'pdmHealth',
+    'availability': 'availability',
+    'maintenance cost': 'maintenanceCost',
+    'r&m cost': 'maintenanceCost',
+    'gbv': 'gbv',
+    'downtime loss': 'downtimeLoss',
+    'failure times': 'failureTimes',
+    'rpn': 'rpn',
+    'severity': 'severity',
+    'mttr': 'mttr',
+};
+
+const requiredFields: (keyof AssetData)[] = [
+    'id', 'name', 'criticality', 'pdmHealth', 'availability', 
+    'maintenanceCost', 'gbv', 'downtimeLoss', 'failureTimes', 'rpn', 'severity', 'mttr'
+];
+
+
+function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [editableAssets, setEditableAssets] = React.useState<AssetData[]>([]);
+  const [textData, setTextData] = React.useState('');
   const { toast } = useToast();
-
-  React.useEffect(() => {
-    if (isOpen) {
-      setEditableAssets(JSON.parse(JSON.stringify(assets)));
-    }
-  }, [assets, isOpen]);
-
-  const handleSave = () => {
-    setAssets(editableAssets);
-    toast({
-      title: t('toasts.assetUpdateSuccess.title'),
-      description: t('toasts.assetUpdateSuccess.description'),
-    });
-    setIsOpen(false);
-  };
   
-  const handleAddAsset = () => {
-    const newAsset: AssetData = {
-        id: `ASSET-${Date.now().toString().slice(-4)}`,
-        name: 'Novo Ativo',
-        location: '',
-        criticality: 'C',
-        lifecycle: 'stable',
-        pdmHealth: 100,
-        availability: 100,
-        maintenanceCost: 0,
-        gbv: 0,
-        downtimeLoss: 0,
-        failureTimes: '',
-        rpn: 0,
-        severity: 0,
-        mttr: 0,
-    };
-    setEditableAssets(prev => [...prev, newAsset]);
-  };
+  const handleImport = () => {
+    try {
+        const lines = textData.trim().split('\n');
+        if (lines.length < 2) {
+            throw new Error(t('tsvError.structure'));
+        }
 
-  const handleRemoveAsset = (id: string) => {
-    setEditableAssets(prev => prev.filter(asset => asset.id !== id));
-  };
-
-  const handleInputChange = (id: string, field: keyof AssetData, value: any) => {
-    setEditableAssets(prev => prev.map(asset => {
-        if (asset.id === id) {
-            const updatedAsset = { ...asset };
-
-            const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mttr'];
-            if (numericFields.includes(field)) {
-                updatedAsset[field] = parseFloat(value) || 0;
-            } else {
-                updatedAsset[field] = value;
+        const headerLine = lines.shift()!.toLowerCase().split('\t');
+        const columnIndexMap: Partial<Record<keyof AssetData, number>> = {};
+        
+        headerLine.forEach((header, index) => {
+            const cleanHeader = header.trim();
+            const mappedKey = headerMapping[cleanHeader];
+            if (mappedKey) {
+                columnIndexMap[mappedKey] = index;
             }
-            
-            // NEW: Automatically calculate lifecycle based on failure times
-            if (field === 'failureTimes') {
-                const failureTimesArray = (value || '').split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                
-                // Only calculate if we have enough data points for a meaningful estimation
-                if (failureTimesArray.length >= 3) {
-                    try {
-                        const { params } = estimateParameters({
-                            dist: 'Weibull',
-                            failureTimes: failureTimesArray,
-                            method: 'MLE', // MLE is generally better for parameter estimation
-                        });
-                        
-                        if (params.beta) {
-                            if (params.beta < 0.95) { // Infant mortality
-                                updatedAsset.lifecycle = 'infant';
-                            } else if (params.beta > 1.05) { // Wear-out
-                                updatedAsset.lifecycle = 'wearOut';
-                            } else { // Useful life
-                                updatedAsset.lifecycle = 'stable';
-                            }
+        });
+        
+        const missingHeaders = requiredFields.filter(field => columnIndexMap[field] === undefined);
+        if (missingHeaders.length > 0) {
+            throw new Error(t('tsvError.missingHeaders', { headers: missingHeaders.join(', ') }));
+        }
+
+        const newAssets: AssetData[] = lines.map((line, lineIndex) => {
+            const values = line.split('\t');
+            const asset: Partial<AssetData> = {};
+
+            for (const key of Object.keys(columnIndexMap) as (keyof AssetData)[]) {
+                const index = columnIndexMap[key];
+                if (index !== undefined && index < values.length) {
+                    const value = values[index].trim();
+                    const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mttr'];
+                    
+                    if (numericFields.includes(key)) {
+                        (asset[key] as any) = parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
+                    } else if (key === 'criticality') {
+                        const crit = value.toUpperCase() as AssetData['criticality'];
+                        if (['AA', 'A', 'B', 'C'].includes(crit)) {
+                            asset.criticality = crit;
+                        } else {
+                            asset.criticality = 'C';
                         }
-                    } catch (e) {
-                        // Could fail if data is not good, just keep the old value
-                        console.error("Could not calculate lifecycle", e);
+                    }
+                    else {
+                        (asset[key] as any) = value;
                     }
                 }
             }
             
-            return updatedAsset;
-        }
-        return asset;
-    }));
+            if (!asset.id) {
+                asset.id = `ASSET-${Date.now()}-${lineIndex}`;
+            }
+             if (!asset.name) {
+                asset.name = `Asset ${lineIndex + 1}`;
+            }
+
+            const failureTimesArray = (asset.failureTimes || '').split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
+            if (failureTimesArray.length >= 3) {
+                try {
+                    const { params } = estimateParameters({
+                        dist: 'Weibull',
+                        failureTimes: failureTimesArray,
+                        method: 'MLE',
+                    });
+                    
+                    if (params.beta) {
+                        if (params.beta < 0.95) asset.lifecycle = 'infant';
+                        else if (params.beta > 1.05) asset.lifecycle = 'wearOut';
+                        else asset.lifecycle = 'stable';
+                    } else {
+                       asset.lifecycle = 'stable';
+                    }
+                } catch {
+                    asset.lifecycle = 'stable';
+                }
+            } else {
+                asset.lifecycle = 'stable';
+            }
+
+            return asset as AssetData;
+        });
+
+        onSave(newAssets);
+        toast({
+            title: t('toasts.assetUpdateSuccess.title'),
+            description: t('toasts.assetUpdateSuccess.description'),
+        });
+        setIsOpen(false);
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: t('toasts.tsvError.title'),
+            description: error.message,
+        });
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-            <Cog className="mr-2 h-4 w-4" />
-            {t('performance.inventory.manageAssets')}
+            <Upload className="mr-2 h-4 w-4" />
+            {t('performance.inventory.importData')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{t('assetEditor.title')}</DialogTitle>
-          <DialogDescription>
-            {t('assetEditor.description')}
-          </DialogDescription>
+          <DialogTitle>{t('assetEditor.titleBulk')}</DialogTitle>
+          <DialogDescription>{t('assetEditor.descriptionBulk')}</DialogDescription>
         </DialogHeader>
-        <div className="flex justify-start">
-             <Button onClick={handleAddAsset}><Plus className="mr-2 h-4 w-4" />{t('assetEditor.addAsset')}</Button>
+        <div className="text-sm text-muted-foreground p-4 border rounded-md space-y-2">
+            <p><strong>{t('assetEditor.instructions.title')}</strong></p>
+            <ol className="list-decimal list-inside space-y-1">
+                <li>{t('assetEditor.instructions.step1')}</li>
+                <li>{t('assetEditor.instructions.step2')}</li>
+            </ol>
+            <p><strong>{t('assetEditor.instructions.requiredHeaders')}:</strong> <code className="text-xs">{requiredFields.join(', ')}</code></p>
         </div>
-        <ScrollArea className="flex-grow pr-6">
-          <Accordion type="single" collapsible className="w-full">
-            {editableAssets.map((asset) => (
-              <AccordionItem value={asset.id} key={asset.id}>
-                <AccordionTrigger className="flex justify-between items-center">
-                    <span className="font-medium text-foreground">{asset.name}</span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 p-2">
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor={`name-${asset.id}`}>{t('assetEditor.fields.name')}</Label>
-                            <Input id={`name-${asset.id}`} value={asset.name} onChange={(e) => handleInputChange(asset.id, 'name', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`id-${asset.id}`}>{t('assetEditor.fields.id')}</Label>
-                            <Input id={`id-${asset.id}`} value={asset.id} onChange={(e) => handleInputChange(asset.id, 'id', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`location-${asset.id}`}>{t('assetEditor.fields.location')}</Label>
-                            <Input id={`location-${asset.id}`} value={asset.location} onChange={(e) => handleInputChange(asset.id, 'location', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`criticality-${asset.id}`}>{t('assetEditor.fields.criticality')}</Label>
-                             <Select value={asset.criticality} onValueChange={(value) => handleInputChange(asset.id, 'criticality', value)}>
-                                <SelectTrigger id={`criticality-${asset.id}`}>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="AA">AA</SelectItem>
-                                    <SelectItem value="A">A</SelectItem>
-                                    <SelectItem value="B">B</SelectItem>
-                                    <SelectItem value="C">C</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`lifecycle-${asset.id}`}>{t('assetEditor.fields.lifecycle')}</Label>
-                            <Input
-                                id={`lifecycle-${asset.id}`}
-                                value={t(`performance.lifecycle.${asset.lifecycle}`)}
-                                disabled
-                                className="font-medium text-foreground"
-                            />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor={`pdmHealth-${asset.id}`}>{t('assetEditor.fields.pdmHealth')}</Label>
-                            <Input id={`pdmHealth-${asset.id}`} type="number" value={asset.pdmHealth} onChange={(e) => handleInputChange(asset.id, 'pdmHealth', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`availability-${asset.id}`}>{t('assetEditor.fields.availability')}</Label>
-                            <Input id={`availability-${asset.id}`} type="number" value={asset.availability} onChange={(e) => handleInputChange(asset.id, 'availability', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`maintenanceCost-${asset.id}`}>{t('assetEditor.fields.maintenanceCost')}</Label>
-                            <Input id={`maintenanceCost-${asset.id}`} type="number" value={asset.maintenanceCost} onChange={(e) => handleInputChange(asset.id, 'maintenanceCost', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`gbv-${asset.id}`}>{t('assetEditor.fields.gbv')}</Label>
-                            <Input id={`gbv-${asset.id}`} type="number" value={asset.gbv} onChange={(e) => handleInputChange(asset.id, 'gbv', e.target.value)} />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor={`downtimeLoss-${asset.id}`}>{t('assetEditor.fields.downtimeLoss')}</Label>
-                            <Input id={`downtimeLoss-${asset.id}`} type="number" value={asset.downtimeLoss} onChange={(e) => handleInputChange(asset.id, 'downtimeLoss', e.target.value)} />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor={`rpn-${asset.id}`}>{t('assetEditor.fields.rpn')}</Label>
-                            <Input id={`rpn-${asset.id}`} type="number" value={asset.rpn} onChange={(e) => handleInputChange(asset.id, 'rpn', e.target.value)} />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor={`severity-${asset.id}`}>{t('assetEditor.fields.severity')}</Label>
-                            <Input id={`severity-${asset.id}`} type="number" value={asset.severity} onChange={(e) => handleInputChange(asset.id, 'severity', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`mttr-${asset.id}`}>{t('assetEditor.fields.mttr')}</Label>
-                            <Input id={`mttr-${asset.id}`} type="number" value={asset.mttr} onChange={(e) => handleInputChange(asset.id, 'mttr', e.target.value)} />
-                        </div>
-                        <div className="space-y-2 col-span-1 md:col-span-2 lg:col-span-3">
-                            <Label htmlFor={`failureTimes-${asset.id}`}>{t('assetEditor.fields.failureTimes')}</Label>
-                            <Textarea id={`failureTimes-${asset.id}`} value={asset.failureTimes} placeholder={t('assetEditor.fields.failureTimesPlaceholder')} onChange={(e) => handleInputChange(asset.id, 'failureTimes', e.target.value)} rows={3} />
-                        </div>
-                    </div>
-                    <div className="flex justify-end mt-4">
-                        <Button variant="destructive" size="sm" onClick={() => handleRemoveAsset(asset.id)}><Trash2 className="mr-2 h-4 w-4"/>{t('assetEditor.removeAsset')}</Button>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+        <ScrollArea className="flex-grow pr-6 -mr-6">
+           <Textarea
+              placeholder={t('assetEditor.pastePlaceholder')}
+              className="h-full min-h-[40vh] font-mono text-xs"
+              value={textData}
+              onChange={(e) => setTextData(e.target.value)}
+            />
         </ScrollArea>
         <DialogFooter>
-          <Button onClick={handleSave}>{t('assetEditor.save')}</Button>
+          <Button onClick={handleImport}>{t('assetEditor.importButton')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -358,7 +334,7 @@ export default function MaintenanceDashboard() {
                             <Input placeholder={t('performance.inventory.searchPlaceholder')} className="pl-9" />
                         </div>
                         <div className="flex items-center gap-2">
-                            <AssetEditorDialog assets={assets} setAssets={setAssets} t={t} />
+                            <AssetDataMassEditor onSave={setAssets} t={t} />
                             <Button variant="link">{t('performance.inventory.export')}</Button>
                         </div>
                     </div>

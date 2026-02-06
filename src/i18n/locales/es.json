@@ -122,7 +122,8 @@
     "tsvError": {
       "title": "Error al procesar los datos",
       "description": "Verifique el formato de los datos pegados. Detalles: {{error}}",
-      "structure": "Los datos parecen estar vacíos o en un formato inválido. Asegúrese de incluir la fila de encabezado."
+      "structure": "Los datos parecen estar vacíos o en un formato inválido. Asegúrese de incluir la fila de encabezado.",
+      "missingHeaders": "No se encontraron los siguientes encabezados requeridos: {{headers}}"
     }
   },
   "distributionWizard": {
@@ -427,7 +428,7 @@
       "description": "Datos de Inventario y Salud de los Activos",
       "searchPlaceholder": "Buscar activos...",
       "export": "Exportar CSV",
-      "manageAssets": "Gestionar Activos"
+      "importData": "Importar Datos"
     },
     "table": {
       "assetId": "ID del Activo",
@@ -447,28 +448,15 @@
     }
   },
   "assetEditor": {
-    "title": "Editor de Activos",
-    "description": "Añada, edite o elimine activos de su flota.",
-    "save": "Guardar Cambios",
-    "addAsset": "Añadir Nuevo Activo",
-    "removeAsset": "Eliminar Activo",
-    "fields": {
-      "id": "ID",
-      "name": "Nombre",
-      "location": "Ubicación",
-      "criticality": "Criticidad",
-      "lifecycle": "Ciclo de Vida",
-      "pdmHealth": "Salud PdM (%)",
-      "availability": "Disponibilidad (%)",
-      "maintenanceCost": "Costo de Mantenimiento",
-      "gbv": "GBV (Valor Contable Bruto)",
-      "downtimeLoss": "Pérdida por Downtime",
-      "failureTimes": "Tiempos de Fallo",
-      "failureTimesPlaceholder": "ej: 8500, 9200, 9800",
-      "rpn": "RPN",
-      "severity": "Severidad",
-      "mtbf": "MTBF (h)",
-      "mttr": "MTTR (h)"
+    "titleBulk": "Importación Masiva de Datos de Activos",
+    "descriptionBulk": "Pegue datos de una hoja de cálculo (p. ej., Excel) para agregar o actualizar activos de forma masiva.",
+    "importButton": "Importar Datos",
+    "pastePlaceholder": "Pegue sus datos aquí, incluyendo la fila de encabezado...",
+    "instructions": {
+      "title": "Instrucciones",
+      "step1": "Copie sus datos de la hoja de cálculo, incluyendo la fila de encabezado.",
+      "step2": "Pegue los datos copiados en el área de texto a continuación.",
+      "requiredHeaders": "Encabezados Requeridos"
     }
   },
   "assetDetail": {
