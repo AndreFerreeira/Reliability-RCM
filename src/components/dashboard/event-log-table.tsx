@@ -9,16 +9,21 @@ import { useI18n } from '@/i18n/i18n-provider';
 
 function parseDate(dateStr: string): Date | null {
     if (!dateStr || typeof dateStr !== 'string') return null;
-    let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
+
+    // Matches DD/MM/YYYY HH:mm:ss or DD/MM/YYYY HH:mm
+    let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):?(\d{2})?/);
     if (parts) {
-        const [, day, month, year, hour, minute] = parts;
-        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+        const [, day, month, year, hour, minute, second] = parts;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), second ? parseInt(second) : 0);
     }
+
+    // Matches DD/MM/YYYY
     parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
     if (parts) {
         const [, day, month, year] = parts;
         return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     }
+    
     return null;
 }
 
@@ -34,46 +39,45 @@ export default function EventLogTable({ events }: EventLogTableProps) {
       return [];
     }
 
-    // 1. Parse dates and sort all events chronologically
+    // 1. Parse and sort all events.
     const allParsedEvents = events
-      .map((e) => ({ ...e, startDateObj: parseDate(e.startDate), endDateObj: parseDate(e.endDate) }))
+      .map(e => ({
+        ...e,
+        startDateObj: parseDate(e.startDate),
+        endDateObj: parseDate(e.endDate),
+      }))
       .filter((e): e is LogEvent & { startDateObj: Date; endDateObj: Date | null } => !!e.startDateObj)
-      .sort((a, b) => a.startDateObj!.getTime() - b.startDateObj!.getTime());
+      .sort((a, b) => a.startDateObj.getTime() - b.startDateObj.getTime());
 
-    // 2. Isolate only the failure events to calculate TEF against
-    const failureEventsOnly = allParsedEvents.filter(e => e.status === 'FALHA');
+    const eventsWithMetrics: (LogEvent & { timeToRepair?: number, timeBetweenFailures?: number })[] = [];
+    let lastFailureEndDate: Date | null = null;
+    
+    for (const event of allParsedEvents) {
+        const newEvent: LogEvent & { timeToRepair?: number, timeBetweenFailures?: number } = { ...event };
 
-    // 3. Create a map of TEF values keyed by a unique event identifier (orderNumber)
-    const tefMap = new Map<string, number>();
-    for (let i = 1; i < failureEventsOnly.length; i++) {
-        const currentFailure = failureEventsOnly[i];
-        const previousFailure = failureEventsOnly[i - 1];
-        
-        // Ensure previous failure has an end date to calculate from
-        if (previousFailure.endDateObj) {
-            const tefHours = (currentFailure.startDateObj.getTime() - previousFailure.endDateObj.getTime()) / (1000 * 60 * 60);
-            if (currentFailure.orderNumber) {
-                 tefMap.set(currentFailure.orderNumber, tefHours);
-            }
+        // Calculate Time to Repair (TR)
+        if (event.endDateObj && event.startDateObj) {
+            const diffHours = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
+            newEvent.timeToRepair = diffHours === 0 ? 24 : diffHours;
         }
+
+        // Calculate Time Between Failures (TEF)
+        if (event.status === 'FALHA') {
+            if (lastFailureEndDate) {
+                const tefHours = (event.startDateObj.getTime() - lastFailureEndDate.getTime()) / (1000 * 60 * 60);
+                if(tefHours > 0) {
+                    newEvent.timeBetweenFailures = tefHours;
+                }
+            }
+            lastFailureEndDate = event.endDateObj;
+        }
+        
+        eventsWithMetrics.push(newEvent);
     }
+    
+    return eventsWithMetrics;
+}, [events]);
 
-    // 4. Map through all events to calculate final metrics
-    return allParsedEvents.map((event) => {
-      // Calculate Time to Repair (TR)
-      let timeToRepair: number | undefined;
-      if (event.endDateObj && event.startDateObj) {
-        const diffHours = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
-        // An event on the same day with same start/end time (or no time) is considered a full day (24h)
-        timeToRepair = diffHours === 0 ? 24 : diffHours;
-      }
-
-      // Look up the pre-calculated TEF
-      const timeBetweenFailures = event.orderNumber ? tefMap.get(event.orderNumber) : undefined;
-
-      return { ...event, timeToRepair, timeBetweenFailures };
-    });
-  }, [events]);
 
   if (!events || events.length === 0) {
     return null;
