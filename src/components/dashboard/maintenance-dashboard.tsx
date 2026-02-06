@@ -245,12 +245,18 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 const ftArray = asset.failureTimes.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
                 if (ftArray.length >= 3) {
                     const { params } = estimateParameters({ dist: 'Weibull', failureTimes: ftArray, method: 'MLE' });
-                    if (params.beta) {
+                    if (params.beta && params.eta) {
+                        asset.beta = params.beta;
+                        asset.eta = params.eta;
                         if (params.beta < 0.95) asset.lifecycle = 'infant';
                         else if (params.beta > 1.05) asset.lifecycle = 'wearOut';
                         else asset.lifecycle = 'stable';
-                    } else asset.lifecycle = 'stable';
-                } else asset.lifecycle = 'stable';
+                    } else {
+                         asset.lifecycle = 'stable';
+                    }
+                } else {
+                     asset.lifecycle = 'stable';
+                }
 
                 asset.events = logEvents;
 
@@ -297,12 +303,18 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 const failureTimesArray = (asset.failureTimes || '').split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
                 if (failureTimesArray.length >= 3) {
                     const { params } = estimateParameters({ dist: 'Weibull', failureTimes: failureTimesArray, method: 'MLE' });
-                    if (params.beta) {
+                    if (params.beta && params.eta) {
+                        asset.beta = params.beta;
+                        asset.eta = params.eta;
                         if (params.beta < 0.95) asset.lifecycle = 'infant';
                         else if (params.beta > 1.05) asset.lifecycle = 'wearOut';
                         else asset.lifecycle = 'stable';
-                    } else asset.lifecycle = 'stable';
-                } else asset.lifecycle = 'stable';
+                    } else {
+                        asset.lifecycle = 'stable';
+                    }
+                } else {
+                    asset.lifecycle = 'stable';
+                }
 
                 return asset as AssetData;
             });

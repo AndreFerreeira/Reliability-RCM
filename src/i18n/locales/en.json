@@ -187,7 +187,8 @@
     },
     "eta": {
       "description": "This is the time at which 63.2% of the component population will have failed. It's a crucial reliability milestone for planning."
-    }
+    },
+    "noData": "No Weibull parameters available for this asset."
   },
   "bathtub": {
     "cardTitle": "Bathtub Curve Analysis",

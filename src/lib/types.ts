@@ -273,4 +273,6 @@ export interface AssetData {
   severity: number;
   mttr: number;
   events?: LogEvent[];
+  beta?: number;
+  eta?: number;
 }

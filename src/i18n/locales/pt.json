@@ -187,7 +187,8 @@
     },
     "eta": {
       "description": "Este é o tempo em que 63.2% da população de componentes terá falhado. É um marco de confiabilidade crucial para planeamento."
-    }
+    },
+    "noData": "Não há parâmetros Weibull disponíveis para este ativo."
   },
   "bathtub": {
     "cardTitle": "Análise da Curva da Banheira",
