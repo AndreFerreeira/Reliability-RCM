@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateRcaReport } from '@/actions/reliability';
 import { useToast } from '@/hooks/use-toast';
 import { marked } from 'marked';
+import EventLogTable from './event-log-table';
 
 
 interface AssetDetailViewProps {
@@ -53,7 +54,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   }, [failureTimes]);
 
   const totalDowntimeHours = asset.mttr * failureTimes.length;
-  const downtimeCostPerHour = totalDowntimeHours > 0 ? asset.downtimeLoss / totalDowntimeHours : 0;
+  const downtimeCostPerHour = totalDowntimeHours > 0 && asset.downtimeLoss > 0 ? asset.downtimeLoss / totalDowntimeHours : 0;
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
@@ -150,6 +151,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
             {/* Reliability & Cost Dynamics */}
              <BathtubCurveAnalysis failureTimes={failureTimes} />
+
+             {asset.events && asset.events.length > 0 && <EventLogTable events={asset.events} />}
         </div>
 
       </div>

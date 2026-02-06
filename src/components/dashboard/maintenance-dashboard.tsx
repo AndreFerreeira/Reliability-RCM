@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { useI18n } from '@/i18n/i18n-provider';
-import type { AssetData } from '@/lib/types';
+import type { AssetData, LogEvent } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import assetData from '@/lib/asset-data.json';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -27,6 +27,13 @@ const headerMapping: Record<string, string> = {
     'descrição': 'name',
     'descricao': 'name',
     'nome': 'name',
+    'descrição da ordem': 'description',
+    'descrição ordem': 'description',
+    'descricao ordem': 'description',
+    'número da ordem': 'orderNumber',
+    'numero da ordem': 'orderNumber',
+    'tipo de intervenção': 'interventionType',
+    'tipo de intervencao': 'interventionType',
     'localização': 'location',
     'localizacao': 'location',
     'criticidade': 'criticality',
@@ -136,7 +143,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 }
             });
 
-            newAssets = Object.values(groupedByTag).map((rows) => {
+            newAssets = Object.values(groupedByTag).map((rows, groupIndex) => {
                 const firstRow = rows[0];
                 const tag = firstRow[headerMap['id']];
 
@@ -148,6 +155,16 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 }))
                 .filter((e): e is { row: string[]; startDate: Date; endDate: Date | null; status: string } => e.startDate !== null)
                 .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+                const logEvents: LogEvent[] = events.map((e, index) => ({
+                    tag: e.row[headerMap['id']] || '',
+                    startDate: e.row[headerMap['startDate']] || '',
+                    endDate: hasEndDate ? e.row[headerMap['endDate']] || '' : '',
+                    description: e.row[headerMap['description']] || t('assetDetail.eventLog.defaultDescription'),
+                    orderNumber: e.row[headerMap['orderNumber']] || (100000 + index).toString(),
+                    interventionType: e.row[headerMap['interventionType']] || t('assetDetail.eventLog.defaultIntervention'),
+                    status: e.status,
+                }));
 
                 const failureTimes: number[] = [];
                 const repairTimes: number[] = [];
@@ -226,6 +243,8 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                         else asset.lifecycle = 'stable';
                     } else asset.lifecycle = 'stable';
                 } else asset.lifecycle = 'stable';
+
+                asset.events = logEvents;
 
                 return asset as AssetData;
             });

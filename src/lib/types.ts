@@ -247,6 +247,16 @@ export const AnalyzeChartDataOutputSchema = z.object({
 export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema>;
 
 
+export interface LogEvent {
+  tag: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  orderNumber: string;
+  interventionType: string;
+  status: string;
+}
+
 export interface AssetData {
   id: string;
   name: string;
@@ -262,4 +272,5 @@ export interface AssetData {
   rpn: number;
   severity: number;
   mttr: number;
+  events?: LogEvent[];
 }

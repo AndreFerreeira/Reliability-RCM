@@ -478,6 +478,18 @@
     "rcaReport": {
       "title": "Relatório de Análise de Causa Raiz (RCA) - {{assetName}}",
       "description": "Este relatório foi gerado por IA com base nos dados históricos e operacionais do ativo."
+    },
+    "eventLog": {
+      "title": "Log de Eventos de Manutenção",
+      "description": "Esta tabela mostra os eventos brutos usados para calcular as métricas de confiabilidade.",
+      "tag": "TAG",
+      "startDate": "Data de Início",
+      "endDate": "Data de Término",
+      "descriptionLabel": "Descrição",
+      "tef": "TEF (h)",
+      "tr": "TR (h)",
+      "defaultDescription": "Manutenção Corretiva",
+      "defaultIntervention": "Corretiva"
     }
   }
 }
