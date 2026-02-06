@@ -5,7 +5,7 @@ import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, TrendingUp, ShieldCheck, Loader2, Calculator } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, TrendingUp, ShieldCheck, Loader2 } from 'lucide-react';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -40,7 +40,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [isReportOpen, setIsReportOpen] = React.useState(false);
-  const [isOptimizerOpen, setIsOptimizerOpen] = React.useState(false);
   const [reportContent, setReportContent] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
 
@@ -96,10 +95,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
         <div className="flex gap-2 flex-wrap justify-end">
           <Button variant="outline">{t('assetDetail.scheduleMaintenance')}</Button>
           <Button>{t('assetDetail.generateWorkOrder')}</Button>
-          <Button onClick={() => setIsOptimizerOpen(true)} disabled={!asset.beta || !asset.eta}>
-            <Calculator className="h-4 w-4" />
-            {t('assetDetail.optimizePM.button')}
-          </Button>
           <Button variant="destructive" onClick={handleGenerateReport} disabled={isGenerating}>
             {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
             {t('assetDetail.decisionEngine.button')}
@@ -164,6 +159,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
              <AssetReliabilityCharts asset={asset} />
 
+             <PreventiveMaintenanceOptimizer asset={asset} />
+
              {asset.events && asset.events.length > 0 && <EventLogTable events={asset.events} />}
         </div>
 
@@ -181,16 +178,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
               dangerouslySetInnerHTML={{ __html: marked.parse(reportContent) as string }} 
             />
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-       <Dialog open={isOptimizerOpen} onOpenChange={setIsOptimizerOpen}>
-        <DialogContent className="max-w-4xl">
-            <DialogHeader>
-                <DialogTitle>{t('assetDetail.optimizePM.title')}</DialogTitle>
-                <DialogDescription>{t('assetDetail.optimizePM.description')}</DialogDescription>
-            </DialogHeader>
-            <PreventiveMaintenanceOptimizer asset={asset} />
         </DialogContent>
       </Dialog>
     </div>
