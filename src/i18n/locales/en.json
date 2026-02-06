@@ -529,7 +529,11 @@
       "minimumCost": "Minimum Cost Per Unit of Time",
       "chartTitle": "Cost vs. Maintenance Interval",
       "yAxis": "Cost per Unit of Time",
-      "noWeibull": "Weibull parameters (Beta and Eta) are required for this analysis."
+      "noWeibull": "Weibull parameters (Beta and Eta) are required for this analysis.",
+      "interpretationTitle": "Interpreting the Optimization Chart",
+      "interpretation1": "The curve represents the <strong>Total Cost per Unit of Time</strong>. It combines the cost of a planned replacement (Cp) with the increasing cost of an in-service failure (Cu), weighted by the asset's reliability.",
+      "interpretation2": "The <strong>lowest point on the curve</strong> indicates the <strong>Optimal Interval</strong>. Performing maintenance at this point minimizes the total long-term cost.",
+      "interpretation3": "Replacing <strong>before</strong> the optimal interval means spending more on preventive actions. Replacing <strong>after</strong> means risking in-service failures, which are much more expensive."
     }
   }
 }

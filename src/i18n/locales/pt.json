@@ -528,7 +528,11 @@
       "minimumCost": "Custo Mínimo por Unidade de Tempo",
       "chartTitle": "Custo vs. Intervalo de Manutenção",
       "yAxis": "Custo por Unidade de Tempo",
-      "noWeibull": "Parâmetros Weibull (Beta e Eta) são necessários para esta análise."
+      "noWeibull": "Parâmetros Weibull (Beta e Eta) são necessários para esta análise.",
+      "interpretationTitle": "Interpretando o Gráfico de Otimização",
+      "interpretation1": "A curva representa o <strong>Custo Total por Unidade de Tempo</strong>. Ela combina o custo de uma substituição planejada (Cp) com o custo crescente de uma falha em serviço (Cu), ponderado pela confiabilidade do ativo.",
+      "interpretation2": "O <strong>ponto mais baixo da curva</strong> indica o <strong>Intervalo Ótimo</strong>. Realizar a manutenção neste ponto minimiza o custo total a longo prazo.",
+      "interpretation3": "Trocar <strong>antes</strong> do intervalo ótimo significa gastar mais com preventivas. Trocar <strong>depois</strong> significa arriscar falhas em serviço, que são muito mais caras."
     }
   }
 }

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Lightbulb } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
@@ -70,24 +70,20 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
             mttf_curve.push({ time: R_t_curve[i].time, value: cumulativeIntegral });
         }
 
-        const costCurve = [];
-        for (let i = 0; i < mttf_curve.length; i++) {
-            const t_i = mttf_curve[i].time;
-            const mttf_t = mttf_curve[i].value;
-            if (t_i < 1 || mttf_t < 1e-6) continue;
+        const costCurve = mttf_curve.map(point => {
+            const t_i = point.time;
+            const mttf_t = point.value;
+            if (t_i < 1 || mttf_t < 1e-6) return null;
 
-            // Find the corresponding R(t) from the original curve
-            const R_t_point = R_t_curve.find(p => p.time === t_i);
-            if (!R_t_point) continue;
+            const R_t_point = R_t_curve.find(p => Math.abs(p.time - t_i) < 1e-9);
+            if (!R_t_point) return null;
 
             const R_t = R_t_point.value;
             const F_t = 1 - R_t;
             const cost_t = (costCp * R_t + costCu * F_t) / mttf_t;
             
-            if (isFinite(cost_t)) {
-                costCurve.push({ time: t_i, cost: cost_t });
-            }
-        }
+            return isFinite(cost_t) ? { time: t_i, cost: cost_t } : null;
+        }).filter((p): p is { time: number; cost: number } => p !== null);
 
         if (costCurve.length === 0) {
             toast({
@@ -221,6 +217,17 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
                                     </ResponsiveContainer>
                                 </CardContent>
                             </Card>
+                             <Alert>
+                                <Lightbulb className="h-4 w-4" />
+                                <AlertTitle>{t('assetDetail.optimizePM.interpretationTitle')}</AlertTitle>
+                                <AlertDescription>
+                                    <ul className="list-disc space-y-2 pl-5 mt-2">
+                                        <li dangerouslySetInnerHTML={{ __html: t('assetDetail.optimizePM.interpretation1') }} />
+                                        <li dangerouslySetInnerHTML={{ __html: t('assetDetail.optimizePM.interpretation2') }} />
+                                        <li dangerouslySetInnerHTML={{ __html: t('assetDetail.optimizePM.interpretation3') }} />
+                                    </ul>
+                                </AlertDescription>
+                            </Alert>
                         </div>
                     )}
                 </div>
