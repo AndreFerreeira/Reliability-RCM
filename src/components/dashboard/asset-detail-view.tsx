@@ -88,6 +88,10 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
         <div className="flex gap-2">
           <Button variant="outline">{t('assetDetail.scheduleMaintenance')}</Button>
           <Button>{t('assetDetail.generateWorkOrder')}</Button>
+          <Button variant="destructive" onClick={handleGenerateReport} disabled={isGenerating}>
+            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+            {t('assetDetail.decisionEngine.button')}
+          </Button>
         </div>
       </div>
 
@@ -95,7 +99,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-3 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoCard title="MTBF" value={calculatedMtbf > 0 ? calculatedMtbf.toFixed(0) : '--'} unit="h" icon={Clock} />
                 <InfoCard title="MTTR" value={asset.mttr} unit="h" icon={AlertTriangle} />
@@ -143,42 +147,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
             {/* Reliability & Cost Dynamics */}
              <BathtubCurveAnalysis failureTimes={failureTimes} />
-        </div>
-
-        {/* Right Column */}
-        <div className="lg:col-span-1">
-            <Card className="bg-destructive/5 border-destructive/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base text-red-400">
-                  <BrainCircuit className="h-5 w-5" />
-                  {t('assetDetail.decisionEngine.title')}
-                </CardTitle>
-                <CardDescription className="!font-semibold !text-destructive pt-1">
-                  {t('assetDetail.decisionEngine.recommendation')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <p className="text-muted-foreground">{t('assetDetail.decisionEngine.description')}</p>
-                <div className="space-y-3 rounded-lg border border-destructive/20 bg-background/30 p-4">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-muted-foreground">{t('assetDetail.decisionEngine.assetHealth')}</span>
-                    <span className="text-2xl font-bold text-red-400">{asset.pdmHealth}%</span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-muted-foreground">{t('assetDetail.decisionEngine.maintGbv')}</span>
-                    <span className="text-2xl font-bold text-red-400">{asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%</span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-muted-foreground">{t('assetDetail.decisionEngine.severity')}</span>
-                    <span className="text-2xl font-bold text-red-400">{asset.rpn}</span>
-                  </div>
-                </div>
-                 <Button variant="destructive" className="w-full" onClick={handleGenerateReport} disabled={isGenerating}>
-                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                   {t('assetDetail.decisionEngine.button')}
-                 </Button>
-              </CardContent>
-            </Card>
         </div>
 
       </div>

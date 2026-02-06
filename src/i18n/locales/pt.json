@@ -484,12 +484,6 @@
       "footer": "Score calculado dinamicamente usando RPN, Severidade e Análise de Tendência de MTTR."
     },
     "decisionEngine": {
-      "title": "MOTOR DE DECISÃO",
-      "recommendation": "SUBSTITUIR / REFORMAR",
-      "description": "O ativo apresenta indicadores críticos de risco de falha. O score de PdM e a intensidade financeira justificam a substituição imediata de capital.",
-      "assetHealth": "Saúde do Ativo (PdM)",
-      "maintGbv": "Ratio Manut./GBV",
-      "severity": "Risco de Severidade (RPN)",
       "button": "Gerar Relatório RCA Completo"
     },
     "rcaReport": {

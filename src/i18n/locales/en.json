@@ -485,12 +485,6 @@
       "footer": "Score dynamically calculated using RPN, Severity, and MTTR Trend Analysis."
     },
     "decisionEngine": {
-      "title": "DECISION ENGINE",
-      "recommendation": "REPLACE / OVERHAUL",
-      "description": "Asset shows critical failure risk indicators. PdM score and financial intensity justify immediate capital replacement.",
-      "assetHealth": "Asset Health (PdM)",
-      "maintGbv": "Maint/GBV Ratio",
-      "severity": "Severity Risk (RPN)",
       "button": "Generate Full RCA Report"
     },
     "rcaReport": {

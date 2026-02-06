@@ -484,12 +484,6 @@
       "footer": "Puntuación calculada dinámicamente usando RPN, Severidad y Análisis de Tendencia de MTTR."
     },
     "decisionEngine": {
-      "title": "MOTOR DE DECISIÓN",
-      "recommendation": "REEMPLAZAR / REACONDICIONAR",
-      "description": "El activo muestra indicadores críticos de riesgo de fallo. La puntuación de PdM y la intensidad financiera justifican un reemplazo de capital inmediato.",
-      "assetHealth": "Salud del Activo (PdM)",
-      "maintGbv": "Ratio Mant./GBV",
-      "severity": "Riesgo de Severidad (RPN)",
       "button": "Generar Informe RCA Completo"
     },
     "rcaReport": {
