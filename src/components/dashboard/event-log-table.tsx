@@ -22,6 +22,10 @@ function parseDate(dateStr: string): Date | null {
     return null;
 }
 
+interface EventLogTableProps {
+    events: LogEvent[] | undefined;
+}
+
 export default function EventLogTable({ events }: EventLogTableProps) {
   const { t } = useI18n();
 
@@ -30,33 +34,35 @@ export default function EventLogTable({ events }: EventLogTableProps) {
       return [];
     }
 
+    // 1. Parse dates and sort all events chronologically
     const allParsedEvents = events
       .map((e) => ({ ...e, startDateObj: parseDate(e.startDate), endDateObj: parseDate(e.endDate) }))
-      .filter((e): e is LogEvent & { startDateObj: Date, endDateObj: Date | null } => !!e.startDateObj)
+      .filter((e): e is LogEvent & { startDateObj: Date; endDateObj: Date | null } => !!e.startDateObj)
       .sort((a, b) => a.startDateObj!.getTime() - b.startDateObj!.getTime());
 
-    return allParsedEvents.map((event, index) => {
-      let timeToRepair: number | undefined = undefined;
+    // 2. Isolate only the failure events to calculate TEF against
+    const failureEventsOnly = allParsedEvents.filter(e => e.status === 'FALHA');
+
+    // 3. Map through all events to calculate metrics
+    return allParsedEvents.map((event) => {
+      // Calculate Time to Repair (TR)
+      let timeToRepair: number | undefined;
       if (event.endDateObj && event.startDateObj) {
         const diffHours = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
-        // An event on the same day is considered a full day (24h)
+        // An event on the same day with same start/end time (or no time) is considered a full day (24h)
         timeToRepair = diffHours === 0 ? 24 : diffHours;
       }
 
-      let timeBetweenFailures: number | undefined = undefined;
+      // Calculate Time Between Failures (TEF)
+      let timeBetweenFailures: number | undefined;
       if (event.status === 'FALHA') {
-        let prevFailureEvent: (LogEvent & { startDateObj: Date, endDateObj: Date | null }) | undefined = undefined;
-
-        // Search backwards from the current event to find the previous failure
-        for (let i = index - 1; i >= 0; i--) {
-            if (allParsedEvents[i].status === 'FALHA') {
-                prevFailureEvent = allParsedEvents[i];
-                break;
-            }
-        }
+        const currentFailureIndex = failureEventsOnly.findIndex(fe => fe === event);
         
-        if (prevFailureEvent && prevFailureEvent.endDateObj) {
-            timeBetweenFailures = (event.startDateObj.getTime() - prevFailureEvent.endDateObj.getTime()) / (1000 * 60 * 60);
+        if (currentFailureIndex > 0) {
+          const previousFailureEvent = failureEventsOnly[currentFailureIndex - 1];
+          if (previousFailureEvent.endDateObj) {
+            timeBetweenFailures = (event.startDateObj.getTime() - previousFailureEvent.endDateObj.getTime()) / (1000 * 60 * 60);
+          }
         }
       }
 
@@ -95,7 +101,7 @@ export default function EventLogTable({ events }: EventLogTableProps) {
                   <TableCell>{event.endDate}</TableCell>
                   <TableCell>{event.description}</TableCell>
                   <TableCell className="text-right font-mono">
-                    {event.timeBetweenFailures !== undefined ? event.timeBetweenFailures.toFixed(2) : '-'}
+                    {event.timeBetweenFailures !== undefined && event.timeBetweenFailures > 0 ? event.timeBetweenFailures.toFixed(2) : '-'}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {event.timeToRepair !== undefined ? event.timeToRepair.toFixed(2) : '-'}
