@@ -111,6 +111,11 @@
       "title": "Error de Formato",
       "description": "El JSON proporcionado es inválido: {{error}}",
       "structure": "El JSON debe tener una clave 'assets' que contenga un array."
+    },
+    "tsvError": {
+      "title": "Error al procesar los datos",
+      "description": "Verifique el formato de los datos pegados. Detalles: {{error}}",
+      "structure": "Los datos parecen estar vacíos o en un formato inválido. Asegúrese de incluir la fila de encabezado."
     }
   },
   "distributionWizard": {
@@ -437,7 +442,8 @@
   },
   "assetEditor": {
     "title": "Editor de Activos",
-    "description": "Edite los datos de los activos en formato JSON. Los cambios se reflejarán en el panel.",
+    "descriptionExcel": "Pegue aquí los datos de su hoja de cálculo (Excel, Sheets). Mantenga el encabezado y use tabulaciones como separador. Las columnas deben estar en el orden correcto.",
+    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000",
     "save": "Guardar Cambios"
   }
 }

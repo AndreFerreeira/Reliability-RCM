@@ -17,35 +17,68 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
 
+const assetsToTsv = (assets: AssetData[]): string => {
+  const headers: (keyof AssetData)[] = ['id', 'name', 'criticality', 'lifecycle', 'pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss'];
+  const headerRow = headers.join('\t');
+  const dataRows = assets.map(asset =>
+    headers.map(header => asset[header as keyof AssetData]).join('\t')
+  );
+  return [headerRow, ...dataRows].join('\n');
+};
+
+const tsvToAssets = (tsv: string): AssetData[] => {
+  const rows = tsv.trim().split('\n');
+  if (rows.length < 2) throw new Error("Dados insuficientes. A primeira linha deve ser o cabeçalho, seguida pelas linhas de dados.");
+
+  const headers = rows.shift()!.trim().split('\t') as (keyof AssetData)[];
+
+  return rows.map((row, rowIndex) => {
+    const values = row.split('\t');
+    if (values.length !== headers.length) {
+      throw new Error(`A linha ${rowIndex + 1} tem um número incorreto de colunas. Esperado: ${headers.length}, Encontrado: ${values.length}.`);
+    }
+    const asset = {} as AssetData;
+    headers.forEach((header, index) => {
+      const value = values[index];
+      const isNumeric = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss'].includes(header);
+
+      if (isNumeric) {
+        const cleanedValue = value.replace(/[^0-9.,-]+/g, "").replace(',', '.');
+        (asset as any)[header] = parseFloat(cleanedValue) || 0;
+      } else {
+        (asset as any)[header] = value;
+      }
+    });
+    return asset;
+  });
+};
+
+
 function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setAssets: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [jsonText, setJsonText] = React.useState(JSON.stringify({ assets }, null, 2));
+  const [textData, setTextData] = React.useState('');
   const { toast } = useToast();
 
   React.useEffect(() => {
     if (isOpen) {
-      setJsonText(JSON.stringify({ assets }, null, 2));
+      setTextData(assetsToTsv(assets));
     }
   }, [assets, isOpen]);
 
   const handleSave = () => {
     try {
-      const parsed = JSON.parse(jsonText);
-      if (parsed && Array.isArray(parsed.assets)) {
-        setAssets(parsed.assets);
-        toast({
-          title: t('toasts.assetUpdateSuccess.title'),
-          description: t('toasts.assetUpdateSuccess.description'),
-        });
-        setIsOpen(false);
-      } else {
-        throw new Error(t('toasts.jsonError.structure'));
-      }
+      const parsedAssets = tsvToAssets(textData);
+      setAssets(parsedAssets);
+      toast({
+        title: t('toasts.assetUpdateSuccess.title'),
+        description: t('toasts.assetUpdateSuccess.description'),
+      });
+      setIsOpen(false);
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: t('toasts.jsonError.title'),
-        description: t('toasts.jsonError.description', { error: error.message }),
+        title: t('toasts.tsvError.title'),
+        description: t('toasts.tsvError.description', { error: error.message }),
       });
     }
   };
@@ -62,14 +95,15 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
         <DialogHeader>
           <DialogTitle>{t('assetEditor.title')}</DialogTitle>
           <DialogDescription>
-            {t('assetEditor.description')}
+            {t('assetEditor.descriptionExcel')}
           </DialogDescription>
         </DialogHeader>
         <Textarea
-          value={jsonText}
-          onChange={(e) => setJsonText(e.target.value)}
+          value={textData}
+          onChange={(e) => setTextData(e.target.value)}
           rows={20}
           className="font-mono text-xs bg-muted/50"
+          placeholder={t('assetEditor.placeholderExcel')}
         />
         <DialogFooter>
           <Button onClick={handleSave}>{t('assetEditor.save')}</Button>

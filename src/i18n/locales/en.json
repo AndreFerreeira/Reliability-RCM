@@ -111,6 +111,11 @@
       "title": "Format Error",
       "description": "The provided JSON is invalid: {{error}}",
       "structure": "The JSON must have an 'assets' key containing an array."
+    },
+    "tsvError": {
+      "title": "Error processing data",
+      "description": "Check the format of the pasted data. Details: {{error}}",
+      "structure": "Data appears to be empty or in an invalid format. Ensure you include the header row."
     }
   },
   "distributionWizard": {
@@ -438,7 +443,8 @@
   },
   "assetEditor": {
     "title": "Asset Editor",
-    "description": "Edit the asset data in JSON format. Changes will be reflected on the dashboard.",
+    "descriptionExcel": "Paste your spreadsheet data here (Excel, Sheets). Keep the header and use tabs as separators. Columns must be in the correct order.",
+    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000",
     "save": "Save Changes"
   }
 }
