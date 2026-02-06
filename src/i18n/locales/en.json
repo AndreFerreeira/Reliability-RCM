@@ -415,7 +415,7 @@
   },
   "performance": {
     "title": "Maintenance Performance Dashboard",
-    "plant": "Plant: North Industrial Complex",
+    "plant": "",
     "kpi": {
       "availability": "Fleet Availability",
       "availabilityTarget": "Target: 98.5%",
@@ -433,7 +433,7 @@
       "gbvSub": "Gross Book Value of Assets"
     },
     "inventory": {
-      "title": "Fleet Reliability Inventory",
+      "title": "Asset Management",
       "description": "Asset Inventory & Health Data",
       "searchPlaceholder": "Search assets...",
       "export": "Export CSV",
@@ -466,7 +466,7 @@
   },
   "assetEditor": {
     "titleBulk": "Bulk Asset Data Import",
-    "descriptionBulk": "Paste data from a spreadsheet (e.g., Excel). The tool can process event logs (with 'Data de Inicio' and 'Data de Término' columns) to automatically calculate MTTR and Failure Times. Data will be grouped by the 'TAG' or 'ID' column.",
+    "descriptionBulk": "Paste data from a spreadsheet (e.g., Excel). The tool can process event logs (with 'Start Date' and 'End Date' columns) to automatically calculate MTTR and Failure Times. Data will be grouped by the 'TAG' or 'ID' column.",
     "importButton": "Import Data",
     "pastePlaceholder": "Paste your data here, including the header row...",
     "instructions": {
@@ -474,7 +474,7 @@
       "step1": "Copy your data from the spreadsheet, including the header row.",
       "step2": "Paste the copied data into the text area below.",
       "step3": "The tool will group events by 'TAG' and calculate reliability metrics.",
-      "requiredHeaders": "Required Headers: tag, data, status, maintenance cost, gbv..."
+      "requiredHeaders": "Required Headers: tag, date, status, maintenance cost, gbv..."
     },
     "titleEdit": "Edit Asset",
     "descriptionEdit": "Modify the asset details below.",

@@ -650,7 +650,6 @@ export default function MaintenanceDashboard() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-2xl font-semibold tracking-tight">{t('performance.title')}</h2>
-                <p className="text-sm text-muted-foreground">{t('performance.plant')}</p>
             </div>
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

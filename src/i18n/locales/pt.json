@@ -414,7 +414,7 @@
   },
     "performance": {
     "title": "Painel de Performance da Manutenção",
-    "plant": "Planta: Complexo Industrial Norte",
+    "plant": "",
     "kpi": {
       "availability": "Disponibilidade da Frota",
       "availabilityTarget": "Meta: 98.5%",
@@ -432,7 +432,7 @@
       "gbvSub": "Valor Contábil Bruto dos Ativos"
     },
     "inventory": {
-      "title": "Inventário de Confiabilidade da Frota",
+      "title": "Gestão de Ativos",
       "description": "Dados de Inventário e Saúde dos Ativos",
       "searchPlaceholder": "Buscar ativos...",
       "export": "Exportar CSV",
