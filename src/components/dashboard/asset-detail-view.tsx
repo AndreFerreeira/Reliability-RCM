@@ -27,22 +27,35 @@ const InfoCard = ({ title, value, icon: Icon, unit }: { title: string, value: st
 );
 
 const DecisionEngine = ({ asset, t }: { asset: AssetData, t: (key: string, args?: any) => string }) => (
-  <Card className="bg-red-500/5 border-red-500/20">
+  <Card className="bg-destructive/5 border-destructive/20">
     <CardHeader>
       <CardTitle className="flex items-center gap-2 text-base text-red-400">
         <BrainCircuit className="h-5 w-5" />
         {t('assetDetail.decisionEngine.title')}
       </CardTitle>
-      <CardDescription className="text-red-400/80">{t('assetDetail.decisionEngine.recommendation')}</CardDescription>
+      <CardDescription className="!font-semibold !text-destructive pt-1">
+        {t('assetDetail.decisionEngine.recommendation')}
+      </CardDescription>
     </CardHeader>
-    <CardContent className="space-y-3 text-sm">
-      <p>{t('assetDetail.decisionEngine.description')}</p>
-      <div className="space-y-2 rounded-md border border-red-500/20 bg-background/50 p-3">
-        <div className="flex justify-between"><span>{t('assetDetail.decisionEngine.assetHealth')}</span> <span className="font-medium text-foreground">{asset.pdmHealth}%</span></div>
-        <div className="flex justify-between"><span>{t('assetDetail.decisionEngine.maintGbv')}</span> <span className="font-medium text-foreground">{((asset.maintenanceCost / asset.gbv) * 100).toFixed(2)}%</span></div>
-        <div className="flex justify-between"><span>{t('assetDetail.decisionEngine.severity')}</span> <span className="font-medium text-foreground">{asset.rpn}</span></div>
+    <CardContent className="space-y-4 text-sm">
+      <p className="text-muted-foreground">{t('assetDetail.decisionEngine.description')}</p>
+      <div className="space-y-3 rounded-lg border border-destructive/20 bg-background/30 p-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted-foreground">{t('assetDetail.decisionEngine.assetHealth')}</span>
+          <span className="text-2xl font-bold text-red-400">{asset.pdmHealth}%</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted-foreground">{t('assetDetail.decisionEngine.maintGbv')}</span>
+          <span className="text-2xl font-bold text-red-400">{asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted-foreground">{t('assetDetail.decisionEngine.severity')}</span>
+          <span className="text-2xl font-bold text-red-400">{asset.rpn}</span>
+        </div>
       </div>
-       <Button className="w-full bg-foreground text-background hover:bg-foreground/90">{t('assetDetail.decisionEngine.button')}</Button>
+       <Button variant="destructive" className="w-full">
+         {t('assetDetail.decisionEngine.button')}
+       </Button>
     </CardContent>
   </Card>
 );
