@@ -415,7 +415,6 @@
   },
   "performance": {
     "title": "Maintenance Performance Dashboard",
-    "plant": "",
     "kpi": {
       "availability": "Fleet Availability",
       "availabilityTarget": "Target: 98.5%",
@@ -516,6 +515,21 @@
     "reliabilityCurves": {
       "title": "Reliability Curves",
       "description": "The four fundamental reliability charts calculated based on the asset's Weibull parameters."
+    },
+    "optimizePM": {
+      "button": "Optimize PM",
+      "title": "Preventive Maintenance Optimization",
+      "description": "Calculate the optimal interval for preventive replacement based on asset costs and reliability.",
+      "costCpLabel": "Preventive Cost (Cp)",
+      "costCuLabel": "Corrective Cost (Cu)",
+      "calculateButton": "Calculate Optimal Interval",
+      "calculating": "Calculating...",
+      "resultTitle": "Optimization Result",
+      "optimalInterval": "Optimal Interval",
+      "minimumCost": "Minimum Cost Per Unit of Time",
+      "chartTitle": "Cost vs. Maintenance Interval",
+      "yAxis": "Cost per Unit of Time",
+      "noWeibull": "Weibull parameters (Beta and Eta) are required for this analysis."
     }
   }
 }

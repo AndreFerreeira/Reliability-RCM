@@ -100,7 +100,7 @@ const weibullPdf = (t: number, beta: number, eta: number) => {
     return (beta / eta) * Math.pow(t / eta, beta - 1) * Math.exp(-Math.pow(t / eta, beta));
 };
 
-const weibullSurvival = (t: number, beta: number, eta: number) => {
+export const weibullSurvival = (t: number, beta: number, eta: number) => {
     if (t < 0 || beta <= 0 || eta <= 0) return 1;
     return Math.exp(-Math.pow(t / eta, beta));
 };

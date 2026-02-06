@@ -414,7 +414,6 @@
   },
   "performance": {
     "title": "Panel de Rendimiento de Mantenimiento",
-    "plant": "",
     "kpi": {
       "availability": "Disponibilidad de la Flota",
       "availabilityTarget": "Objetivo: 98.5%",
@@ -515,6 +514,21 @@
     "reliabilityCurves": {
       "title": "Curvas de Confiabilidad",
       "description": "Los cuatro gráficos fundamentales de la confiabilidad calculados a partir de los parámetros Weibull del activo."
+    },
+    "optimizePM": {
+      "button": "Optimizar PM",
+      "title": "Optimización de Mantenimiento Preventivo",
+      "description": "Calcule el intervalo óptimo para el reemplazo preventivo basado en los costos y la confiabilidad del activo.",
+      "costCpLabel": "Costo Preventivo (Cp)",
+      "costCuLabel": "Costo Correctivo (Cu)",
+      "calculateButton": "Calcular Intervalo Óptimo",
+      "calculating": "Calculando...",
+      "resultTitle": "Resultado de la Optimización",
+      "optimalInterval": "Intervalo Óptimo",
+      "minimumCost": "Costo Mínimo por Unidad de Tiempo",
+      "chartTitle": "Costo vs. Intervalo de Mantenimiento",
+      "yAxis": "Costo por Unidad de Tiempo",
+      "noWeibull": "Los parámetros de Weibull (Beta y Eta) son necesarios para este análisis."
     }
   }
 }
