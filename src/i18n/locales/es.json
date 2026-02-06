@@ -5,7 +5,9 @@
   "tabs": {
     "reliabilityAnalysis": "Análisis de Confiabilidad",
     "aiAnalysis": "Análisis con IA",
-    "monteCarlo": "Simulador Monte Carlo"
+    "probabilityPaper": "Papel de Probabilidad",
+    "monteCarlo": "Simulador Monte Carlo",
+    "performanceDashboard": "Performance"
   },
   "supplierManager": {
     "cardTitle": "Datos del Equipo",
@@ -57,7 +59,11 @@
     "noData": "Añada o seleccione equipos con la distribución \"{{paperType}}\" para ver el gráfico.",
     "fit": "Ajuste",
     "estimatedProb": "Prob. Estimada",
-    "failureProb": "Prob. de Fallo"
+    "failureProb": "Prob. de Fallo",
+    "yAxis": "Probabilidad"
+  },
+  "probabilityPaper": {
+    "title": "Papeles de Probabilidad y Rangos Medianos"
   },
   "toasts": {
     "limitReached": {
@@ -87,7 +93,7 @@
     },
     "calculationError": {
       "title": "Error de Cálculo",
-      "budgetParams": "No se pudieron estimar Beta y Eta a partir de los datos de origen."
+      "description": "No se pudieron estimar Beta y Eta a partir de los datos de origen."
     },
     "emptyPopulation": {
       "title": "Población Vacía",
@@ -382,6 +388,45 @@
       "title": "Datos Agrupados de Fallo/Suspensión",
       "placeholder": "ej:\n1000 10 2\n1200 5 1",
       "description": "Use [Tiempo] [Fallos] [Suspensiones]."
+    }
+  },
+  "performance": {
+    "title": "Panel de Rendimiento de Mantenimiento",
+    "plant": "Planta: Complejo Industrial Norte",
+    "kpi": {
+      "availability": "Disponibilidad de la Flota",
+      "availabilityTarget": "Objetivo: 98.5%",
+      "high": "Alto",
+      "revenueLoss": "Pérdida de Ingresos (Downtime)",
+      "revenueLossPeriod": "Últimos 12 meses",
+      "low": "Bajo",
+      "intensity": "Intensidad Mant./GBV",
+      "intensityBenchmark": "Benchmark de la Industria: 2-3%",
+      "stable": "Estable",
+      "totalValue": "Valor Total del Activo",
+      "totalValueSub": "Costo de Reemplazo (GBV)"
+    },
+    "inventory": {
+      "title": "Inventario de Fiabilidad de la Flota",
+      "description": "Datos de Inventario y Salud de los Activos",
+      "searchPlaceholder": "Buscar activos...",
+      "export": "Exportar CSV"
+    },
+    "table": {
+      "assetId": "ID del Activo",
+      "criticality": "Criticidad",
+      "lifecycle": "Ciclo de Vida",
+      "pdmHealth": "Salud PdM",
+      "availability": "Disponibilidad",
+      "maintGbv": "Mant./GBV (%)",
+      "downtimeLoss": "Pérdida por Downtime",
+      "action": "Acción",
+      "analyze": "Analizar"
+    },
+    "lifecycle": {
+      "wearOut": "Fin de Vida / Desgaste",
+      "stable": "Vida Útil / Estable",
+      "infant": "Mortalidad Infantil"
     }
   }
 }

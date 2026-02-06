@@ -245,3 +245,15 @@ export const AnalyzeChartDataOutputSchema = z.object({
   failureRate: ChartAnalysisSchema,
 });
 export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema>;
+
+
+export interface AssetHealth {
+  id: string;
+  name: string;
+  criticality: 'AA' | 'A' | 'B' | 'C';
+  lifecycle: string;
+  pdmHealth: number;
+  availability: number;
+  maintGbv: number;
+  downtimeLoss: number;
+}

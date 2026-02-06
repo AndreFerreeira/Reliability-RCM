@@ -5,7 +5,9 @@
   "tabs": {
     "reliabilityAnalysis": "Análise de Confiabilidade",
     "aiAnalysis": "Análise com IA",
-    "monteCarlo": "Simulador Monte Carlo"
+    "probabilityPaper": "Papel de Probabilidade",
+    "monteCarlo": "Simulador Monte Carlo",
+    "performanceDashboard": "Performance"
   },
   "supplierManager": {
     "cardTitle": "Dados do Equipamento",
@@ -57,7 +59,11 @@
     "noData": "Adicione ou selecione equipamentos com a distribuição \"{{paperType}}\" para ver o gráfico.",
     "fit": "Ajuste",
     "estimatedProb": "Prob. Estimada",
-    "failureProb": "Prob. Falha"
+    "failureProb": "Prob. Falha",
+    "yAxis": "Probabilidade"
+  },
+  "probabilityPaper": {
+    "title": "Papéis de Probabilidade e Postos Medianos"
   },
   "toasts": {
     "limitReached": {
@@ -382,6 +388,45 @@
       "title": "Dados Agrupados de Falha/Suspensão",
       "placeholder": "Ex:\n1000 10 2\n1200 5 1",
       "description": "Use [Tempo] [Qtd Falhas] [Qtd Suspensões]."
+    }
+  },
+    "performance": {
+    "title": "Painel de Performance da Manutenção",
+    "plant": "Planta: Complexo Industrial Norte",
+    "kpi": {
+      "availability": "Disponibilidade da Frota",
+      "availabilityTarget": "Meta: 98.5%",
+      "high": "Alto",
+      "revenueLoss": "Perda de Receita (Downtime)",
+      "revenueLossPeriod": "Últimos 12 meses",
+      "low": "Baixo",
+      "intensity": "Intensidade Manut./GBV",
+      "intensityBenchmark": "Benchmark da Indústria: 2-3%",
+      "stable": "Estável",
+      "totalValue": "Valor Total do Ativo",
+      "totalValueSub": "Custo de Reposição (GBV)"
+    },
+    "inventory": {
+      "title": "Inventário de Confiabilidade da Frota",
+      "description": "Dados de Inventário e Saúde dos Ativos",
+      "searchPlaceholder": "Buscar ativos...",
+      "export": "Exportar CSV"
+    },
+    "table": {
+      "assetId": "ID do Ativo",
+      "criticality": "Criticidade",
+      "lifecycle": "Ciclo de Vida",
+      "pdmHealth": "Saúde PdM",
+      "availability": "Disponibilidade",
+      "maintGbv": "Manut./GBV (%)",
+      "downtimeLoss": "Perda por Downtime",
+      "action": "Ação",
+      "analyze": "Analisar"
+    },
+    "lifecycle": {
+      "wearOut": "Fim de Vida / Desgaste",
+      "stable": "Vida Útil / Estável",
+      "infant": "Mortalidade Infantil"
     }
   }
 }

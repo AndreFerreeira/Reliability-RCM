@@ -5,7 +5,9 @@
   "tabs": {
     "reliabilityAnalysis": "Reliability Analysis",
     "aiAnalysis": "AI Analysis",
-    "monteCarlo": "Monte Carlo"
+    "probabilityPaper": "Probability Paper",
+    "monteCarlo": "Monte Carlo",
+    "performanceDashboard": "Performance"
   },
   "supplierManager": {
     "cardTitle": "Equipment Data",
@@ -57,7 +59,11 @@
     "noData": "Add or select equipment with the \"{{paperType}}\" distribution to see the chart.",
     "fit": "Fit",
     "estimatedProb": "Estimated Prob.",
-    "failureProb": "Failure Prob."
+    "failureProb": "Failure Prob.",
+    "yAxis": "Probability"
+  },
+  "probabilityPaper": {
+    "title": "Probability Papers and Median Ranks"
   },
   "toasts": {
     "limitReached": {
@@ -87,7 +93,7 @@
     },
     "calculationError": {
       "title": "Calculation Error",
-      "budgetParams": "Could not estimate Beta and Eta from the source data."
+      "description": "Could not estimate Beta and Eta from the source data."
     },
     "emptyPopulation": {
       "title": "Empty Population",
@@ -383,6 +389,45 @@
       "title": "Grouped Failure/Suspension Data",
       "placeholder": "e.g.,\n1000 10 2\n1200 5 1",
       "description": "Use [Time] [Failures] [Suspensions]."
+    }
+  },
+  "performance": {
+    "title": "Maintenance Performance Dashboard",
+    "plant": "Plant: North Industrial Complex",
+    "kpi": {
+      "availability": "Fleet Availability",
+      "availabilityTarget": "Target: 98.5%",
+      "high": "High",
+      "revenueLoss": "Revenue Loss (Downtime)",
+      "revenueLossPeriod": "Last 12 months",
+      "low": "Low",
+      "intensity": "Maint / GBV Intensity",
+      "intensityBenchmark": "Industry Benchmark: 2-3%",
+      "stable": "Stable",
+      "totalValue": "Total Asset Value",
+      "totalValueSub": "Replacement Cost (GBV)"
+    },
+    "inventory": {
+      "title": "Fleet Reliability Inventory",
+      "description": "Asset Inventory & Health Data",
+      "searchPlaceholder": "Search assets...",
+      "export": "Export CSV"
+    },
+    "table": {
+      "assetId": "Asset ID",
+      "criticality": "Criticality",
+      "lifecycle": "Lifecycle",
+      "pdmHealth": "PdM Health",
+      "availability": "Availability",
+      "maintGbv": "Maint/GBV (%)",
+      "downtimeLoss": "Downtime Loss",
+      "action": "Action",
+      "analyze": "Analyze"
+    },
+    "lifecycle": {
+      "wearOut": "End of Life / Wear-out",
+      "stable": "Useful Life / Stable",
+      "infant": "Infant Mortality"
     }
   }
 }

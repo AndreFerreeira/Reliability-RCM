@@ -8,7 +8,7 @@ import type { Supplier, EstimationMethod } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { Bot, LineChart as LineChartIcon, BrainCircuit, TestTube } from '@/components/icons';
+import { Bot, LineChart as LineChartIcon, BrainCircuit, TestTube, LayoutDashboard } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
@@ -16,6 +16,8 @@ import ProbabilityPlot from './probability-plot';
 import MonteCarloSimulator from './monte-carlo-simulator';
 import LanguageSwitcher from './language-switcher';
 import { useI18n } from '@/i18n/i18n-provider';
+import MaintenanceDashboard from './maintenance-dashboard';
+import ProbabilityPaper from './probability-paper';
 
 const initialSuppliersData = [
   { 
@@ -107,11 +109,16 @@ export default function ReliabilityDashboard() {
           <LanguageSwitcher />
         </div>
       </div>
-      <Tabs defaultValue="analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
+      <Tabs defaultValue="performance" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-4">
+          <TabsTrigger value="performance"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
           <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
+          <TabsTrigger value="paper"><BrainCircuit />{t('tabs.probabilityPaper')}</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
         </TabsList>
+        <TabsContent value="performance" className="space-y-4">
+            <MaintenanceDashboard />
+        </TabsContent>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="col-span-full lg:col-span-2">
@@ -151,6 +158,9 @@ export default function ReliabilityDashboard() {
               <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
             </div>
           </div>
+        </TabsContent>
+         <TabsContent value="paper" className="space-y-4">
+          <ProbabilityPaper />
         </TabsContent>
         <TabsContent value="monte_carlo" className="space-y-4">
           <MonteCarloSimulator suppliers={suppliers} />
