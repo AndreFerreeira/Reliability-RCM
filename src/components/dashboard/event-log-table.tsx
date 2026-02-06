@@ -7,10 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { LogEvent } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 
-interface EventLogTableProps {
-  events: LogEvent[];
-}
-
 function parseDate(dateStr: string): Date | null {
     if (!dateStr || typeof dateStr !== 'string') return null;
     let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
@@ -42,7 +38,9 @@ export default function EventLogTable({ events }: EventLogTableProps) {
     return allParsedEvents.map((event, index) => {
       let timeToRepair: number | undefined = undefined;
       if (event.endDateObj && event.startDateObj) {
-        timeToRepair = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
+        const diffHours = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
+        // An event on the same day is considered a full day (24h)
+        timeToRepair = diffHours === 0 ? 24 : diffHours;
       }
 
       let timeBetweenFailures: number | undefined = undefined;
