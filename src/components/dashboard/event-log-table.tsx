@@ -34,22 +34,28 @@ export default function EventLogTable({ events }: EventLogTableProps) {
       return [];
     }
 
-    const sortedEvents = events
-      .map(e => ({ ...e, startDateObj: parseDate(e.startDate), endDateObj: parseDate(e.endDate) }))
-      .filter(e => e.startDateObj)
+    const allParsedEvents = events
+      .map((e) => ({ ...e, startDateObj: parseDate(e.startDate), endDateObj: parseDate(e.endDate) }))
+      .filter((e): e is LogEvent & { startDateObj: Date, endDateObj: Date | null } => !!e.startDateObj)
       .sort((a, b) => a.startDateObj!.getTime() - b.startDateObj!.getTime());
 
-    return sortedEvents.map((event, index) => {
+    const failureEvents = allParsedEvents.filter(e => e.status === 'FALHA');
+
+    return allParsedEvents.map((event) => {
       let timeToRepair: number | undefined = undefined;
-      if (event.endDateObj) {
-        timeToRepair = (event.endDateObj.getTime() - event.startDateObj!.getTime()) / (1000 * 60 * 60);
+      if (event.endDateObj && event.startDateObj) {
+        timeToRepair = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
       }
 
       let timeBetweenFailures: number | undefined = undefined;
-      if (index > 0) {
-        const prevEvent = sortedEvents[index - 1];
-        if (prevEvent.endDateObj) {
-          timeBetweenFailures = (event.startDateObj!.getTime() - prevEvent.endDateObj.getTime()) / (1000 * 60 * 60);
+      if (event.status === 'FALHA') {
+        const currentFailureIndexInFailuresOnly = failureEvents.findIndex(f => f.startDate === event.startDate && f.description === event.description);
+        
+        if (currentFailureIndexInFailuresOnly > 0) {
+            const prevFailure = failureEvents[currentFailureIndexInFailuresOnly - 1];
+            if (prevFailure.endDateObj) {
+                 timeBetweenFailures = (event.startDateObj.getTime() - prevFailure.endDateObj.getTime()) / (1000 * 60 * 60);
+            }
         }
       }
 
