@@ -491,8 +491,8 @@
       "title": "Dynamic Health Score & PM Context",
       "healthIndex": "DYNAMIC HEALTH INDEX",
       "noData": "Awaiting optimization data...",
-      "timeSinceFailure": "TIME SINCE LAST FAILURE",
-      "optimalReplacement": "OPTIMAL REPLACEMENT AT",
+      "timeSinceFailure": "Days since last failure",
+      "countdown": "COUNTDOWN TO REPLACEMENT",
       "footer": "Health score is calculated based on time elapsed versus the optimal replacement interval."
     },
     "decisionEngine": {

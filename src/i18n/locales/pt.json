@@ -490,8 +490,8 @@
       "title": "Score de Saúde Dinâmico & Contexto de PM",
       "healthIndex": "ÍNDICE DE SAÚDE DINÂMICO",
       "noData": "Aguardando dados da otimização...",
-      "timeSinceFailure": "TEMPO DESDE A ÚLTIMA FALHA",
-      "optimalReplacement": "SUBSTITUIÇÃO ÓTIMA EM",
+      "timeSinceFailure": "Dias desde a última falha",
+      "countdown": "CONTAGEM REGRESSIVA PARA TROCA",
       "footer": "O score de saúde é calculado com base no tempo decorrido versus o intervalo ótimo de substituição."
     },
     "decisionEngine": {

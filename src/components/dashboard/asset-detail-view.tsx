@@ -5,7 +5,7 @@ import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, Gem, Lightbulb, TrendingUp, ShieldCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, Gem, Lightbulb, TrendingUp, ShieldCheck, Loader2, CalendarClock } from 'lucide-react';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -57,7 +57,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const [reportContent, setReportContent] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [optimalInterval, setOptimalInterval] = React.useState<number | null>(null);
-  const [dynamicHealth, setDynamicHealth] = React.useState<{ score: number, daysSinceFailure: number } | null>(null);
+  const [dynamicHealth, setDynamicHealth] = React.useState<{ score: number, daysSinceFailure: number, daysRemaining: number } | null>(null);
 
   const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? [];
 
@@ -82,10 +82,13 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
     const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
     
     const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / optimalInterval)));
+    const optimalDays = optimalInterval / 24;
+    const daysSince = hoursSinceLastFailure / 24;
 
     setDynamicHealth({
       score: Math.round(score),
-      daysSinceFailure: Math.round(hoursSinceLastFailure / 24),
+      daysSinceFailure: Math.round(daysSince),
+      daysRemaining: Math.round(optimalDays - daysSince),
     });
 
   }, [optimalInterval, asset.events]);
@@ -162,8 +165,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                 <CardHeader>
                     <CardTitle>{t('assetDetail.dynamicHealth.title')}</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="text-center">
+                <CardContent className="flex flex-col md:flex-row items-center justify-between gap-6 p-6">
+                    <div className="text-center md:w-1/4">
                         {dynamicHealth !== null ? (
                             <>
                                 <div className={cn("text-7xl font-bold", dynamicHealth.score < 50 ? 'text-red-400' : dynamicHealth.score < 75 ? 'text-yellow-400' : 'text-green-400')}>
@@ -178,23 +181,21 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                             </>
                         )}
                     </div>
+                    
                     <div className="h-24 border-r border-dashed border-border hidden md:block" />
-                    <div className="flex flex-1 justify-around gap-4 text-center">
-                        <div>
-                            <div className="text-xs text-muted-foreground">{t('assetDetail.dynamicHealth.timeSinceFailure')}</div>
-                            <div className="text-2xl font-semibold">
-                                {dynamicHealth !== null ? dynamicHealth.daysSinceFailure : '--'} <span className="text-base text-muted-foreground">dias</span>
-                            </div>
+
+                    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+                        <div className="flex items-center gap-2 text-primary">
+                            <CalendarClock className="h-5 w-5" />
+                            <span className="text-sm font-semibold uppercase tracking-wider">{t('assetDetail.dynamicHealth.countdown')}</span>
                         </div>
-                        <div>
-                            <div className="text-xs text-muted-foreground">{t('assetDetail.dynamicHealth.optimalReplacement')}</div>
-                            <div className="text-2xl font-semibold text-primary">
-                                {optimalInterval !== null ? Math.round(optimalInterval / 24) : '--'} <span className="text-base text-muted-foreground">dias</span>
-                            </div>
+                        <div className="text-5xl font-bold text-primary">
+                            {dynamicHealth !== null ? Math.max(0, dynamicHealth.daysRemaining) : '--'}
+                            <span className="ml-2 text-2xl font-medium text-muted-foreground">dias</span>
                         </div>
-                    </div>
-                    <div className="w-48 hidden lg:block">
-                        <Gem className="h-full w-full text-primary/10" />
+                        <div className="text-xs text-muted-foreground">
+                            {dynamicHealth ? `${t('assetDetail.dynamicHealth.timeSinceFailure')}: ${dynamicHealth.daysSinceFailure} / ${Math.round((optimalInterval ?? 0)/24)} dias` : ''}
+                        </div>
                     </div>
                 </CardContent>
                 <div className="border-t border-border/50 bg-muted/30 px-6 py-3 text-xs text-muted-foreground">
