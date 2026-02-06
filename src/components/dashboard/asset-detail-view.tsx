@@ -14,7 +14,6 @@ import { generateRcaReport } from '@/actions/reliability';
 import { useToast } from '@/hooks/use-toast';
 import { marked } from 'marked';
 import EventLogTable from './event-log-table';
-import AssetWeibullAnalysis from './asset-weibull-analysis';
 import AssetReliabilityCharts from './asset-reliability-charts';
 import PreventiveMaintenanceOptimizer from './preventive-maintenance-optimizer';
 
@@ -154,8 +153,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
             {/* Reliability & Cost Dynamics */}
              <BathtubCurveAnalysis failureTimes={failureTimes} />
-
-             <AssetWeibullAnalysis asset={asset} />
 
              <PreventiveMaintenanceOptimizer asset={asset} />
 

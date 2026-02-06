@@ -173,8 +173,6 @@
     }
   },
   "weibullAnalysis": {
-    "cardTitle": "Weibull Parameter Analyzer (β & η)",
-    "cardDescription": "Interpret Beta (shape) and Eta (life) parameters to understand the failure mode and lifespan of your equipment.",
     "beta": {
       "infantMortality": {
         "phase": "Infant Mortality",
@@ -485,6 +483,10 @@
     "backToFleet": "Back to Fleet",
     "scheduleMaintenance": "Schedule Maintenance",
     "generateWorkOrder": "Generate Work Order",
+    "weibullAndOptimize": {
+      "title": "Weibull Analysis & PM Optimization",
+      "description": "Interpret the asset's failure parameters and use them to find the lowest-cost preventive maintenance interval."
+    },
     "pdmScore": {
       "title": "Predictive Maintenance Score",
       "healthIndex": "PdM ASSET HEALTH INDEX",

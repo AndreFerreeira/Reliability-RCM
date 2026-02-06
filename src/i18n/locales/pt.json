@@ -173,8 +173,6 @@
     }
   },
   "weibullAnalysis": {
-    "cardTitle": "Analisador de Parâmetros Weibull (β & η)",
-    "cardDescription": "Interprete os parâmetros Beta (forma) e Eta (vida) para entender o modo de falha e a vida útil de seus equipamentos.",
     "beta": {
       "infantMortality": {
         "phase": "Mortalidade Infantil",
@@ -484,6 +482,10 @@
     "backToFleet": "Voltar para a Frota",
     "scheduleMaintenance": "Agendar Manutenção",
     "generateWorkOrder": "Gerar Ordem de Serviço",
+    "weibullAndOptimize": {
+      "title": "Análise Weibull e Otimização de PM",
+      "description": "Interprete os parâmetros de falha do ativo e use-os para encontrar o intervalo de manutenção preventiva de menor custo."
+    },
     "pdmScore": {
       "title": "Score de Manutenção Preditiva",
       "healthIndex": "ÍNDICE DE SAÚDE DO ATIVO PdM",

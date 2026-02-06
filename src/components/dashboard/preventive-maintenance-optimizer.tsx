@@ -9,12 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, Lightbulb } from 'lucide-react';
+import { Loader2, Lightbulb, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { weibullSurvival } from '@/lib/reliability';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   costCp: z.coerce.number().min(1, 'O custo deve ser maior que zero.'),
@@ -25,11 +26,63 @@ interface OptimizerProps {
   asset: AssetData;
 }
 
-interface CalculationResult {
-  costCurve: { time: number; cost: number; }[];
-  optimalInterval: number;
-  minCost: number;
-}
+const BetaAnalysis = ({ beta, t }: { beta: number, t: (key: string) => string }) => {
+    let interpretation, Icon, colorClass, phase;
+
+    if (beta < 1) {
+        interpretation = t('weibullAnalysis.beta.infantMortality.interpretation');
+        Icon = TrendingDown;
+        colorClass = "text-green-500";
+        phase = t('weibullAnalysis.beta.infantMortality.phase');
+    } else if (beta > 0.95 && beta < 1.05) {
+        interpretation = t('weibullAnalysis.beta.usefulLife.interpretation');
+        Icon = Minus;
+        colorClass = "text-yellow-500";
+        phase = t('weibullAnalysis.beta.usefulLife.phase');
+    } else { // beta > 1
+        interpretation = t('weibullAnalysis.beta.wearOut.interpretation');
+        Icon = TrendingUp;
+        colorClass = "text-red-500";
+        phase = t('weibullAnalysis.beta.wearOut.phase');
+    }
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-muted ${colorClass}`}>
+                    <Icon className="h-6 w-6" />
+                </div>
+                <div>
+                    <p className="font-bold text-lg">{beta.toFixed(2)}</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('parameters.beta')}</p>
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground pl-1">
+                <strong className={`font-semibold ${colorClass}`}>{phase}:</strong> {interpretation}
+            </p>
+        </div>
+    );
+};
+
+const EtaAnalysis = ({ eta, t }: { eta: number, t: (key: string) => string }) => {
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-blue-500">
+                    <Target className="h-6 w-6" />
+                </div>
+                <div>
+                    <p className="font-bold text-lg">{Math.round(eta)}</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('parameters.eta')}</p>
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground pl-1">
+                {t('weibullAnalysis.eta.description')}
+            </p>
+        </div>
+    );
+};
+
 
 export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -54,58 +107,59 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
     setResult(null);
 
     setTimeout(() => {
-        const { beta, eta } = asset;
+        try {
+            const { beta, eta } = asset;
 
-        const maxTime = eta * 3;
-        const steps = 200;
-        const timePoints = Array.from({ length: steps + 1 }, (_, i) => (i / steps) * maxTime);
-        const R_t_curve = timePoints.map(t => ({ time: t, value: weibullSurvival(t, beta, eta) }));
+            const maxTime = eta * 3;
+            const steps = 200;
+            const timePoints = Array.from({ length: steps + 1 }, (_, i) => (i / steps) * maxTime);
 
-        const mttf_curve = [];
-        let cumulativeIntegral = 0;
-        for (let i = 1; i < R_t_curve.length; i++) {
-            const dt = R_t_curve[i].time - R_t_curve[i - 1].time;
-            const avg_R = (R_t_curve[i].value + R_t_curve[i - 1].value) / 2;
-            cumulativeIntegral += avg_R * dt;
-            mttf_curve.push({ time: R_t_curve[i].time, value: cumulativeIntegral });
-        }
+            const mttf_curve = [];
+            let cumulativeIntegral = 0;
+            for (let i = 1; i < timePoints.length; i++) {
+                const t_i = timePoints[i];
+                const t_prev = timePoints[i-1];
+                const dt = t_i - t_prev;
+                const R_avg = (weibullSurvival(t_i, beta, eta) + weibullSurvival(t_prev, beta, eta)) / 2;
+                cumulativeIntegral += R_avg * dt;
+                mttf_curve.push({ time: t_i, mttf: cumulativeIntegral });
+            }
 
-        const costCurve = mttf_curve.map(point => {
-            const t_i = point.time;
-            const mttf_t = point.value;
-            if (t_i < 1 || mttf_t < 1e-6) return null;
+            const costCurve = mttf_curve.map(point => {
+                const t_i = point.time;
+                const mttf_t = point.mttf;
+                if (t_i < 1 || mttf_t < 1e-9) return null;
 
-            const R_t_point = R_t_curve.find(p => Math.abs(p.time - t_i) < 1e-9);
-            if (!R_t_point) return null;
+                const R_t = weibullSurvival(t_i, beta, eta);
+                const F_t = 1 - R_t;
+                const cost_t = (costCp * R_t + costCu * F_t) / mttf_t;
+                
+                return isFinite(cost_t) ? { time: t_i, cost: cost_t } : null;
+            }).filter((p): p is { time: number; cost: number } => p !== null);
 
-            const R_t = R_t_point.value;
-            const F_t = 1 - R_t;
-            const cost_t = (costCp * R_t + costCu * F_t) / mttf_t;
-            
-            return isFinite(cost_t) ? { time: t_i, cost: cost_t } : null;
-        }).filter((p): p is { time: number; cost: number } => p !== null);
+            if (costCurve.length === 0) {
+                throw new Error('Não foi possível calcular a curva de custo.');
+            }
 
-        if (costCurve.length === 0) {
-            toast({
+            let minCost = Infinity;
+            let optimalInterval = 0;
+            costCurve.forEach(point => {
+                if (point.cost < minCost) {
+                    minCost = point.cost;
+                    optimalInterval = point.time;
+                }
+            });
+
+            setResult({ costCurve, optimalInterval, minCost });
+        } catch (error) {
+             toast({
                 variant: 'destructive',
                 title: t('toasts.simulationError.title'),
-                description: 'Não foi possível calcular a curva de custo.'
+                description: 'Cálculo de otimização falhou. Verifique os parâmetros do ativo.'
             });
+        } finally {
             setIsCalculating(false);
-            return;
         }
-
-        let minCost = Infinity;
-        let optimalInterval = 0;
-        costCurve.forEach(point => {
-            if (point.cost < minCost) {
-                minCost = point.cost;
-                optimalInterval = point.time;
-            }
-        });
-
-        setResult({ costCurve, optimalInterval, minCost });
-        setIsCalculating(false);
     }, 50);
   }, [asset.beta, asset.eta, costCp, costCu, t, toast]);
   
@@ -113,13 +167,14 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
     if (asset.beta && asset.eta) {
       runCalculation();
     }
-  }, [asset.beta, asset.eta, runCalculation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asset.beta, asset.eta, costCp, costCu]);
   
   if (!asset.beta || !asset.eta) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{t('assetDetail.optimizePM.title')}</CardTitle>
+                <CardTitle>{t('assetDetail.weibullAndOptimize.title')}</CardTitle>
             </CardHeader>
             <CardContent>
                 <p className="text-sm text-muted-foreground">{t('assetDetail.optimizePM.noWeibull')}</p>
@@ -131,10 +186,17 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
   return (
     <Card>
         <CardHeader>
-            <CardTitle>{t('assetDetail.optimizePM.title')}</CardTitle>
-            <CardDescription>{t('assetDetail.optimizePM.description')}</CardDescription>
+            <CardTitle>{t('assetDetail.weibullAndOptimize.title')}</CardTitle>
+            <CardDescription>{t('assetDetail.weibullAndOptimize.description')}</CardDescription>
         </CardHeader>
         <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {asset.beta != null && <BetaAnalysis beta={asset.beta} t={t} />}
+                {asset.eta != null && <EtaAnalysis eta={asset.eta} t={t} />}
+            </div>
+
+            <Separator className="my-6" />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
                 <div className="md:col-span-1">
                     <Form {...form}>
@@ -161,10 +223,7 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
                                     </FormItem>
                                 )}
                             />
-                            <Button type="submit" disabled={isCalculating} className="w-full">
-                                {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                {isCalculating ? t('assetDetail.optimizePM.calculating') : t('assetDetail.optimizePM.calculateButton')}
-                            </Button>
+                            {/* The button is removed as calculation is now automatic on value change */}
                         </form>
                     </Form>
                 </div>
