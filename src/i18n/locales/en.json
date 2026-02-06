@@ -420,6 +420,7 @@
       "availability": "Fleet Availability",
       "availabilityTarget": "Target: 98.5%",
       "high": "High",
+      "veryHigh": "Very High",
       "revenueLoss": "Revenue Loss (Downtime)",
       "revenueLossPeriod": "Last 12 months",
       "low": "Low",

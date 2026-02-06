@@ -622,6 +622,26 @@ export default function MaintenanceDashboard() {
             maintIntensity,
         };
     }, [assets]);
+    
+    let intensityTrend, intensityTrendColor, intensityTrendDirection;
+
+    if (kpiValues.maintIntensity > 10) {
+        intensityTrend = t('performance.kpi.veryHigh');
+        intensityTrendColor = 'red';
+        intensityTrendDirection = 'up';
+    } else if (kpiValues.maintIntensity > 3) { // benchmark is 2-3%
+        intensityTrend = t('performance.kpi.high');
+        intensityTrendColor = 'red';
+        intensityTrendDirection = 'up';
+    } else if (kpiValues.maintIntensity < 2 && kpiValues.maintIntensity > 0) {
+        intensityTrend = t('performance.kpi.low');
+        intensityTrendColor = 'green';
+        intensityTrendDirection = 'down';
+    } else {
+        intensityTrend = t('performance.kpi.stable');
+        intensityTrendColor = 'gray';
+        intensityTrendDirection = 'stable';
+    }
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -660,7 +680,7 @@ export default function MaintenanceDashboard() {
                 <KpiCard title={t('performance.kpi.availability')} value={`${kpiValues.avgAvailability.toFixed(2)}%`} subtitle={t('performance.kpi.availabilityTarget')} icon={TrendingUp} trend={t('performance.kpi.high')} trendDirection="up" trendColor="green" />
                 <KpiCard title={t('performance.kpi.revenueLoss')} value={formatCurrency(kpiValues.totalDowntimeLoss)} subtitle={t('performance.kpi.revenueLossPeriod')} icon={DollarSign} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
                 <KpiCard title={t('performance.kpi.maintenanceCost')} value={formatCurrency(kpiValues.totalMaintenanceCost)} subtitle={t('performance.kpi.maintenanceCostPeriod')} icon={Wrench} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
-                <KpiCard title={t('performance.kpi.intensity')} value={`${kpiValues.maintIntensity.toFixed(2)}%`} subtitle={t('performance.kpi.intensityBenchmark')} icon={TrendingUp} trend={t('performance.kpi.stable')} trendDirection="stable" trendColor="gray" />
+                <KpiCard title={t('performance.kpi.intensity')} value={`${kpiValues.maintIntensity.toFixed(2)}%`} subtitle={t('performance.kpi.intensityBenchmark')} icon={TrendingUp} trend={intensityTrend} trendDirection={intensityTrendDirection} trendColor={intensityTrendColor} />
                 <KpiCard title={t('performance.kpi.gbv')} value={formatCurrency(kpiValues.totalGbv)} subtitle={t('performance.kpi.gbvSub')} icon={Cog} />
             </div>
 

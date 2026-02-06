@@ -419,6 +419,7 @@
       "availability": "Disponibilidad de la Flota",
       "availabilityTarget": "Objetivo: 98.5%",
       "high": "Alto",
+      "veryHigh": "Muy Alto",
       "revenueLoss": "Pérdida de Ingresos (Downtime)",
       "revenueLossPeriod": "Últimos 12 meses",
       "low": "Bajo",
