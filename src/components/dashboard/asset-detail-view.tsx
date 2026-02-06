@@ -52,6 +52,9 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
     return (lastFailure - firstFailure) / numberOfIntervals;
   }, [failureTimes]);
 
+  const totalDowntimeHours = asset.mttr * failureTimes.length;
+  const downtimeCostPerHour = totalDowntimeHours > 0 ? asset.downtimeLoss / totalDowntimeHours : 0;
+
   const handleGenerateReport = async () => {
     setIsGenerating(true);
     setReportContent('');
@@ -103,7 +106,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoCard title="MTBF" value={calculatedMtbf > 0 ? calculatedMtbf.toFixed(0) : '--'} unit="h" icon={Clock} />
                 <InfoCard title="MTTR" value={asset.mttr} unit="h" icon={AlertTriangle} />
-                <InfoCard title="Custo / Hora de Downtime" value={`$${((asset.downtimeLoss / (asset.mttr * failureTimes.length || 1))).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
+                <InfoCard title="Custo / Hora de Downtime" value={`$${downtimeCostPerHour.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
             </div>
 
             {/* Predictive Maintenance Score */}
