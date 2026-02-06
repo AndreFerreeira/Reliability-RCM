@@ -114,6 +114,10 @@
       "title": "¡Éxito!",
       "description": "Los datos de los activos han sido actualizados."
     },
+    "assetDeleted": {
+      "title": "Activo Eliminado",
+      "description": "El activo ha sido eliminado con éxito."
+    },
     "jsonError": {
       "title": "Error de Formato",
       "description": "El JSON proporcionado es inválido: {{error}}",
@@ -442,7 +446,9 @@
       "maintGbv": "Mant./GBV (%)",
       "downtimeLoss": "Pérdida por Downtime",
       "action": "Acción",
-      "analyze": "Analizar"
+      "analyze": "Analizar",
+      "edit": "Editar",
+      "delete": "Eliminar"
     },
     "lifecycle": {
       "wearOut": "Fin de Vida / Desgaste",
@@ -461,7 +467,12 @@
       "step2": "Pegue los datos copiados en el área de texto a continuación.",
       "step3": "La herramienta agrupará los eventos por 'TAG' y calculará las métricas de fiabilidad.",
       "requiredHeaders": "Encabezados Requeridos: tag, data, status, costo de mantenimiento, gbv..."
-    }
+    },
+    "titleEdit": "Editar Activo",
+    "descriptionEdit": "Modifique los detalles del activo a continuación.",
+    "saveButton": "Guardar Cambios",
+    "location": "Ubicación",
+    "gbv": "Valor Contable Bruto (GBV)"
   },
   "assetDetail": {
     "backToFleet": "Volver a la Flota",

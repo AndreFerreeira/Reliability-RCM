@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, Trash2, TrendingUp, Upload, Wrench } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Pencil, Search, Trash2, TrendingUp, Upload, Wrench } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +18,11 @@ import { AssetDetailView } from './asset-detail-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '../ui/textarea';
 import { estimateParameters } from '@/lib/reliability';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const headerMapping: Record<string, string> = {
     // Portuguese
@@ -373,6 +378,106 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
   );
 }
 
+const assetSchema = z.object({
+    name: z.string().min(1),
+    location: z.string(),
+    criticality: z.enum(['AA', 'A', 'B', 'C']),
+    pdmHealth: z.coerce.number(),
+    availability: z.coerce.number(),
+    maintenanceCost: z.coerce.number(),
+    gbv: z.coerce.number(),
+    downtimeLoss: z.coerce.number(),
+    failureTimes: z.string(),
+    rpn: z.coerce.number(),
+    severity: z.coerce.number(),
+    mttr: z.coerce.number(),
+});
+
+function AssetEditorDialog({ asset, onSave, onCancel, t }: { asset: AssetData; onSave: (data: AssetData) => void; onCancel: () => void; t: (key: string) => string }) {
+    const form = useForm<z.infer<typeof assetSchema>>({
+        resolver: zodResolver(assetSchema),
+        defaultValues: asset,
+    });
+
+    function onSubmit(data: z.infer<typeof assetSchema>) {
+        onSave({
+            ...asset,
+            ...data,
+        });
+    }
+
+    return (
+        <Dialog open={true} onOpenChange={onCancel}>
+            <DialogContent className="sm:max-w-[625px]">
+                <DialogHeader>
+                    <DialogTitle>{t('assetEditor.titleEdit')}</DialogTitle>
+                    <DialogDescription>{t('assetEditor.descriptionEdit')}</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="name" render={({ field }) => (
+                                <FormItem><FormLabel>{t('performance.table.assetId')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="location" render={({ field }) => (
+                                <FormItem><FormLabel>{t('assetEditor.location')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="criticality" render={({ field }) => (
+                                <FormItem><FormLabel>{t('performance.table.criticality')}</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="AA">AA</SelectItem>
+                                        <SelectItem value="A">A</SelectItem>
+                                        <SelectItem value="B">B</SelectItem>
+                                        <SelectItem value="C">C</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="gbv" render={({ field }) => (
+                                <FormItem><FormLabel>{t('assetEditor.gbv')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="failureTimes" render={({ field }) => (
+                            <FormItem><FormLabel>{t('monteCarlo.confidence.dataLabel')}</FormLabel><FormControl><Textarea {...field} rows={3}/></FormControl><FormMessage /></FormItem>
+                        )} />
+
+                        <div className="grid grid-cols-3 gap-4">
+                           <FormField control={form.control} name="maintenanceCost" render={({ field }) => (
+                                <FormItem><FormLabel>{t('performance.kpi.maintenanceCost')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="downtimeLoss" render={({ field }) => (
+                                <FormItem><FormLabel>{t('performance.kpi.revenueLoss')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                              <FormField control={form.control} name="mttr" render={({ field }) => (
+                                <FormItem><FormLabel>MTTR</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                         <div className="grid grid-cols-3 gap-4">
+                           <FormField control={form.control} name="pdmHealth" render={({ field }) => (
+                                <FormItem><FormLabel>{t('performance.table.pdmHealth')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="rpn" render={({ field }) => (
+                                <FormItem><FormLabel>RPN</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                              <FormField control={form.control} name="severity" render={({ field }) => (
+                                <FormItem><FormLabel>{t('assetDetail.pdmScore.severity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+
+                        <DialogFooter>
+                            <Button type="submit">{t('assetEditor.saveButton')}</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 const KpiCard = ({ title, value, subtitle, icon: Icon, trend, trendDirection, trendColor }) => {
     const trendClasses = {
@@ -431,8 +536,10 @@ const HealthIndicator = ({ health }) => {
 
 export default function MaintenanceDashboard() {
     const { t } = useI18n();
+    const { toast } = useToast();
     const [assets, setAssets] = React.useState<AssetData[]>(assetData.assets);
     const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
+    const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
 
     const kpiValues = React.useMemo(() => {
         if (!assets || assets.length === 0) {
@@ -474,6 +581,23 @@ export default function MaintenanceDashboard() {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
     }
     
+    const handleSaveAsset = (updatedAsset: AssetData) => {
+        setAssets(assets => assets.map(a => a.id === updatedAsset.id ? updatedAsset : a));
+        setEditingAsset(null);
+        toast({
+            title: t('toasts.assetUpdateSuccess.title'),
+            description: t('toasts.assetUpdateSuccess.description'),
+        });
+    };
+
+    const handleDeleteAsset = (assetId: string) => {
+        setAssets(assets => assets.filter(a => a.id !== assetId));
+        toast({
+            title: t('toasts.assetDeleted.title'),
+            description: t('toasts.assetDeleted.description'),
+        });
+    };
+
     if (selectedAsset) {
         return <AssetDetailView asset={selectedAsset} onBack={() => setSelectedAsset(null)} />;
     }
@@ -539,7 +663,13 @@ export default function MaintenanceDashboard() {
                                             {asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-red-500">{formatCurrency(asset.downtimeLoss)}</TableCell>
-                                        <TableCell className="text-center"><Button variant="outline" size="sm" onClick={() => setSelectedAsset(asset)}>{t('performance.table.analyze')}</Button></TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="flex items-center justify-center gap-0">
+                                                <Button variant="outline" size="sm" onClick={() => setSelectedAsset(asset)}>{t('performance.table.analyze')}</Button>
+                                                <Button variant="ghost" size="icon" onClick={() => setEditingAsset(asset)} aria-label={t('performance.table.edit')}><Pencil className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteAsset(asset.id)} aria-label={t('performance.table.delete')}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -547,6 +677,7 @@ export default function MaintenanceDashboard() {
                     </div>
                 </CardContent>
             </Card>
+            {editingAsset && <AssetEditorDialog asset={editingAsset} onSave={handleSaveAsset} onCancel={() => setEditingAsset(null)} t={t} />}
         </div>
     );
 }

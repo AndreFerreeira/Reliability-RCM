@@ -114,6 +114,10 @@
       "title": "Success!",
       "description": "Asset data has been updated."
     },
+    "assetDeleted": {
+      "title": "Asset Removed",
+      "description": "The asset has been successfully removed."
+    },
     "jsonError": {
       "title": "Format Error",
       "description": "The provided JSON is invalid: {{error}}",
@@ -443,7 +447,9 @@
       "maintGbv": "Maint./GBV (%)",
       "downtimeLoss": "Downtime Loss",
       "action": "Action",
-      "analyze": "Analyze"
+      "analyze": "Analyze",
+      "edit": "Edit",
+      "delete": "Delete"
     },
     "lifecycle": {
       "wearOut": "End of Life / Wear-out",
@@ -462,7 +468,12 @@
       "step2": "Paste the copied data into the text area below.",
       "step3": "The tool will group events by 'TAG' and calculate reliability metrics.",
       "requiredHeaders": "Required Headers: tag, data, status, maintenance cost, gbv..."
-    }
+    },
+    "titleEdit": "Edit Asset",
+    "descriptionEdit": "Modify the asset details below.",
+    "saveButton": "Save Changes",
+    "location": "Location",
+    "gbv": "Gross Book Value (GBV)"
   },
   "assetDetail": {
     "backToFleet": "Back to Fleet",
