@@ -38,8 +38,7 @@ export default function EventLogTable({ events }: EventLogTableProps) {
     if (!events || events.length === 0) {
       return [];
     }
-
-    // 1. Parse and sort all events.
+    
     const allParsedEvents = events
       .map(e => ({
         ...e,
@@ -49,12 +48,11 @@ export default function EventLogTable({ events }: EventLogTableProps) {
       .filter((e): e is LogEvent & { startDateObj: Date; endDateObj: Date | null } => !!e.startDateObj)
       .sort((a, b) => a.startDateObj.getTime() - b.startDateObj.getTime());
 
-    const eventsWithMetrics: (LogEvent & { timeToRepair?: number, timeBetweenFailures?: number })[] = [];
-    let lastFailureEndDate: Date | null = null;
-    
-    for (const event of allParsedEvents) {
-        const newEvent: LogEvent & { timeToRepair?: number, timeBetweenFailures?: number } = { ...event };
+    const failureEvents = allParsedEvents.filter(e => ['FALHA', 'CORRETIVA'].includes(e.status));
 
+    const eventsWithMetrics = allParsedEvents.map((event, index) => {
+        const newEvent: LogEvent & { timeToRepair?: number, timeBetweenFailures?: number } = { ...event };
+        
         // Calculate Time to Repair (TR)
         if (event.endDateObj && event.startDateObj) {
             const diffHours = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
@@ -62,18 +60,21 @@ export default function EventLogTable({ events }: EventLogTableProps) {
         }
 
         // Calculate Time Between Failures (TEF)
-        if (event.status === 'FALHA') {
-            if (lastFailureEndDate) {
-                const tefHours = (event.startDateObj.getTime() - lastFailureEndDate.getTime()) / (1000 * 60 * 60);
-                if(tefHours > 0) {
-                    newEvent.timeBetweenFailures = tefHours;
+        if (['FALHA', 'CORRETIVA'].includes(event.status)) {
+            const currentFailureIndex = failureEvents.findIndex(fe => fe.startDateObj === event.startDateObj);
+            if (currentFailureIndex > 0) {
+                const previousFailure = failureEvents[currentFailureIndex - 1];
+                if (previousFailure.endDateObj) {
+                    const tefHours = (event.startDateObj.getTime() - previousFailure.endDateObj.getTime()) / (1000 * 60 * 60);
+                    if (tefHours > 0) {
+                        newEvent.timeBetweenFailures = tefHours;
+                    }
                 }
             }
-            lastFailureEndDate = event.endDateObj;
         }
         
-        eventsWithMetrics.push(newEvent);
-    }
+        return newEvent;
+    });
     
     return eventsWithMetrics;
 }, [events]);

@@ -98,10 +98,10 @@ function parseDate(dateStr: string): Date | null {
     if (!dateStr || typeof dateStr !== 'string') return null;
     
     // Try to match with time
-    let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
+    let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):?(\d{2})?/);
     if (parts) {
-        const [, day, month, year, hour, minute] = parts;
-        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+        const [, day, month, year, hour, minute, second] = parts;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), second ? parseInt(second) : 0);
     }
 
     // Try to match date only
@@ -176,7 +176,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
 
                 const failureTimes: number[] = [];
                 const repairTimes: number[] = [];
-                const failureEvents = events.filter(e => e.status === 'FALHA');
+                const failureEvents = events.filter(e => ['FALHA', 'CORRETIVA'].includes(e.status));
 
                 if (hasEndDate) { // Two-date event log
                     for (let i = 0; i < failureEvents.length; i++) {
