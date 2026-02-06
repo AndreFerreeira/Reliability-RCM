@@ -7,7 +7,8 @@
         "lifecycle": "wearOut",
         "pdmHealth": 41,
         "availability": 99.1,
-        "maintGbv": 6.80,
+        "maintenanceCost": 340000,
+        "gbv": 5000000,
         "downtimeLoss": 2880000
     },
     {
@@ -17,7 +18,8 @@
         "lifecycle": "stable",
         "pdmHealth": 76,
         "availability": 99.8,
-        "maintGbv": 16.67,
+        "maintenanceCost": 20004,
+        "gbv": 120000,
         "downtimeLoss": 48000
     },
     {
@@ -27,7 +29,8 @@
         "lifecycle": "infant",
         "pdmHealth": 45,
         "availability": 98.5,
-        "maintGbv": 8.82,
+        "maintenanceCost": 176400,
+        "gbv": 2000000,
         "downtimeLoss": 960000
     },
     {
@@ -37,7 +40,8 @@
         "lifecycle": "stable",
         "pdmHealth": 86,
         "availability": 99.9,
-        "maintGbv": 6.67,
+        "maintenanceCost": 10005,
+        "gbv": 150000,
         "downtimeLoss": 5000
     },
     {
@@ -47,7 +51,8 @@
         "lifecycle": "wearOut",
         "pdmHealth": 27,
         "availability": 97.2,
-        "maintGbv": 18.33,
+        "maintenanceCost": 146640,
+        "gbv": 800000,
         "downtimeLoss": 4200000
     }
   ]

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { useI18n } from '@/i18n/i18n-provider';
-import type { AssetHealth } from '@/lib/types';
+import type { AssetData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import assetData from '@/lib/asset-data.json';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
 
-function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetHealth[], setAssets: (assets: AssetHealth[]) => void, t: (key: string, args?: any) => string }) {
+function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setAssets: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [jsonText, setJsonText] = React.useState(JSON.stringify({ assets }, null, 2));
   const { toast } = useToast();
@@ -137,7 +137,41 @@ const HealthIndicator = ({ health }) => {
 
 export default function MaintenanceDashboard() {
     const { t } = useI18n();
-    const [assets, setAssets] = React.useState<AssetHealth[]>(assetData.assets);
+    const [assets, setAssets] = React.useState<AssetData[]>(assetData.assets);
+
+    const kpiValues = React.useMemo(() => {
+        if (!assets || assets.length === 0) {
+            return {
+                avgAvailability: 0,
+                totalDowntimeLoss: 0,
+                totalGbv: 0,
+                maintIntensity: 0,
+            };
+        }
+
+        const totalDowntimeLoss = assets.reduce((sum, asset) => sum + (asset.downtimeLoss || 0), 0);
+        const totalGbv = assets.reduce((sum, asset) => sum + (asset.gbv || 0), 0);
+        const totalMaintenanceCost = assets.reduce((sum, asset) => sum + (asset.maintenanceCost || 0), 0);
+        
+        let validAvailabilityAssets = 0;
+        const totalAvailability = assets.reduce((sum, asset) => {
+          if (asset.availability != null) {
+            validAvailabilityAssets++;
+            return sum + asset.availability;
+          }
+          return sum;
+        }, 0);
+        const avgAvailability = validAvailabilityAssets > 0 ? totalAvailability / validAvailabilityAssets : 0;
+
+        const maintIntensity = totalGbv > 0 ? (totalMaintenanceCost / totalGbv) * 100 : 0;
+
+        return {
+            avgAvailability,
+            totalDowntimeLoss,
+            totalGbv,
+            maintIntensity,
+        };
+    }, [assets]);
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -151,10 +185,10 @@ export default function MaintenanceDashboard() {
             </div>
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KpiCard title={t('performance.kpi.availability')} value="98.41%" subtitle={t('performance.kpi.availabilityTarget')} icon={TrendingUp} trend={t('performance.kpi.high')} trendDirection="up" trendColor="green" />
-                <KpiCard title={t('performance.kpi.revenueLoss')} value={formatCurrency(8093000)} subtitle={t('performance.kpi.revenueLossPeriod')} icon={DollarSign} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
-                <KpiCard title={t('performance.kpi.intensity')} value="10.63%" subtitle={t('performance.kpi.intensityBenchmark')} icon={TrendingUp} trend={t('performance.kpi.stable')} trendDirection="stable" trendColor="gray" />
-                <KpiCard title={t('performance.kpi.totalValue')} value={formatCurrency(5270000)} subtitle={t('performance.kpi.totalValueSub')} icon={Cog} />
+                <KpiCard title={t('performance.kpi.availability')} value={`${kpiValues.avgAvailability.toFixed(2)}%`} subtitle={t('performance.kpi.availabilityTarget')} icon={TrendingUp} trend={t('performance.kpi.high')} trendDirection="up" trendColor="green" />
+                <KpiCard title={t('performance.kpi.revenueLoss')} value={formatCurrency(kpiValues.totalDowntimeLoss)} subtitle={t('performance.kpi.revenueLossPeriod')} icon={DollarSign} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
+                <KpiCard title={t('performance.kpi.intensity')} value={`${kpiValues.maintIntensity.toFixed(2)}%`} subtitle={t('performance.kpi.intensityBenchmark')} icon={TrendingUp} trend={t('performance.kpi.stable')} trendDirection="stable" trendColor="gray" />
+                <KpiCard title={t('performance.kpi.totalValue')} value={formatCurrency(kpiValues.totalGbv)} subtitle={t('performance.kpi.totalValueSub')} icon={Cog} />
             </div>
 
             <Card>
@@ -198,7 +232,9 @@ export default function MaintenanceDashboard() {
                                         <TableCell>{t(`performance.lifecycle.${asset.lifecycle}`)}</TableCell>
                                         <TableCell><HealthIndicator health={asset.pdmHealth} /></TableCell>
                                         <TableCell><Progress value={asset.availability} className="h-2" /></TableCell>
-                                        <TableCell className="text-right">{asset.maintGbv.toFixed(2)}%</TableCell>
+                                        <TableCell className="text-right">
+                                            {asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%
+                                        </TableCell>
                                         <TableCell className="text-right font-medium text-red-500">{formatCurrency(asset.downtimeLoss)}</TableCell>
                                         <TableCell className="text-center"><Button variant="outline" size="sm">{t('performance.table.analyze')}</Button></TableCell>
                                     </TableRow>

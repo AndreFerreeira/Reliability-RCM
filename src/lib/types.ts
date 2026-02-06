@@ -247,13 +247,14 @@ export const AnalyzeChartDataOutputSchema = z.object({
 export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema>;
 
 
-export interface AssetHealth {
+export interface AssetData {
   id: string;
   name: string;
   criticality: 'AA' | 'A' | 'B' | 'C';
-  lifecycle: string;
+  lifecycle: 'wearOut' | 'stable' | 'infant';
   pdmHealth: number;
   availability: number;
-  maintGbv: number;
+  maintenanceCost: number;
+  gbv: number;
   downtimeLoss: number;
 }
