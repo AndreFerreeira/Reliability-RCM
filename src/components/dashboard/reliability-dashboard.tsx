@@ -8,7 +8,7 @@ import type { Supplier, EstimationMethod } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { Bot, LineChart as LineChartIcon, BrainCircuit, TestTube, LayoutDashboard } from '@/components/icons';
+import { LineChart as LineChartIcon, TestTube, LayoutDashboard } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
@@ -17,7 +17,6 @@ import MonteCarloSimulator from './monte-carlo-simulator';
 import LanguageSwitcher from './language-switcher';
 import { useI18n } from '@/i18n/i18n-provider';
 import MaintenanceDashboard from './maintenance-dashboard';
-import ProbabilityPaper from './probability-paper';
 
 const initialSuppliersData = [
   { 
@@ -110,10 +109,9 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="performance"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
           <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
-          <TabsTrigger value="paper"><BrainCircuit />{t('tabs.probabilityPaper')}</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
         </TabsList>
         <TabsContent value="performance" className="space-y-4">
@@ -158,9 +156,6 @@ export default function ReliabilityDashboard() {
               <AiComprehensiveAnalysis suppliers={suppliers} chartData={chartData} />
             </div>
           </div>
-        </TabsContent>
-         <TabsContent value="paper" className="space-y-4">
-          <ProbabilityPaper />
         </TabsContent>
         <TabsContent value="monte_carlo" className="space-y-4">
           <MonteCarloSimulator suppliers={suppliers} />

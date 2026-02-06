@@ -5,7 +5,6 @@
   "tabs": {
     "reliabilityAnalysis": "Análisis de Confiabilidad",
     "aiAnalysis": "Análisis con IA",
-    "probabilityPaper": "Papel de Probabilidad",
     "monteCarlo": "Simulador Monte Carlo",
     "performanceDashboard": "Performance"
   },
@@ -61,9 +60,6 @@
     "estimatedProb": "Prob. Estimada",
     "failureProb": "Prob. de Fallo",
     "yAxis": "Probabilidad"
-  },
-  "probabilityPaper": {
-    "title": "Papeles de Probabilidad y Rangos Medianos"
   },
   "toasts": {
     "limitReached": {

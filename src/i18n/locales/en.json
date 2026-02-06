@@ -5,7 +5,6 @@
   "tabs": {
     "reliabilityAnalysis": "Reliability Analysis",
     "aiAnalysis": "AI Analysis",
-    "probabilityPaper": "Probability Paper",
     "monteCarlo": "Monte Carlo",
     "performanceDashboard": "Performance"
   },
@@ -61,9 +60,6 @@
     "estimatedProb": "Estimated Prob.",
     "failureProb": "Failure Prob.",
     "yAxis": "Probability"
-  },
-  "probabilityPaper": {
-    "title": "Probability Papers and Median Ranks"
   },
   "toasts": {
     "limitReached": {
