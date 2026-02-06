@@ -449,7 +449,13 @@
       "action": "Acción",
       "analyze": "Analizar",
       "edit": "Editar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "assetInfo": "INFORMACIÓN DEL ACTIVO",
+      "locationSerial": "UBICACIÓN Y SERIE",
+      "gbv": "VALOR GBV",
+      "rmCosts": "COSTOS TOTALES R&M",
+      "lossAnalysis": "ANÁLISIS DE PÉRDIDAS (DOWNTIME)",
+      "maintIntensity": "INTENSIDAD MANT."
     },
     "lifecycle": {
       "wearOut": "Fin de Vida / Desgaste",

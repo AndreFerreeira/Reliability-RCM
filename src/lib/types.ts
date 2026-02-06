@@ -266,6 +266,8 @@ export interface AssetData {
   pdmHealth: number;
   availability: number;
   maintenanceCost: number;
+  pmCost?: number;
+  cmCost?: number;
   gbv: number;
   downtimeLoss: number;
   failureTimes: string;
@@ -275,4 +277,6 @@ export interface AssetData {
   events?: LogEvent[];
   beta?: number;
   eta?: number;
+  serialNumber?: string;
+  tags?: string[];
 }

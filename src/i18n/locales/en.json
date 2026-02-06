@@ -450,7 +450,13 @@
       "action": "Action",
       "analyze": "Analyze",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "assetInfo": "ASSET INFORMATION",
+      "locationSerial": "LOCATION & SERIAL",
+      "gbv": "GBV VALUE",
+      "rmCosts": "R&M TOTAL COSTS",
+      "lossAnalysis": "LOSS ANALYSIS (DOWNTIME)",
+      "maintIntensity": "MAINT INTENSITY"
     },
     "lifecycle": {
       "wearOut": "End of Life / Wear-out",

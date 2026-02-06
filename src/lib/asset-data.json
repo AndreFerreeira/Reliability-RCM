@@ -1,20 +1,24 @@
 {
   "assets": [
     {
-        "id": "HO4401",
-        "name": "Módulo de Homogenização",
-        "location": "Localização não informada",
+        "id": "ASSET-001",
+        "name": "Turbine Generator T-101",
+        "serialNumber": "GE-9921-TX",
+        "tags": ["GENERAL", "ELECTRIC"],
+        "location": "Sector A - Powerhouse",
         "criticality": "A",
-        "lifecycle": "wearOut",
-        "pdmHealth": 65,
-        "availability": 99.5,
-        "maintenanceCost": 863991,
-        "gbv": 900000,
-        "downtimeLoss": 500000,
-        "failureTimes": "9264, 10200",
-        "rpn": 400,
-        "severity": 8,
-        "mttr": 24
+        "lifecycle": "stable",
+        "pdmHealth": 85,
+        "availability": 99.8,
+        "maintenanceCost": 170000,
+        "pmCost": 45000,
+        "cmCost": 125000,
+        "gbv": 2500000,
+        "downtimeLoss": 2880000,
+        "failureTimes": "2100, 4500, 6800, 8700",
+        "rpn": 320,
+        "severity": 7,
+        "mttr": 48
     }
   ]
 }

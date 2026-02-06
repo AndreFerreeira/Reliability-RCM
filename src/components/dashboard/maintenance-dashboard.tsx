@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Pencil, Search, Trash2, TrendingUp, Upload, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Clock, Cog, DollarSign, MapPin, Pencil, Search, Tag, Trash2, TrendingUp, Upload, Wrench } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -556,30 +556,6 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, trend, trendDirection, tr
     );
 };
 
-const CriticalityBadge = ({ criticality }) => {
-    const variants = {
-        AA: 'bg-red-200/20 text-red-400 border-red-400/30',
-        A: 'bg-orange-200/20 text-orange-400 border-orange-400/30',
-        B: 'bg-yellow-200/20 text-yellow-400 border-yellow-400/30',
-        C: 'bg-green-200/20 text-green-400 border-green-400/30',
-    };
-    return <Badge variant="outline" className={cn('font-bold w-12 justify-center', variants[criticality])}>{criticality}</Badge>;
-};
-
-
-const HealthIndicator = ({ health }) => {
-    let colorClass = 'text-green-400';
-    if (health < 50) colorClass = 'text-red-400';
-    else if (health < 80) colorClass = 'text-yellow-400';
-
-    return (
-        <div className={cn("flex items-center gap-2", colorClass)}>
-            <span className={cn("h-2.5 w-2.5 rounded-full", colorClass.replace('text-', 'bg-'))} />
-            <span>{health}%</span>
-        </div>
-    );
-};
-
 export default function MaintenanceDashboard() {
     const { t } = useI18n();
     const { toast } = useToast();
@@ -644,6 +620,7 @@ export default function MaintenanceDashboard() {
     }
 
     const formatCurrency = (value: number) => {
+        if (typeof value !== 'number') return '$0';
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
     }
     
@@ -699,48 +676,89 @@ export default function MaintenanceDashboard() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>{t('performance.table.assetId')}</TableHead>
-                                    <TableHead>{t('performance.table.criticality')}</TableHead>
-                                    <TableHead>{t('performance.table.lifecycle')}</TableHead>
-                                    <TableHead>{t('performance.table.pdmHealth')}</TableHead>
-                                    <TableHead>{t('performance.table.availability')}</TableHead>
-                                    <TableHead className="text-right">{t('performance.table.maintGbv')}</TableHead>
-                                    <TableHead className="text-right">{t('performance.table.downtimeLoss')}</TableHead>
-                                    <TableHead className="text-center">{t('performance.table.action')}</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {assets.map((asset) => (
-                                    <TableRow key={asset.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{asset.name}</div>
-                                            <div className="text-xs text-muted-foreground">{asset.id}</div>
-                                        </TableCell>
-                                        <TableCell><CriticalityBadge criticality={asset.criticality} /></TableCell>
-                                        <TableCell>{t(`performance.lifecycle.${asset.lifecycle}`)}</TableCell>
-                                        <TableCell><HealthIndicator health={asset.pdmHealth} /></TableCell>
-                                        <TableCell><Progress value={asset.availability} className="h-2" /></TableCell>
-                                        <TableCell className="text-right">
-                                            {asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-red-500">{formatCurrency(asset.downtimeLoss)}</TableCell>
-                                        <TableCell className="text-center">
-                                            <div className="flex items-center justify-center gap-0">
-                                                <Button variant="outline" size="sm" onClick={() => setSelectedAsset(asset)}>{t('performance.table.analyze')}</Button>
-                                                <Button variant="ghost" size="icon" onClick={() => setEditingAsset(asset)} aria-label={t('performance.table.edit')}><Pencil className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteAsset(asset.id)} aria-label={t('performance.table.delete')}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                <CardContent className="space-y-2">
+                     <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                        <div className="col-span-3">{t('performance.table.assetInfo')}</div>
+                        <div className="col-span-2">{t('performance.table.locationSerial')}</div>
+                        <div className="col-span-2 text-right">{t('performance.table.gbv')}</div>
+                        <div className="col-span-2 text-right">{t('performance.table.rmCosts')}</div>
+                        <div className="col-span-2 text-right">{t('performance.table.lossAnalysis')}</div>
+                        <div className="text-right">{t('performance.table.maintIntensity')}</div>
                     </div>
+                    {assets.map((asset) => {
+                        const numFailures = asset.failureTimes ? asset.failureTimes.split(',').filter(t => t.trim()).length : 0;
+                        const totalHoursDown = numFailures * asset.mttr;
+                        const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+
+                        return (
+                            <div 
+                                key={asset.id} 
+                                className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-lg hover:bg-muted/50 cursor-pointer border"
+                                onClick={() => setSelectedAsset(asset)}
+                            >
+                                {/* Asset Info */}
+                                <div className="flex items-center gap-3 col-span-3">
+                                    <div className="bg-muted p-2 rounded-lg">
+                                        <Tag className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <div>
+                                        <div className="font-bold">{asset.name}</div>
+                                        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                            <span>{asset.id}</span>
+                                            {asset.tags && asset.tags.length > 0 && (
+                                                <>
+                                                    <span className="font-bold text-muted-foreground/50">·</span>
+                                                    <span className="truncate">{asset.tags.join(' · ')}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Location & Serial */}
+                                <div className="col-span-2">
+                                     <div className="font-medium flex items-center gap-2"><MapPin className="h-3 w-3 text-muted-foreground" />{asset.location}</div>
+                                     <div className="text-xs text-muted-foreground ml-5">SN: {asset.serialNumber || 'N/A'}</div>
+                                </div>
+
+                                {/* GBV */}
+                                <div className="text-right font-medium col-span-2">{formatCurrency(asset.gbv)}</div>
+
+                                {/* R&M Costs */}
+                                <div className="text-right col-span-2">
+                                     <div className="font-bold">{formatCurrency(asset.maintenanceCost)}</div>
+                                     <div className="text-xs text-muted-foreground">
+                                         <span>PM: {formatCurrency(asset.pmCost ?? 0)}</span>
+                                         <span className="font-bold mx-1 text-muted-foreground/50">·</span>
+                                         <span className="text-red-500">CM: {formatCurrency(asset.cmCost ?? 0)}</span>
+                                     </div>
+                                </div>
+                                
+                                {/* Loss Analysis */}
+                                <div className="text-right col-span-2">
+                                     <div className="font-bold text-red-500 flex items-center justify-end gap-1">
+                                        <AlertTriangle className="h-4 w-4"/>
+                                        {formatCurrency(asset.downtimeLoss)}
+                                     </div>
+                                     <div className="text-xs text-muted-foreground">
+                                         <span><Clock className="inline h-3 w-3 mr-1"/>{totalHoursDown}h Down</span>
+                                         <span className="font-bold mx-1">·</span>
+                                         <span>{numFailures} Failures</span>
+                                     </div>
+                                </div>
+
+                                {/* Maint Intensity */}
+                                <div className="flex items-center justify-end gap-2 text-right">
+                                     <span className="font-bold text-red-500">{maintIntensity.toFixed(2)}%</span>
+                                     <Progress value={maintIntensity > 100 ? 100 : maintIntensity} className="h-1 w-10 bg-red-500/20 [&>div]:bg-red-500"/>
+                                </div>
+                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} aria-label={t('performance.table.edit')}><Pencil className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteAsset(asset.id); }} aria-label={t('performance.table.delete')}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                </div>
+                            </div>
+                        )
+                    })}
                 </CardContent>
             </Card>
             {editingAsset && <AssetEditorDialog asset={editingAsset} onSave={handleSaveAsset} onCancel={() => setEditingAsset(null)} t={t} />}
