@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,73 @@ import { useI18n } from '@/i18n/i18n-provider';
 import type { AssetHealth } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import assetData from '@/lib/asset-data.json';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
-const assets: AssetHealth[] = assetData.assets;
+
+function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetHealth[], setAssets: (assets: AssetHealth[]) => void, t: (key: string, args?: any) => string }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [jsonText, setJsonText] = React.useState(JSON.stringify({ assets }, null, 2));
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setJsonText(JSON.stringify({ assets }, null, 2));
+    }
+  }, [assets, isOpen]);
+
+  const handleSave = () => {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (parsed && Array.isArray(parsed.assets)) {
+        setAssets(parsed.assets);
+        toast({
+          title: t('toasts.assetUpdateSuccess.title'),
+          description: t('toasts.assetUpdateSuccess.description'),
+        });
+        setIsOpen(false);
+      } else {
+        throw new Error(t('toasts.jsonError.structure'));
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: t('toasts.jsonError.title'),
+        description: t('toasts.jsonError.description', { error: error.message }),
+      });
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+            <Cog className="mr-2 h-4 w-4" />
+            {t('performance.inventory.manageAssets')}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{t('assetEditor.title')}</DialogTitle>
+          <DialogDescription>
+            {t('assetEditor.description')}
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={jsonText}
+          onChange={(e) => setJsonText(e.target.value)}
+          rows={20}
+          className="font-mono text-xs bg-muted/50"
+        />
+        <DialogFooter>
+          <Button onClick={handleSave}>{t('assetEditor.save')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 const KpiCard = ({ title, value, subtitle, icon: Icon, trend, trendDirection, trendColor }) => {
     const trendClasses = {
@@ -71,6 +137,7 @@ const HealthIndicator = ({ health }) => {
 
 export default function MaintenanceDashboard() {
     const { t } = useI18n();
+    const [assets, setAssets] = React.useState<AssetHealth[]>(assetData.assets);
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -99,7 +166,10 @@ export default function MaintenanceDashboard() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input placeholder={t('performance.inventory.searchPlaceholder')} className="pl-9" />
                         </div>
-                        <Button variant="link">{t('performance.inventory.export')}</Button>
+                        <div className="flex items-center gap-2">
+                            <AssetEditorDialog assets={assets} setAssets={setAssets} t={t} />
+                            <Button variant="link">{t('performance.inventory.export')}</Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>

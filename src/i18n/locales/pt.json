@@ -102,6 +102,15 @@
     "simulationError": {
       "title": "Erro na Simulação",
       "description": "Ocorreu um erro inesperado."
+    },
+    "assetUpdateSuccess": {
+      "title": "Sucesso!",
+      "description": "Os dados dos ativos foram atualizados."
+    },
+    "jsonError": {
+      "title": "Erro de Formato",
+      "description": "O JSON fornecido é inválido: {{error}}",
+      "structure": "O JSON deve ter uma chave 'assets' contendo um array."
     }
   },
   "distributionWizard": {
@@ -406,7 +415,8 @@
       "title": "Inventário de Confiabilidade da Frota",
       "description": "Dados de Inventário e Saúde dos Ativos",
       "searchPlaceholder": "Buscar ativos...",
-      "export": "Exportar CSV"
+      "export": "Exportar CSV",
+      "manageAssets": "Gerenciar Ativos"
     },
     "table": {
       "assetId": "ID do Ativo",
@@ -424,5 +434,10 @@
       "stable": "Vida Útil / Estável",
       "infant": "Mortalidade Infantil"
     }
+  },
+  "assetEditor": {
+    "title": "Editor de Ativos",
+    "description": "Edite os dados dos ativos em formato JSON. As alterações serão refletidas no dashboard.",
+    "save": "Salvar Alterações"
   }
 }

@@ -102,6 +102,15 @@
     "simulationError": {
       "title": "Simulation Error",
       "description": "An unexpected error occurred."
+    },
+    "assetUpdateSuccess": {
+      "title": "Success!",
+      "description": "Asset data has been updated."
+    },
+    "jsonError": {
+      "title": "Format Error",
+      "description": "The provided JSON is invalid: {{error}}",
+      "structure": "The JSON must have an 'assets' key containing an array."
     }
   },
   "distributionWizard": {
@@ -407,7 +416,8 @@
       "title": "Fleet Reliability Inventory",
       "description": "Asset Inventory & Health Data",
       "searchPlaceholder": "Search assets...",
-      "export": "Export CSV"
+      "export": "Export CSV",
+      "manageAssets": "Manage Assets"
     },
     "table": {
       "assetId": "Asset ID",
@@ -425,5 +435,10 @@
       "stable": "Useful Life / Stable",
       "infant": "Infant Mortality"
     }
+  },
+  "assetEditor": {
+    "title": "Asset Editor",
+    "description": "Edit the asset data in JSON format. Changes will be reflected on the dashboard.",
+    "save": "Save Changes"
   }
 }
