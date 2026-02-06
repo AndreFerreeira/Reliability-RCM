@@ -396,7 +396,20 @@ const assetSchema = z.object({
 function AssetEditorDialog({ asset, onSave, onCancel, t }: { asset: AssetData; onSave: (data: AssetData) => void; onCancel: () => void; t: (key: string) => string }) {
     const form = useForm<z.infer<typeof assetSchema>>({
         resolver: zodResolver(assetSchema),
-        defaultValues: asset,
+        defaultValues: {
+            name: asset.name ?? '',
+            location: asset.location ?? '',
+            criticality: asset.criticality ?? 'C',
+            pdmHealth: asset.pdmHealth ?? 0,
+            availability: asset.availability ?? 0,
+            maintenanceCost: asset.maintenanceCost ?? 0,
+            gbv: asset.gbv ?? 0,
+            downtimeLoss: asset.downtimeLoss ?? 0,
+            failureTimes: asset.failureTimes ?? '',
+            rpn: asset.rpn ?? 0,
+            severity: asset.severity ?? 0,
+            mttr: asset.mttr ?? 0,
+        },
     });
 
     function onSubmit(data: z.infer<typeof assetSchema>) {
