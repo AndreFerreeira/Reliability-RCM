@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, Trash2, TrendingUp, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,75 +13,70 @@ import type { AssetData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import assetData from '@/lib/asset-data.json';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
-
-
-const assetsToTsv = (assets: AssetData[]): string => {
-  const headers: (keyof AssetData)[] = ['id', 'name', 'location', 'criticality', 'lifecycle', 'pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'failureTimes', 'rpn', 'severity', 'mtbf', 'mttr'];
-  const headerRow = headers.join('\t');
-  const dataRows = assets.map(asset =>
-    headers.map(header => asset[header as keyof AssetData]).join('\t')
-  );
-  return [headerRow, ...dataRows].join('\n');
-};
-
-const tsvToAssets = (tsv: string): AssetData[] => {
-  const rows = tsv.trim().split('\n');
-  if (rows.length < 2) throw new Error("Dados insuficientes. A primeira linha deve ser o cabeçalho, seguida pelas linhas de dados.");
-
-  const headers = rows.shift()!.trim().split('\t') as (keyof AssetData)[];
-
-  return rows.map((row, rowIndex) => {
-    const values = row.split('\t');
-    if (values.length !== headers.length) {
-      throw new Error(`A linha ${rowIndex + 1} tem um número incorreto de colunas. Esperado: ${headers.length}, Encontrado: ${values.length}.`);
-    }
-    const asset = {} as AssetData;
-    headers.forEach((header, index) => {
-      const value = values[index];
-      const isNumeric = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mtbf', 'mttr'].includes(header);
-
-      if (isNumeric) {
-        const cleanedValue = value.replace(/[^0-9.,-]+/g, "").replace(',', '.');
-        (asset as any)[header] = parseFloat(cleanedValue) || 0;
-      } else {
-        (asset as any)[header] = value;
-      }
-    });
-    return asset;
-  });
-};
-
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '../ui/textarea';
 
 function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setAssets: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [textData, setTextData] = React.useState('');
+  const [editableAssets, setEditableAssets] = React.useState<AssetData[]>([]);
   const { toast } = useToast();
 
   React.useEffect(() => {
     if (isOpen) {
-      setTextData(assetsToTsv(assets));
+      setEditableAssets(JSON.parse(JSON.stringify(assets)));
     }
   }, [assets, isOpen]);
 
   const handleSave = () => {
-    try {
-      const parsedAssets = tsvToAssets(textData);
-      setAssets(parsedAssets);
-      toast({
-        title: t('toasts.assetUpdateSuccess.title'),
-        description: t('toasts.assetUpdateSuccess.description'),
-      });
-      setIsOpen(false);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: t('toasts.tsvError.title'),
-        description: t('toasts.tsvError.description', { error: error.message }),
-      });
-    }
+    setAssets(editableAssets);
+    toast({
+      title: t('toasts.assetUpdateSuccess.title'),
+      description: t('toasts.assetUpdateSuccess.description'),
+    });
+    setIsOpen(false);
+  };
+  
+  const handleAddAsset = () => {
+    const newAsset: AssetData = {
+        id: `ASSET-${Date.now().toString().slice(-4)}`,
+        name: 'Novo Ativo',
+        location: '',
+        criticality: 'C',
+        lifecycle: 'stable',
+        pdmHealth: 100,
+        availability: 100,
+        maintenanceCost: 0,
+        gbv: 0,
+        downtimeLoss: 0,
+        failureTimes: '',
+        rpn: 0,
+        severity: 0,
+        mtbf: 0,
+        mttr: 0,
+    };
+    setEditableAssets(prev => [...prev, newAsset]);
+  };
+
+  const handleRemoveAsset = (id: string) => {
+    setEditableAssets(prev => prev.filter(asset => asset.id !== id));
+  };
+
+  const handleInputChange = (id: string, field: keyof AssetData, value: any) => {
+    setEditableAssets(prev => prev.map(asset => {
+        if (asset.id === id) {
+            const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mtbf', 'mttr'];
+            if (numericFields.includes(field)) {
+                return { ...asset, [field]: parseFloat(value) || 0 };
+            }
+            return { ...asset, [field]: value };
+        }
+        return asset;
+    }));
   };
 
   return (
@@ -92,20 +87,115 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
             {t('performance.inventory.manageAssets')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('assetEditor.title')}</DialogTitle>
           <DialogDescription>
-            {t('assetEditor.descriptionExcel')}
+            {t('assetEditor.description')}
           </DialogDescription>
         </DialogHeader>
-        <Textarea
-          value={textData}
-          onChange={(e) => setTextData(e.target.value)}
-          rows={20}
-          className="font-mono text-xs bg-muted/50"
-          placeholder={t('assetEditor.placeholderExcel')}
-        />
+        <div className="flex justify-start">
+             <Button onClick={handleAddAsset}><Plus className="mr-2 h-4 w-4" />{t('assetEditor.addAsset')}</Button>
+        </div>
+        <ScrollArea className="flex-grow pr-6">
+          <Accordion type="single" collapsible className="w-full">
+            {editableAssets.map((asset) => (
+              <AccordionItem value={asset.id} key={asset.id}>
+                <AccordionTrigger className="flex justify-between items-center">
+                    <span className="font-medium text-foreground">{asset.name}</span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 p-2">
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor={`name-${asset.id}`}>{t('assetEditor.fields.name')}</Label>
+                            <Input id={`name-${asset.id}`} value={asset.name} onChange={(e) => handleInputChange(asset.id, 'name', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`id-${asset.id}`}>{t('assetEditor.fields.id')}</Label>
+                            <Input id={`id-${asset.id}`} value={asset.id} onChange={(e) => handleInputChange(asset.id, 'id', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`location-${asset.id}`}>{t('assetEditor.fields.location')}</Label>
+                            <Input id={`location-${asset.id}`} value={asset.location} onChange={(e) => handleInputChange(asset.id, 'location', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`criticality-${asset.id}`}>{t('assetEditor.fields.criticality')}</Label>
+                             <Select value={asset.criticality} onValueChange={(value) => handleInputChange(asset.id, 'criticality', value)}>
+                                <SelectTrigger id={`criticality-${asset.id}`}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="AA">AA</SelectItem>
+                                    <SelectItem value="A">A</SelectItem>
+                                    <SelectItem value="B">B</SelectItem>
+                                    <SelectItem value="C">C</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`lifecycle-${asset.id}`}>{t('assetEditor.fields.lifecycle')}</Label>
+                            <Select value={asset.lifecycle} onValueChange={(value) => handleInputChange(asset.id, 'lifecycle', value)}>
+                                <SelectTrigger id={`lifecycle-${asset.id}`}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="wearOut">{t('performance.lifecycle.wearOut')}</SelectItem>
+                                    <SelectItem value="stable">{t('performance.lifecycle.stable')}</SelectItem>
+                                    <SelectItem value="infant">{t('performance.lifecycle.infant')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor={`pdmHealth-${asset.id}`}>{t('assetEditor.fields.pdmHealth')}</Label>
+                            <Input id={`pdmHealth-${asset.id}`} type="number" value={asset.pdmHealth} onChange={(e) => handleInputChange(asset.id, 'pdmHealth', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`availability-${asset.id}`}>{t('assetEditor.fields.availability')}</Label>
+                            <Input id={`availability-${asset.id}`} type="number" value={asset.availability} onChange={(e) => handleInputChange(asset.id, 'availability', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`maintenanceCost-${asset.id}`}>{t('assetEditor.fields.maintenanceCost')}</Label>
+                            <Input id={`maintenanceCost-${asset.id}`} type="number" value={asset.maintenanceCost} onChange={(e) => handleInputChange(asset.id, 'maintenanceCost', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`gbv-${asset.id}`}>{t('assetEditor.fields.gbv')}</Label>
+                            <Input id={`gbv-${asset.id}`} type="number" value={asset.gbv} onChange={(e) => handleInputChange(asset.id, 'gbv', e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor={`downtimeLoss-${asset.id}`}>{t('assetEditor.fields.downtimeLoss')}</Label>
+                            <Input id={`downtimeLoss-${asset.id}`} type="number" value={asset.downtimeLoss} onChange={(e) => handleInputChange(asset.id, 'downtimeLoss', e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor={`rpn-${asset.id}`}>{t('assetEditor.fields.rpn')}</Label>
+                            <Input id={`rpn-${asset.id}`} type="number" value={asset.rpn} onChange={(e) => handleInputChange(asset.id, 'rpn', e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor={`severity-${asset.id}`}>{t('assetEditor.fields.severity')}</Label>
+                            <Input id={`severity-${asset.id}`} type="number" value={asset.severity} onChange={(e) => handleInputChange(asset.id, 'severity', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`mtbf-${asset.id}`}>{t('assetEditor.fields.mtbf')}</Label>
+                            <Input id={`mtbf-${asset.id}`} type="number" value={asset.mtbf} onChange={(e) => handleInputChange(asset.id, 'mtbf', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`mttr-${asset.id}`}>{t('assetEditor.fields.mttr')}</Label>
+                            <Input id={`mttr-${asset.id}`} type="number" value={asset.mttr} onChange={(e) => handleInputChange(asset.id, 'mttr', e.target.value)} />
+                        </div>
+                        <div className="space-y-2 col-span-1 md:col-span-2 lg:col-span-3">
+                            <Label htmlFor={`failureTimes-${asset.id}`}>{t('assetEditor.fields.failureTimes')}</Label>
+                            <Textarea id={`failureTimes-${asset.id}`} value={asset.failureTimes} placeholder={t('assetEditor.fields.failureTimesPlaceholder')} onChange={(e) => handleInputChange(asset.id, 'failureTimes', e.target.value)} rows={3} />
+                        </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                        <Button variant="destructive" size="sm" onClick={() => handleRemoveAsset(asset.id)}><Trash2 className="mr-2 h-4 w-4"/>{t('assetEditor.removeAsset')}</Button>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </ScrollArea>
         <DialogFooter>
           <Button onClick={handleSave}>{t('assetEditor.save')}</Button>
         </DialogFooter>

@@ -449,9 +449,28 @@
   },
   "assetEditor": {
     "title": "Editor de Activos",
-    "descriptionExcel": "Pegue aquí los datos de su hoja de cálculo (Excel, Sheets). Mantenga el encabezado y use tabulaciones como separador. Las columnas deben estar en el orden correcto.",
-    "placeholderExcel": "id\tname\tlocation\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\trpn\tseverity\tmtbf\tmttr",
-    "save": "Guardar Cambios"
+    "description": "Añada, edite o elimine activos de su flota.",
+    "save": "Guardar Cambios",
+    "addAsset": "Añadir Nuevo Activo",
+    "removeAsset": "Eliminar Activo",
+    "fields": {
+      "id": "ID",
+      "name": "Nombre",
+      "location": "Ubicación",
+      "criticality": "Criticidad",
+      "lifecycle": "Ciclo de Vida",
+      "pdmHealth": "Salud PdM (%)",
+      "availability": "Disponibilidad (%)",
+      "maintenanceCost": "Costo de Mantenimiento",
+      "gbv": "GBV (Valor Contable Bruto)",
+      "downtimeLoss": "Pérdida por Downtime",
+      "failureTimes": "Tiempos de Fallo",
+      "failureTimesPlaceholder": "ej: 8500, 9200, 9800",
+      "rpn": "RPN",
+      "severity": "Severidad",
+      "mtbf": "MTBF (h)",
+      "mttr": "MTTR (h)"
+    }
   },
   "assetDetail": {
     "backToFleet": "Volver a la Flota",

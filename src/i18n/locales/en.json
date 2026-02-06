@@ -450,9 +450,28 @@
   },
   "assetEditor": {
     "title": "Asset Editor",
-    "descriptionExcel": "Paste your spreadsheet data here (Excel, Sheets). Keep the header and use tabs as separators. Columns must be in the correct order.",
-    "placeholderExcel": "id\tname\tlocation\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\trpn\tseverity\tmtbf\tmttr",
-    "save": "Save Changes"
+    "description": "Add, edit, or remove assets from your fleet.",
+    "save": "Save Changes",
+    "addAsset": "Add New Asset",
+    "removeAsset": "Remove Asset",
+    "fields": {
+      "id": "ID",
+      "name": "Name",
+      "location": "Location",
+      "criticality": "Criticality",
+      "lifecycle": "Lifecycle",
+      "pdmHealth": "PdM Health (%)",
+      "availability": "Availability (%)",
+      "maintenanceCost": "Maintenance Cost",
+      "gbv": "GBV (Gross Book Value)",
+      "downtimeLoss": "Downtime Loss",
+      "failureTimes": "Failure Times",
+      "failureTimesPlaceholder": "e.g., 8500, 9200, 9800",
+      "rpn": "RPN",
+      "severity": "Severity",
+      "mtbf": "MTBF (h)",
+      "mttr": "MTTR (h)"
+    }
   },
   "assetDetail": {
     "backToFleet": "Back to Fleet",
