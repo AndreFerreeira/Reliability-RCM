@@ -43,7 +43,22 @@ export default function EventLogTable({ events }: EventLogTableProps) {
     // 2. Isolate only the failure events to calculate TEF against
     const failureEventsOnly = allParsedEvents.filter(e => e.status === 'FALHA');
 
-    // 3. Map through all events to calculate metrics
+    // 3. Create a map of TEF values keyed by a unique event identifier (orderNumber)
+    const tefMap = new Map<string, number>();
+    for (let i = 1; i < failureEventsOnly.length; i++) {
+        const currentFailure = failureEventsOnly[i];
+        const previousFailure = failureEventsOnly[i - 1];
+        
+        // Ensure previous failure has an end date to calculate from
+        if (previousFailure.endDateObj) {
+            const tefHours = (currentFailure.startDateObj.getTime() - previousFailure.endDateObj.getTime()) / (1000 * 60 * 60);
+            if (currentFailure.orderNumber) {
+                 tefMap.set(currentFailure.orderNumber, tefHours);
+            }
+        }
+    }
+
+    // 4. Map through all events to calculate final metrics
     return allParsedEvents.map((event) => {
       // Calculate Time to Repair (TR)
       let timeToRepair: number | undefined;
@@ -53,18 +68,8 @@ export default function EventLogTable({ events }: EventLogTableProps) {
         timeToRepair = diffHours === 0 ? 24 : diffHours;
       }
 
-      // Calculate Time Between Failures (TEF)
-      let timeBetweenFailures: number | undefined;
-      if (event.status === 'FALHA') {
-        const currentFailureIndex = failureEventsOnly.findIndex(fe => fe === event);
-        
-        if (currentFailureIndex > 0) {
-          const previousFailureEvent = failureEventsOnly[currentFailureIndex - 1];
-          if (previousFailureEvent.endDateObj) {
-            timeBetweenFailures = (event.startDateObj.getTime() - previousFailureEvent.endDateObj.getTime()) / (1000 * 60 * 60);
-          }
-        }
-      }
+      // Look up the pre-calculated TEF
+      const timeBetweenFailures = event.orderNumber ? tefMap.get(event.orderNumber) : undefined;
 
       return { ...event, timeToRepair, timeBetweenFailures };
     });
