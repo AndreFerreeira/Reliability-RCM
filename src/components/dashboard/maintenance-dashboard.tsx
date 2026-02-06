@@ -10,60 +10,9 @@ import { Progress } from '@/components/ui/progress';
 import { useI18n } from '@/i18n/i18n-provider';
 import type { AssetHealth } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import assetData from '@/lib/asset-data.json';
 
-
-const assets: AssetHealth[] = [
-    {
-        id: 'ASSET-001',
-        name: 'Turbine Generator T-101',
-        criticality: 'AA',
-        lifecycle: 'wearOut',
-        pdmHealth: 41,
-        availability: 99.1,
-        maintGbv: 6.80,
-        downtimeLoss: 2880000,
-    },
-    {
-        id: 'ASSET-002',
-        name: 'Centrifugal Pump P-402',
-        criticality: 'A',
-        lifecycle: 'stable',
-        pdmHealth: 76,
-        availability: 99.8,
-        maintGbv: 16.67,
-        downtimeLoss: 48000,
-    },
-    {
-        id: 'ASSET-003',
-        name: 'Compressor C-09',
-        criticality: 'AA',
-        lifecycle: 'infant',
-        pdmHealth: 45,
-        availability: 98.5,
-        maintGbv: 8.82,
-        downtimeLoss: 960000,
-    },
-    {
-        id: 'ASSET-004',
-        name: 'Conveyor Belt System V-22',
-        criticality: 'B',
-        lifecycle: 'stable',
-        pdmHealth: 86,
-        availability: 99.9,
-        maintGbv: 6.67,
-        downtimeLoss: 5000,
-    },
-    {
-        id: 'ASSET-005',
-        name: 'Hydraulic Press HP-1',
-        criticality: 'A',
-        lifecycle: 'wearOut',
-        pdmHealth: 27,
-        availability: 97.2,
-        maintGbv: 18.33,
-        downtimeLoss: 4200000,
-    },
-];
+const assets: AssetHealth[] = assetData.assets;
 
 const KpiCard = ({ title, value, subtitle, icon: Icon, trend, trendDirection, trendColor }) => {
     const trendClasses = {
