@@ -10,6 +10,7 @@ import type {
   PredictFailureRiskFactorsOutput,
   AnalyzeChartDataOutput,
   AnalyzeChartDataInput,
+  AssetData,
 } from '@/lib/types';
 
 // === CONFIRME: ESTE É O MODELO CORRETO (2025+) ===
@@ -135,4 +136,63 @@ Forneça a saída inteira em um único objeto JSON válido com a seguinte estrut
 Não inclua nenhum texto ou formatação fora deste objeto JSON.`;
 
   return runAI<AnalyzeChartDataOutput>(prompt);
+}
+
+export async function generateRcaReport(
+  asset: AssetData,
+  mtbf: number
+): Promise<{ report: string } | { error: string }> {
+  const assetDetails = `
+- Nome: ${asset.name}
+- Localização: ${asset.location}
+- Criticidade: ${asset.criticality}
+- Ciclo de Vida: ${asset.lifecycle}
+- Saúde PdM: ${asset.pdmHealth}%
+- Custo de Manutenção: ${asset.maintenanceCost}
+- Custo de Downtime: ${asset.downtimeLoss}
+- Tempos de Falha (horas): ${asset.failureTimes}
+- MTBF (calculado): ${mtbf.toFixed(0)} horas
+- MTTR (reportado): ${asset.mttr} horas
+- RPN (Risco): ${asset.rpn}
+- Severidade: ${asset.severity}
+`;
+
+  const prompt = `Você é um engenheiro de confiabilidade sênior, especialista em Análise de Causa Raiz (RCA). Sua tarefa é gerar um relatório de RCA conciso e acionável para o seguinte ativo.
+
+Dados do Ativo:
+${assetDetails}
+
+O motor de decisão já recomendou a substituição/reforma deste ativo com base em seus indicadores críticos.
+
+Seu relatório deve seguir estritamente a seguinte estrutura, usando Markdown para formatação:
+
+### Relatório de Análise de Causa Raiz (RCA) - ${asset.name}
+
+**1. Resumo Executivo:**
+*   (Forneça um parágrafo conciso resumindo a situação crítica do ativo e a recomendação principal).
+
+**2. Análise dos Indicadores de Falha:**
+*   **Modo de Falha Predominante:** (Analise os tempos de falha. Eles são próximos? Distantes? Isso indica desgaste, falha aleatória ou mortalidade infantil? Relacione com o parâmetro Beta de Weibull, se aplicável, mesmo que não seja fornecido diretamente).
+*   **Saúde Preditiva (PdM Health):** (Interprete o baixo valor de ${asset.pdmHealth}%. O que isso significa na prática?).
+*   **Indicadores de Risco (RPN e Severidade):** (Explique o que o RPN de ${asset.rpn} e a Severidade de ${asset.severity} representam em termos de impacto operacional e de segurança).
+
+**3. Análise de Impacto Financeiro:**
+*   **Intensidade de Manutenção (Manut./GBV):** (Calcule e interprete a razão entre o Custo de Manutenção (${asset.maintenanceCost}) e o Valor do Ativo (GBV - ${asset.gbv})).
+*   **Custo Total de Propriedade (TCO):** (Analise o impacto combinado dos custos de manutenção e perdas por downtime (${asset.downtimeLoss})).
+
+**4. Análise da Curva da Banheira:**
+*   (Com base nos tempos de falha e no ciclo de vida '${asset.lifecycle}', posicione o ativo na Curva da Banheira e explique o que essa fase significa para a estratégia de manutenção).
+
+**5. Plano de Ação Recomendado:**
+*   **Ação Imediata:** (Detalhe a recomendação de substituição ou reforma, justificando com os dados acima).
+*   **Ações de Mitigação (curto prazo):** (Se a substituição não for imediata, o que pode ser feito para reduzir o risco?).
+*   **Ações de Melhoria Contínua (longo prazo):** (Sugira melhorias no plano de manutenção, na estratégia de sobressalentes ou na monitoração para ativos futuros ou similares).
+
+Forneça a saída inteira em um único objeto JSON válido com a seguinte estrutura:
+{
+  "report": "..."
+}
+Não inclua nenhum texto ou formatação fora deste objeto JSON.`;
+
+  return runAI<{ report: string }>(prompt);
 }

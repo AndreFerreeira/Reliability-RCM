@@ -5,9 +5,15 @@ import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, TrendingUp, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, TrendingUp, ShieldCheck, Loader2 } from 'lucide-react';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { generateRcaReport } from '@/actions/reliability';
+import { useToast } from '@/hooks/use-toast';
+import { marked } from 'marked';
+
 
 interface AssetDetailViewProps {
   asset: AssetData;
@@ -26,42 +32,13 @@ const InfoCard = ({ title, value, icon: Icon, unit }: { title: string, value: st
     </Card>
 );
 
-const DecisionEngine = ({ asset, t }: { asset: AssetData, t: (key: string, args?: any) => string }) => (
-  <Card className="bg-destructive/5 border-destructive/20">
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2 text-base text-red-400">
-        <BrainCircuit className="h-5 w-5" />
-        {t('assetDetail.decisionEngine.title')}
-      </CardTitle>
-      <CardDescription className="!font-semibold !text-destructive pt-1">
-        {t('assetDetail.decisionEngine.recommendation')}
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4 text-sm">
-      <p className="text-muted-foreground">{t('assetDetail.decisionEngine.description')}</p>
-      <div className="space-y-3 rounded-lg border border-destructive/20 bg-background/30 p-4">
-        <div className="flex items-baseline justify-between">
-          <span className="text-muted-foreground">{t('assetDetail.decisionEngine.assetHealth')}</span>
-          <span className="text-2xl font-bold text-red-400">{asset.pdmHealth}%</span>
-        </div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-muted-foreground">{t('assetDetail.decisionEngine.maintGbv')}</span>
-          <span className="text-2xl font-bold text-red-400">{asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%</span>
-        </div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-muted-foreground">{t('assetDetail.decisionEngine.severity')}</span>
-          <span className="text-2xl font-bold text-red-400">{asset.rpn}</span>
-        </div>
-      </div>
-       <Button variant="destructive" className="w-full">
-         {t('assetDetail.decisionEngine.button')}
-       </Button>
-    </CardContent>
-  </Card>
-);
-
 export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const { t } = useI18n();
+  const { toast } = useToast();
+  const [isReportOpen, setIsReportOpen] = React.useState(false);
+  const [reportContent, setReportContent] = React.useState('');
+  const [isGenerating, setIsGenerating] = React.useState(false);
+
   const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? [];
 
   const calculatedMtbf = React.useMemo(() => {
@@ -74,6 +51,27 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
     
     return (lastFailure - firstFailure) / numberOfIntervals;
   }, [failureTimes]);
+
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
+    setReportContent('');
+    
+    const result = await generateRcaReport(asset, calculatedMtbf);
+
+    setIsGenerating(false);
+
+    if (result && 'report' in result) {
+      setReportContent(result.report);
+      setIsReportOpen(true);
+    } else {
+      toast({
+        variant: 'destructive',
+        title: t('toasts.simulationError.title'),
+        description: (result as { error: string }).error || t('toasts.simulationError.description'),
+      });
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -149,10 +147,56 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
         {/* Right Column */}
         <div className="lg:col-span-1">
-            <DecisionEngine asset={asset} t={t} />
+            <Card className="bg-destructive/5 border-destructive/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base text-red-400">
+                  <BrainCircuit className="h-5 w-5" />
+                  {t('assetDetail.decisionEngine.title')}
+                </CardTitle>
+                <CardDescription className="!font-semibold !text-destructive pt-1">
+                  {t('assetDetail.decisionEngine.recommendation')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <p className="text-muted-foreground">{t('assetDetail.decisionEngine.description')}</p>
+                <div className="space-y-3 rounded-lg border border-destructive/20 bg-background/30 p-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">{t('assetDetail.decisionEngine.assetHealth')}</span>
+                    <span className="text-2xl font-bold text-red-400">{asset.pdmHealth}%</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">{t('assetDetail.decisionEngine.maintGbv')}</span>
+                    <span className="text-2xl font-bold text-red-400">{asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">{t('assetDetail.decisionEngine.severity')}</span>
+                    <span className="text-2xl font-bold text-red-400">{asset.rpn}</span>
+                  </div>
+                </div>
+                 <Button variant="destructive" className="w-full" onClick={handleGenerateReport} disabled={isGenerating}>
+                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                   {t('assetDetail.decisionEngine.button')}
+                 </Button>
+              </CardContent>
+            </Card>
         </div>
 
       </div>
+
+      <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+        <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{t('assetDetail.rcaReport.title', { assetName: asset.name })}</DialogTitle>
+            <DialogDescription>{t('assetDetail.rcaReport.description')}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-grow pr-6 -mr-2">
+            <div 
+              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-ul:pl-4" 
+              dangerouslySetInnerHTML={{ __html: marked.parse(reportContent) as string }} 
+            />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

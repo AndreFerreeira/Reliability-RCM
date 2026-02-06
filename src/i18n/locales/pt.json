@@ -129,7 +129,6 @@
     "button": "Mago da Distribuição",
     "title": "Mago da Distribuição - {{supplierName}}",
     "description": "Analise qual distribuição de probabilidade melhor se ajusta aos dados do seu equipamento.",
-    "analyzeButton": "Analisar Dados",
     "howTitle": "🔍 Como escolhemos a melhor distribuição",
     "howIntro": "A ferramenta avalia diferentes distribuições estatísticas para encontrar qual modelo melhor representa o comportamento de falha do equipamento. O critério principal é:",
     "howCriterion": "LKV – Log-Likelihood Value (Valor de Log-Verossimilhança)",
@@ -492,6 +491,10 @@
       "maintGbv": "Ratio Manut./GBV",
       "severity": "Risco de Severidade (RPN)",
       "button": "Gerar Relatório RCA Completo"
+    },
+    "rcaReport": {
+      "title": "Relatório de Análise de Causa Raiz (RCA) - {{assetName}}",
+      "description": "Este relatório foi gerado por IA com base nos dados históricos e operacionais do ativo."
     }
   }
 }
