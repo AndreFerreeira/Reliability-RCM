@@ -262,5 +262,4 @@ export interface AssetData {
   rpn: number;
   severity: number;
   mttr: number;
-  mtbf: number;
 }

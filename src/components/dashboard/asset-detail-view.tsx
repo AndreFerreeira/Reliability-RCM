@@ -49,7 +49,18 @@ const DecisionEngine = ({ asset, t }: { asset: AssetData, t: (key: string, args?
 
 export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const { t } = useI18n();
-  const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
+  const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? [];
+
+  const calculatedMtbf = React.useMemo(() => {
+    if (failureTimes.length < 2) {
+      return 0; // Not enough data to calculate intervals
+    }
+    const firstFailure = failureTimes[0];
+    const lastFailure = failureTimes[failureTimes.length - 1];
+    const numberOfIntervals = failureTimes.length - 1;
+    
+    return (lastFailure - firstFailure) / numberOfIntervals;
+  }, [failureTimes]);
 
   return (
     <div className="space-y-6">
@@ -75,7 +86,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <InfoCard title="MTBF" value={asset.mtbf} unit="h" icon={Clock} />
+                <InfoCard title="MTBF" value={calculatedMtbf > 0 ? calculatedMtbf.toFixed(0) : '--'} unit="h" icon={Clock} />
                 <InfoCard title="MTTR" value={asset.mttr} unit="h" icon={AlertTriangle} />
                 <InfoCard title="Custo / Hora de Downtime" value={`$${((asset.downtimeLoss / (asset.mttr * failureTimes.length || 1))).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
             </div>

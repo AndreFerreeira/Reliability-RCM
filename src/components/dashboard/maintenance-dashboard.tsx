@@ -56,7 +56,6 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
         failureTimes: '',
         rpn: 0,
         severity: 0,
-        mtbf: 0,
         mttr: 0,
     };
     setEditableAssets(prev => [...prev, newAsset]);
@@ -69,7 +68,7 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
   const handleInputChange = (id: string, field: keyof AssetData, value: any) => {
     setEditableAssets(prev => prev.map(asset => {
         if (asset.id === id) {
-            const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mtbf', 'mttr'];
+            const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mttr'];
             if (numericFields.includes(field)) {
                 return { ...asset, [field]: parseFloat(value) || 0 };
             }
@@ -173,10 +172,6 @@ function AssetEditorDialog({ assets, setAssets, t }: { assets: AssetData[], setA
                          <div className="space-y-2">
                             <Label htmlFor={`severity-${asset.id}`}>{t('assetEditor.fields.severity')}</Label>
                             <Input id={`severity-${asset.id}`} type="number" value={asset.severity} onChange={(e) => handleInputChange(asset.id, 'severity', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`mtbf-${asset.id}`}>{t('assetEditor.fields.mtbf')}</Label>
-                            <Input id={`mtbf-${asset.id}`} type="number" value={asset.mtbf} onChange={(e) => handleInputChange(asset.id, 'mtbf', e.target.value)} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor={`mttr-${asset.id}`}>{t('assetEditor.fields.mttr')}</Label>
