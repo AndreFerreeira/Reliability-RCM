@@ -450,13 +450,14 @@
   },
   "assetEditor": {
     "titleBulk": "Bulk Asset Data Import",
-    "descriptionBulk": "Paste data from a spreadsheet (e.g., Excel) to add or update assets in bulk.",
+    "descriptionBulk": "Paste data from a spreadsheet (e.g., Excel). The tool can process event logs (with 'Data de Inicio' and 'Data de Término' columns) to automatically calculate MTTR and Failure Times. Data will be grouped by the 'TAG' or 'ID' column.",
     "importButton": "Import Data",
     "pastePlaceholder": "Paste your data here, including the header row...",
     "instructions": {
       "title": "Instructions",
       "step1": "Copy your data from the spreadsheet, including the header row.",
       "step2": "Paste the copied data into the text area below.",
+      "step3": "The tool will group events by 'TAG' and calculate reliability metrics.",
       "requiredHeaders": "Required Headers"
     }
   },

@@ -449,13 +449,14 @@
   },
   "assetEditor": {
     "titleBulk": "Importação em Massa de Dados de Ativos",
-    "descriptionBulk": "Cole os dados de uma planilha (ex: Excel) para adicionar ou atualizar ativos em massa.",
+    "descriptionBulk": "Cole dados de uma planilha (ex: Excel). A ferramenta pode processar logs de eventos (com colunas 'Data de Inicio' e 'Data de Término') para calcular automaticamente o MTTR e os Tempos de Falha. Os dados serão agrupados pela coluna 'TAG' ou 'ID'.",
     "importButton": "Importar Dados",
     "pastePlaceholder": "Cole seus dados aqui, incluindo a linha de cabeçalho...",
     "instructions": {
       "title": "Instruções",
       "step1": "Copie seus dados da planilha, incluindo a linha de cabeçalho.",
       "step2": "Cole os dados copiados na área de texto abaixo.",
+      "step3": "A ferramenta agrupará os eventos por 'TAG' e calculará as métricas de confiabilidade.",
       "requiredHeaders": "Cabeçalhos Necessários"
     }
   },
