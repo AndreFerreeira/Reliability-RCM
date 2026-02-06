@@ -24,6 +24,7 @@ const headerMapping: Record<string, string> = {
     'id do equipamento': 'id',
     'id': 'id',
     'tag': 'id',
+    'equipamento': 'id',
     'descrição': 'name',
     'descricao': 'name',
     'nome': 'name',
@@ -57,6 +58,7 @@ const headerMapping: Record<string, string> = {
     'data de término': 'endDate',
     'data de termino': 'endDate',
     'status': 'status',
+    'status da ordem': 'status',
     'tempos de falha': 'failureTimes',
     'mttr': 'mttr',
 
