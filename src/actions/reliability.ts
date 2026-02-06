@@ -17,7 +17,7 @@ import type {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-2.5-flash', // <--- MODELO VÁLIDO
+  model: 'gemini-1.5-flash', // <--- MODELO VÁLIDO
   generationConfig: {
     temperature: 0.2,
     topP: 0.8,
@@ -33,7 +33,7 @@ const model = genAI.getGenerativeModel({
 });
 
 // DEBUG: Confirme no console se o modelo está certo
-console.log('MODEL USED:', model.model); // Deve logar: gemini-2.5-flash
+console.log('MODEL USED:', model.model); // Deve logar: gemini-1.5-flash
 
 async function runAI<T>(prompt: string): Promise<T | { error: string }> {
   try {
@@ -142,6 +142,8 @@ export async function generateRcaReport(
   asset: AssetData,
   mtbf: number
 ): Promise<{ report: string } | { error: string }> {
+  const maintGbvRatio = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+
   const assetDetails = `
 - Nome: ${asset.name}
 - Localização: ${asset.location}
@@ -150,6 +152,8 @@ export async function generateRcaReport(
 - Saúde PdM: ${asset.pdmHealth}%
 - Custo de Manutenção: ${asset.maintenanceCost}
 - Custo de Downtime: ${asset.downtimeLoss}
+- Valor do Ativo (GBV): ${asset.gbv}
+- Intensidade de Manutenção (Manut./GBV): ${maintGbvRatio.toFixed(2)}%
 - Tempos de Falha (horas): ${asset.failureTimes}
 - MTBF (calculado): ${mtbf.toFixed(0)} horas
 - MTTR (reportado): ${asset.mttr} horas
@@ -177,7 +181,7 @@ Seu relatório deve seguir estritamente a seguinte estrutura, usando Markdown pa
 *   **Indicadores de Risco (RPN e Severidade):** (Explique o que o RPN de ${asset.rpn} e a Severidade de ${asset.severity} representam em termos de impacto operacional e de segurança).
 
 **3. Análise de Impacto Financeiro:**
-*   **Intensidade de Manutenção (Manut./GBV):** (Calcule e interprete a razão entre o Custo de Manutenção (${asset.maintenanceCost}) e o Valor do Ativo (GBV - ${asset.gbv})).
+*   **Intensidade de Manutenção (Manut./GBV):** (Interprete o valor da intensidade de manutenção de ${maintGbvRatio.toFixed(2)}%).
 *   **Custo Total de Propriedade (TCO):** (Analise o impacto combinado dos custos de manutenção e perdas por downtime (${asset.downtimeLoss})).
 
 **4. Análise da Curva da Banheira:**
