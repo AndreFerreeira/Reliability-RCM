@@ -104,7 +104,7 @@
     },
     "emptyMode": {
       "title": "Empty Failure Mode",
-      "description": "All failure modes must have at least one failure time."
+      "description": "All failure modes must have at least one time of failure."
     },
     "simulationError": {
       "title": "Simulation Error",
@@ -451,7 +451,29 @@
   "assetEditor": {
     "title": "Asset Editor",
     "descriptionExcel": "Paste your spreadsheet data here (Excel, Sheets). Keep the header and use tabs as separators. Columns must be in the correct order.",
-    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000\t\"8500, 9200, 9800\"",
+    "placeholderExcel": "id\tname\tlocation\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\trpn\tseverity\tmtbf\tmttr",
     "save": "Save Changes"
+  },
+  "assetDetail": {
+    "backToFleet": "Back to Fleet",
+    "scheduleMaintenance": "Schedule Maintenance",
+    "generateWorkOrder": "Generate Work Order",
+    "pdmScore": {
+      "title": "Predictive Maintenance Score",
+      "healthIndex": "PdM ASSET HEALTH INDEX",
+      "mttrTrend": "MTTR TREND",
+      "rpn": "RISK WEIGHT (RPN)",
+      "severity": "SEVERITY",
+      "footer": "Score dynamically calculated using RPN, Severity, and MTTR Trend Analysis."
+    },
+    "decisionEngine": {
+      "title": "DECISION ENGINE",
+      "recommendation": "REPLACE / OVERHAUL",
+      "description": "Asset shows critical failure risk indicators. PdM score and financial intensity justify immediate capital replacement.",
+      "assetHealth": "Asset Health (PdM)",
+      "maintGbv": "Maint/GBV Ratio",
+      "severity": "Severity Risk (RPN)",
+      "button": "Generate Full RCA Report"
+    }
   }
 }

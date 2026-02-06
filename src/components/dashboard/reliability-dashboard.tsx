@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { calculateReliabilityData, estimateParameters } from '@/lib/reliability';
-import type { Supplier, EstimationMethod, AssetData } from '@/lib/types';
+import type { Supplier, EstimationMethod } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
@@ -17,7 +17,6 @@ import MonteCarloSimulator from './monte-carlo-simulator';
 import LanguageSwitcher from './language-switcher';
 import { useI18n } from '@/i18n/i18n-provider';
 import MaintenanceDashboard from './maintenance-dashboard';
-import { useToast } from '@/hooks/use-toast';
 
 const initialSuppliersData = [
   { 
@@ -51,53 +50,6 @@ export default function ReliabilityDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [estimationMethod, setEstimationMethod] = useState<EstimationMethod>('MLE');
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState('performance');
-  const { toast } = useToast();
-
-  const handleAnalyzeAsset = (asset: AssetData) => {
-    const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
-
-    if (failureTimes.length < 2) {
-        toast({
-            variant: "destructive",
-            title: t('toasts.insufficientData.title'),
-            description: t('toasts.insufficientFailureData.description'),
-        });
-        return;
-    }
-
-    const estimationResult = estimateParameters({
-        dist: 'Weibull',
-        failureTimes: failureTimes,
-        suspensionTimes: [],
-        method: 'SRM'
-    });
-    
-    if (!estimationResult.params.beta || !estimationResult.params.eta) {
-      toast({
-        variant: "destructive",
-        title: t('toasts.estimationError.title'),
-        description: t('toasts.estimationError.description'),
-      });
-      return;
-    }
-
-    const newSupplier: Supplier = {
-        id: asset.id,
-        name: asset.name,
-        failureTimes: failureTimes,
-        suspensionTimes: [],
-        color: 'hsl(var(--chart-1))',
-        distribution: 'Weibull',
-        params: estimationResult.params,
-        plotData: estimationResult.plotData,
-        units: 'Hora (h)',
-        dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false }
-    };
-    
-    setSuppliers([newSupplier]);
-    setActiveTab('analysis');
-  };
 
   const handleSetSuppliers = (updater: (prev: Supplier[]) => Supplier[]) => {
     setSuppliers(prev => {
@@ -156,14 +108,14 @@ export default function ReliabilityDashboard() {
           <LanguageSwitcher />
         </div>
       </div>
-      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="performance" className="space-y-4">
+      <Tabs defaultValue="performance" className="space-y-4">
         <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="performance"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
           <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
         </TabsList>
         <TabsContent value="performance" className="space-y-4">
-            <MaintenanceDashboard onAnalyze={handleAnalyzeAsset} />
+            <MaintenanceDashboard />
         </TabsContent>
         <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">

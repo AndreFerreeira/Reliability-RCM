@@ -3,6 +3,7 @@
     {
         "id": "ASSET-001",
         "name": "Turbine Generator T-101",
+        "location": "General Electric • Sector A - Powerhouse",
         "criticality": "AA",
         "lifecycle": "wearOut",
         "pdmHealth": 41,
@@ -10,11 +11,16 @@
         "maintenanceCost": 340000,
         "gbv": 5000000,
         "downtimeLoss": 2880000,
-        "failureTimes": "8500, 9200, 9800, 10500, 11000, 11500, 12000"
+        "failureTimes": "8500, 9200, 9800, 10500, 11000, 11500, 12000",
+        "rpn": 450,
+        "severity": 9,
+        "mtbf": 10214,
+        "mttr": 24
     },
     {
         "id": "ASSET-002",
         "name": "Centrifugal Pump P-402",
+        "location": "Flowserve • Sector B - Pumping",
         "criticality": "A",
         "lifecycle": "stable",
         "pdmHealth": 76,
@@ -22,11 +28,16 @@
         "maintenanceCost": 20004,
         "gbv": 120000,
         "downtimeLoss": 48000,
-        "failureTimes": "1500, 3200, 4800, 5100, 7300, 8900"
+        "failureTimes": "1500, 3200, 4800, 5100, 7300, 8900",
+        "rpn": 210,
+        "severity": 7,
+        "mtbf": 5133,
+        "mttr": 8
     },
     {
         "id": "ASSET-003",
         "name": "Compressor C-09",
+        "location": "Ingersoll Rand • Sector C - Compression",
         "criticality": "AA",
         "lifecycle": "infant",
         "pdmHealth": 45,
@@ -34,11 +45,16 @@
         "maintenanceCost": 176400,
         "gbv": 2000000,
         "downtimeLoss": 960000,
-        "failureTimes": "50, 120, 150, 210, 300, 350, 400"
+        "failureTimes": "50, 120, 150, 210, 300, 350, 400",
+        "rpn": 620,
+        "severity": 8,
+        "mtbf": 225,
+        "mttr": 48
     },
     {
         "id": "ASSET-004",
         "name": "Conveyor Belt System V-22",
+        "location": "Fenner Dunlop • Sector A - Transport",
         "criticality": "B",
         "lifecycle": "stable",
         "pdmHealth": 86,
@@ -46,11 +62,16 @@
         "maintenanceCost": 10005,
         "gbv": 150000,
         "downtimeLoss": 5000,
-        "failureTimes": "2500, 4200, 6800, 7100, 9300, 11900"
+        "failureTimes": "2500, 4200, 6800, 7100, 9300, 11900",
+        "rpn": 150,
+        "severity": 5,
+        "mtbf": 6966,
+        "mttr": 4
     },
     {
         "id": "ASSET-005",
         "name": "Hydraulic Press HP-1",
+        "location": "Schuler • Sector D - Pressing",
         "criticality": "A",
         "lifecycle": "wearOut",
         "pdmHealth": 27,
@@ -58,7 +79,11 @@
         "maintenanceCost": 146640,
         "gbv": 800000,
         "downtimeLoss": 4200000,
-        "failureTimes": "12500, 13200, 14800, 15100, 16300"
+        "failureTimes": "12500, 13200, 14800, 15100, 16300",
+        "rpn": 710,
+        "severity": 9,
+        "mtbf": 14380,
+        "mttr": 72
     }
   ]
 }

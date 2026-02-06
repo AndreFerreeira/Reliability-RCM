@@ -450,7 +450,29 @@
   "assetEditor": {
     "title": "Editor de Activos",
     "descriptionExcel": "Pegue aquí los datos de su hoja de cálculo (Excel, Sheets). Mantenga el encabezado y use tabulaciones como separador. Las columnas deben estar en el orden correcto.",
-    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000\t\"8500, 9200, 9800\"",
+    "placeholderExcel": "id\tname\tlocation\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\trpn\tseverity\tmtbf\tmttr",
     "save": "Guardar Cambios"
+  },
+  "assetDetail": {
+    "backToFleet": "Volver a la Flota",
+    "scheduleMaintenance": "Programar Mantenimiento",
+    "generateWorkOrder": "Generar Orden de Trabajo",
+    "pdmScore": {
+      "title": "Puntuación de Mantenimiento Predictivo",
+      "healthIndex": "ÍNDICE DE SALUD DEL ACTIVO PdM",
+      "mttrTrend": "TENDENCIA MTTR",
+      "rpn": "PESO DE RIESGO (RPN)",
+      "severity": "SEVERIDAD",
+      "footer": "Puntuación calculada dinámicamente usando RPN, Severidad y Análisis de Tendencia de MTTR."
+    },
+    "decisionEngine": {
+      "title": "MOTOR DE DECISIÓN",
+      "recommendation": "REEMPLAZAR / REACONDICIONAR",
+      "description": "El activo muestra indicadores críticos de riesgo de fallo. La puntuación de PdM y la intensidad financiera justifican un reemplazo de capital inmediato.",
+      "assetHealth": "Salud del Activo (PdM)",
+      "maintGbv": "Ratio Mant./GBV",
+      "severity": "Riesgo de Severidad (RPN)",
+      "button": "Generar Informe RCA Completo"
+    }
   }
 }

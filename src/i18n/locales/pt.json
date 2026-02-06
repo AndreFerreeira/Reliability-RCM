@@ -450,7 +450,29 @@
   "assetEditor": {
     "title": "Editor de Ativos",
     "descriptionExcel": "Cole aqui os dados da sua planilha (Excel, Sheets). Mantenha o cabeçalho e use tabulação como separador. As colunas devem estar na ordem correta.",
-    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000\t\"8500, 9200, 9800\"",
+    "placeholderExcel": "id\tname\tlocation\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\trpn\tseverity\tmtbf\tmttr",
     "save": "Salvar Alterações"
+  },
+  "assetDetail": {
+    "backToFleet": "Voltar para a Frota",
+    "scheduleMaintenance": "Agendar Manutenção",
+    "generateWorkOrder": "Gerar Ordem de Serviço",
+    "pdmScore": {
+      "title": "Score de Manutenção Preditiva",
+      "healthIndex": "ÍNDICE DE SAÚDE DO ATIVO PdM",
+      "mttrTrend": "TENDÊNCIA MTTR",
+      "rpn": "PESO DE RISCO (RPN)",
+      "severity": "SEVERIDADE",
+      "footer": "Score calculado dinamicamente usando RPN, Severidade e Análise de Tendência de MTTR."
+    },
+    "decisionEngine": {
+      "title": "MOTOR DE DECISÃO",
+      "recommendation": "SUBSTITUIR / REFORMAR",
+      "description": "O ativo apresenta indicadores críticos de risco de falha. O score de PdM e a intensidade financeira justificam a substituição imediata de capital.",
+      "assetHealth": "Saúde do Ativo (PdM)",
+      "maintGbv": "Ratio Manut./GBV",
+      "severity": "Risco de Severidade (RPN)",
+      "button": "Gerar Relatório RCA Completo"
+    }
   }
 }

@@ -15,10 +15,11 @@ import assetData from '@/lib/asset-data.json';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { AssetDetailView } from './asset-detail-view';
 
 
 const assetsToTsv = (assets: AssetData[]): string => {
-  const headers: (keyof AssetData)[] = ['id', 'name', 'criticality', 'lifecycle', 'pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'failureTimes'];
+  const headers: (keyof AssetData)[] = ['id', 'name', 'location', 'criticality', 'lifecycle', 'pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'failureTimes', 'rpn', 'severity', 'mtbf', 'mttr'];
   const headerRow = headers.join('\t');
   const dataRows = assets.map(asset =>
     headers.map(header => asset[header as keyof AssetData]).join('\t')
@@ -40,7 +41,7 @@ const tsvToAssets = (tsv: string): AssetData[] => {
     const asset = {} as AssetData;
     headers.forEach((header, index) => {
       const value = values[index];
-      const isNumeric = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss'].includes(header);
+      const isNumeric = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mtbf', 'mttr'].includes(header);
 
       if (isNumeric) {
         const cleanedValue = value.replace(/[^0-9.,-]+/g, "").replace(',', '.');
@@ -169,9 +170,10 @@ const HealthIndicator = ({ health }) => {
     );
 };
 
-export default function MaintenanceDashboard({ onAnalyze }: { onAnalyze: (asset: AssetData) => void }) {
+export default function MaintenanceDashboard() {
     const { t } = useI18n();
     const [assets, setAssets] = React.useState<AssetData[]>(assetData.assets);
+    const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
 
     const kpiValues = React.useMemo(() => {
         if (!assets || assets.length === 0) {
@@ -210,6 +212,11 @@ export default function MaintenanceDashboard({ onAnalyze }: { onAnalyze: (asset:
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
     }
+    
+    if (selectedAsset) {
+        return <AssetDetailView asset={selectedAsset} onBack={() => setSelectedAsset(null)} />;
+    }
+
 
     return (
         <div className="space-y-6">
@@ -270,7 +277,7 @@ export default function MaintenanceDashboard({ onAnalyze }: { onAnalyze: (asset:
                                             {asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-red-500">{formatCurrency(asset.downtimeLoss)}</TableCell>
-                                        <TableCell className="text-center"><Button variant="outline" size="sm" onClick={() => onAnalyze(asset)}>{t('performance.table.analyze')}</Button></TableCell>
+                                        <TableCell className="text-center"><Button variant="outline" size="sm" onClick={() => setSelectedAsset(asset)}>{t('performance.table.analyze')}</Button></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

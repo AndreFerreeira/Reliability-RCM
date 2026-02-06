@@ -250,6 +250,7 @@ export type AnalyzeChartDataOutput = z.infer<typeof AnalyzeChartDataOutputSchema
 export interface AssetData {
   id: string;
   name: string;
+  location: string;
   criticality: 'AA' | 'A' | 'B' | 'C';
   lifecycle: 'wearOut' | 'stable' | 'infant';
   pdmHealth: number;
@@ -258,4 +259,8 @@ export interface AssetData {
   gbv: number;
   downtimeLoss: number;
   failureTimes: string;
+  rpn: number;
+  severity: number;
+  mttr: number;
+  mtbf: number;
 }
