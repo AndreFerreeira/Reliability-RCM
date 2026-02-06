@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, Trash2, TrendingUp, Upload } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Cog, DollarSign, Search, Trash2, TrendingUp, Upload, Wrench } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,6 +37,8 @@ const headerMapping: Record<string, string> = {
     'tipo de intervenção': 'interventionType',
     'tipo de intervencao': 'interventionType',
     'tipo de ordem': 'interventionType',
+    'status da ordem': 'status',
+    'suspensão ou falha': 'status',
     'localização': 'location',
     'localizacao': 'location',
     'criticidade': 'criticality',
@@ -63,8 +65,6 @@ const headerMapping: Record<string, string> = {
     'data de termino': 'endDate',
     'data-base do fim': 'endDate',
     'status': 'status',
-    'status da ordem': 'status',
-    'suspensão ou falha': 'status',
     'tempos de falha': 'failureTimes',
     'mttr': 'mttr',
 
@@ -183,7 +183,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                         const event = failureEvents[i];
                         if (event.endDate) {
                             const repairTimeHours = (event.endDate.getTime() - event.startDate.getTime()) / (1000 * 60 * 60);
-                            if (repairTimeHours >= 0) repairTimes.push(repairTimeHours);
+                            if (repairTimeHours >= 0) repairTimes.push(repairTimeHours === 0 ? 24 : repairTimeHours);
                         }
                         if (i > 0) {
                             const prevEvent = failureEvents[i - 1];
@@ -439,6 +439,7 @@ export default function MaintenanceDashboard() {
             return {
                 avgAvailability: 0,
                 totalDowntimeLoss: 0,
+                totalMaintenanceCost: 0,
                 totalGbv: 0,
                 maintIntensity: 0,
             };
@@ -463,6 +464,7 @@ export default function MaintenanceDashboard() {
         return {
             avgAvailability,
             totalDowntimeLoss,
+            totalMaintenanceCost,
             totalGbv,
             maintIntensity,
         };
@@ -484,9 +486,10 @@ export default function MaintenanceDashboard() {
                 <p className="text-sm text-muted-foreground">{t('performance.plant')}</p>
             </div>
             
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <KpiCard title={t('performance.kpi.availability')} value={`${kpiValues.avgAvailability.toFixed(2)}%`} subtitle={t('performance.kpi.availabilityTarget')} icon={TrendingUp} trend={t('performance.kpi.high')} trendDirection="up" trendColor="green" />
                 <KpiCard title={t('performance.kpi.revenueLoss')} value={formatCurrency(kpiValues.totalDowntimeLoss)} subtitle={t('performance.kpi.revenueLossPeriod')} icon={DollarSign} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
+                <KpiCard title={t('performance.kpi.maintenanceCost')} value={formatCurrency(kpiValues.totalMaintenanceCost)} subtitle={t('performance.kpi.maintenanceCostPeriod')} icon={Wrench} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
                 <KpiCard title={t('performance.kpi.intensity')} value={`${kpiValues.maintIntensity.toFixed(2)}%`} subtitle={t('performance.kpi.intensityBenchmark')} icon={TrendingUp} trend={t('performance.kpi.stable')} trendDirection="stable" trendColor="gray" />
                 <KpiCard title={t('performance.kpi.totalValue')} value={formatCurrency(kpiValues.totalGbv)} subtitle={t('performance.kpi.totalValueSub')} icon={Cog} />
             </div>

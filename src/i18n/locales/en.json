@@ -419,6 +419,8 @@
       "revenueLoss": "Revenue Loss (Downtime)",
       "revenueLossPeriod": "Last 12 months",
       "low": "Low",
+      "maintenanceCost": "Maintenance Cost",
+      "maintenanceCostPeriod": "Last 12 months",
       "intensity": "Maint / GBV Intensity",
       "intensityBenchmark": "Industry Benchmark: 2-3%",
       "stable": "Stable",
