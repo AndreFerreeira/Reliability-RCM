@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { marked } from 'marked';
 import EventLogTable from './event-log-table';
 import AssetWeibullAnalysis from './asset-weibull-analysis';
+import AssetReliabilityCharts from './asset-reliability-charts';
 
 
 interface AssetDetailViewProps {
@@ -154,6 +155,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
              <BathtubCurveAnalysis failureTimes={failureTimes} />
 
              <AssetWeibullAnalysis asset={asset} />
+
+             <AssetReliabilityCharts asset={asset} />
 
              {asset.events && asset.events.length > 0 && <EventLogTable events={asset.events} />}
         </div>

@@ -511,6 +511,10 @@
       "tr": "TR (h)",
       "defaultDescription": "Manutenção Corretiva",
       "defaultIntervention": "Corretiva"
+    },
+    "reliabilityCurves": {
+      "title": "Curvas de Confiabilidade",
+      "description": "Os quatro gráficos fundamentais da confiabilidade calculados com base nos parâmetros Weibull do ativo."
     }
   }
 }

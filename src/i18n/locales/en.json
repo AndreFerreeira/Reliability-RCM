@@ -512,6 +512,10 @@
       "tr": "TTR (h)",
       "defaultDescription": "Corrective Maintenance",
       "defaultIntervention": "Corrective"
+    },
+    "reliabilityCurves": {
+      "title": "Reliability Curves",
+      "description": "The four fundamental reliability charts calculated based on the asset's Weibull parameters."
     }
   }
 }
