@@ -157,9 +157,9 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
              <AssetWeibullAnalysis asset={asset} />
 
-             <AssetReliabilityCharts asset={asset} />
-
              <PreventiveMaintenanceOptimizer asset={asset} />
+
+             <AssetReliabilityCharts asset={asset} />
 
              {asset.events && asset.events.length > 0 && <EventLogTable events={asset.events} />}
         </div>
