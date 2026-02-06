@@ -120,7 +120,7 @@ function parseDate(dateStr: string): Date | null {
 }
 
 
-function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
+function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSave: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [textData, setTextData] = React.useState('');
   const { toast } = useToast();
@@ -140,7 +140,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
         });
 
         const isEventLog = headerMap['id'] !== undefined && headerMap['startDate'] !== undefined;
-        let newAssets: AssetData[];
+        let newAssets: Partial<AssetData>[];
 
         if (isEventLog) {
             const hasEndDate = headerMap['endDate'] !== undefined;
@@ -164,7 +164,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                     row,
                     startDate: parseDate(row[headerMap['startDate']]),
                     endDate: hasEndDate ? parseDate(row[headerMap['endDate']]) : null,
-                    status: hasStatus ? row[headerMap['status']]?.toUpperCase().trim() : 'FALHA'
+                    status: (hasStatus ? row[headerMap['status']]?.toUpperCase().trim() : 'FALHA').replace('Ç', 'C')
                 }))
                 .filter((e): e is { row: string[]; startDate: Date; endDate: Date | null; status: string } => e.startDate !== null)
                 .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
@@ -184,7 +184,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 const failureEvents = events.filter(e => ['FALHA', 'CORRETIVA'].includes(e.status));
 
                 if (hasEndDate) { // Two-date event log
-                    for (let i = 0; i < failureEvents.length; i++) {
+                     for (let i = 0; i < failureEvents.length; i++) {
                         const event = failureEvents[i];
                         if (event.endDate) {
                             const repairTimeHours = (event.endDate.getTime() - event.startDate.getTime()) / (1000 * 60 * 60);
@@ -265,7 +265,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
 
                 asset.events = logEvents;
 
-                return asset as AssetData;
+                return asset;
             });
         } else {
             const columnIndexMap: Partial<Record<keyof AssetData, number>> = {};
@@ -321,11 +321,44 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                     asset.lifecycle = 'stable';
                 }
 
-                return asset as AssetData;
+                return asset;
             });
         }
 
-        onSave(newAssets);
+        const assetsMap = new Map(assets.map(a => [a.id, a]));
+
+        newAssets.forEach(newAsset => {
+            const existingAsset = assetsMap.get(newAsset.id!);
+            
+            const cleanNewAsset = Object.fromEntries(
+                Object.entries(newAsset).filter(([, v]) => v !== undefined)
+            );
+
+            if (existingAsset) {
+                assetsMap.set(newAsset.id!, { ...existingAsset, ...cleanNewAsset });
+            } else {
+                const defaultAsset: AssetData = {
+                    id: newAsset.id!,
+                    name: newAsset.name || `Asset ${newAsset.id}`,
+                    location: 'N/A',
+                    criticality: 'C',
+                    lifecycle: 'stable',
+                    pdmHealth: 0,
+                    availability: 0,
+                    maintenanceCost: 0,
+                    gbv: 0,
+                    downtimeLoss: 0,
+                    failureTimes: '',
+                    rpn: 0,
+                    severity: 0,
+                    mttr: 0,
+                };
+                assetsMap.set(newAsset.id!, { ...defaultAsset, ...cleanNewAsset } as AssetData);
+            }
+        });
+
+        onSave(Array.from(assetsMap.values()));
+
         toast({
             title: t('toasts.assetUpdateSuccess.title'),
             description: t('toasts.assetUpdateSuccess.description'),
@@ -641,7 +674,7 @@ export default function MaintenanceDashboard() {
                             <Input placeholder={t('performance.inventory.searchPlaceholder')} className="pl-9" />
                         </div>
                         <div className="flex items-center gap-2">
-                            <AssetDataMassEditor onSave={setAssets} t={t} />
+                            <AssetDataMassEditor assets={assets} onSave={setAssets} t={t} />
                             <Button variant="link">{t('performance.inventory.export')}</Button>
                         </div>
                     </div>
