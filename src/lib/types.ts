@@ -257,4 +257,5 @@ export interface AssetData {
   maintenanceCost: number;
   gbv: number;
   downtimeLoss: number;
+  failureTimes: string;
 }

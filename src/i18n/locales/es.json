@@ -81,6 +81,13 @@
       "description": "Por favor, introduzca al menos dos tiempos de fallo válidos.",
       "budgetSource": "Se requieren al menos 2 puntos de fallo (F) para calcular los parámetros Beta y Eta."
     },
+    "insufficientFailureData": {
+        "description": "Este activo no tiene suficientes datos de fallo para el análisis."
+    },
+    "estimationError": {
+        "title": "Error de Análisis",
+        "description": "No se pudieron estimar los parámetros de Weibull para este activo."
+    },
     "missingParams": {
       "title": "Parámetros Faltantes",
       "dispersion": "Por favor, rellene todos los campos para la simulación de dispersión.",
@@ -443,7 +450,7 @@
   "assetEditor": {
     "title": "Editor de Activos",
     "descriptionExcel": "Pegue aquí los datos de su hoja de cálculo (Excel, Sheets). Mantenga el encabezado y use tabulaciones como separador. Las columnas deben estar en el orden correcto.",
-    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000",
+    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000\t\"8500, 9200, 9800\"",
     "save": "Guardar Cambios"
   }
 }

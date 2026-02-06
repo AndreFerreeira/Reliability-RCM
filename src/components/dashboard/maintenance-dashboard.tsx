@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const assetsToTsv = (assets: AssetData[]): string => {
-  const headers: (keyof AssetData)[] = ['id', 'name', 'criticality', 'lifecycle', 'pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss'];
+  const headers: (keyof AssetData)[] = ['id', 'name', 'criticality', 'lifecycle', 'pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'failureTimes'];
   const headerRow = headers.join('\t');
   const dataRows = assets.map(asset =>
     headers.map(header => asset[header as keyof AssetData]).join('\t')
@@ -169,7 +169,7 @@ const HealthIndicator = ({ health }) => {
     );
 };
 
-export default function MaintenanceDashboard() {
+export default function MaintenanceDashboard({ onAnalyze }: { onAnalyze: (asset: AssetData) => void }) {
     const { t } = useI18n();
     const [assets, setAssets] = React.useState<AssetData[]>(assetData.assets);
 
@@ -270,7 +270,7 @@ export default function MaintenanceDashboard() {
                                             {asset.gbv > 0 ? ((asset.maintenanceCost / asset.gbv) * 100).toFixed(2) : '0.00'}%
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-red-500">{formatCurrency(asset.downtimeLoss)}</TableCell>
-                                        <TableCell className="text-center"><Button variant="outline" size="sm">{t('performance.table.analyze')}</Button></TableCell>
+                                        <TableCell className="text-center"><Button variant="outline" size="sm" onClick={() => onAnalyze(asset)}>{t('performance.table.analyze')}</Button></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

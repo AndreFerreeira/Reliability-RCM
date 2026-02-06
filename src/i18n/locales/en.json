@@ -81,6 +81,13 @@
       "description": "Please enter at least two valid failure times.",
       "budgetSource": "At least 2 failure points (F) are required to calculate Beta and Eta parameters."
     },
+    "insufficientFailureData": {
+        "description": "This asset does not have enough failure data for analysis."
+    },
+    "estimationError": {
+        "title": "Analysis Error",
+        "description": "Could not estimate Weibull parameters for this asset."
+    },
     "missingParams": {
       "title": "Missing Parameters",
       "dispersion": "Please fill in all fields for the dispersion simulation.",
@@ -444,7 +451,7 @@
   "assetEditor": {
     "title": "Asset Editor",
     "descriptionExcel": "Paste your spreadsheet data here (Excel, Sheets). Keep the header and use tabs as separators. Columns must be in the correct order.",
-    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000",
+    "placeholderExcel": "id\tname\tcriticality\tlifecycle\tpdmHealth\tavailability\tmaintenanceCost\tgbv\tdowntimeLoss\tfailureTimes\nASSET-001\tTurbine Generator T-101\tAA\twearOut\t41\t99.1\t340000\t5000000\t2880000\t\"8500, 9200, 9800\"",
     "save": "Save Changes"
   }
 }
