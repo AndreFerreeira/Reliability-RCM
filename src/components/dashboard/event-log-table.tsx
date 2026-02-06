@@ -39,9 +39,7 @@ export default function EventLogTable({ events }: EventLogTableProps) {
       .filter((e): e is LogEvent & { startDateObj: Date, endDateObj: Date | null } => !!e.startDateObj)
       .sort((a, b) => a.startDateObj!.getTime() - b.startDateObj!.getTime());
 
-    const failureEvents = allParsedEvents.filter(e => e.status === 'FALHA');
-
-    return allParsedEvents.map((event) => {
+    return allParsedEvents.map((event, index) => {
       let timeToRepair: number | undefined = undefined;
       if (event.endDateObj && event.startDateObj) {
         timeToRepair = (event.endDateObj.getTime() - event.startDateObj.getTime()) / (1000 * 60 * 60);
@@ -49,13 +47,18 @@ export default function EventLogTable({ events }: EventLogTableProps) {
 
       let timeBetweenFailures: number | undefined = undefined;
       if (event.status === 'FALHA') {
-        const currentFailureIndexInFailuresOnly = failureEvents.findIndex(f => f.startDate === event.startDate && f.description === event.description);
-        
-        if (currentFailureIndexInFailuresOnly > 0) {
-            const prevFailure = failureEvents[currentFailureIndexInFailuresOnly - 1];
-            if (prevFailure.endDateObj) {
-                 timeBetweenFailures = (event.startDateObj.getTime() - prevFailure.endDateObj.getTime()) / (1000 * 60 * 60);
+        let prevFailureEvent: (LogEvent & { startDateObj: Date, endDateObj: Date | null }) | undefined = undefined;
+
+        // Search backwards from the current event to find the previous failure
+        for (let i = index - 1; i >= 0; i--) {
+            if (allParsedEvents[i].status === 'FALHA') {
+                prevFailureEvent = allParsedEvents[i];
+                break;
             }
+        }
+        
+        if (prevFailureEvent && prevFailureEvent.endDateObj) {
+            timeBetweenFailures = (event.startDateObj.getTime() - prevFailureEvent.endDateObj.getTime()) / (1000 * 60 * 60);
         }
       }
 
@@ -70,20 +73,20 @@ export default function EventLogTable({ events }: EventLogTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t('eventLog.title')}</CardTitle>
-        <CardDescription>{t('eventLog.description')}</CardDescription>
+        <CardTitle>{t('assetDetail.eventLog.title')}</CardTitle>
+        <CardDescription>{t('assetDetail.eventLog.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-96">
           <Table>
             <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
               <TableRow>
-                <TableHead>{t('eventLog.tag')}</TableHead>
-                <TableHead>{t('eventLog.startDate')}</TableHead>
-                <TableHead>{t('eventLog.endDate')}</TableHead>
-                <TableHead>{t('eventLog.descriptionLabel')}</TableHead>
-                <TableHead className="text-right">{t('eventLog.tef')}</TableHead>
-                <TableHead className="text-right">{t('eventLog.tr')}</TableHead>
+                <TableHead>{t('assetDetail.eventLog.tag')}</TableHead>
+                <TableHead>{t('assetDetail.eventLog.startDate')}</TableHead>
+                <TableHead>{t('assetDetail.eventLog.endDate')}</TableHead>
+                <TableHead>{t('assetDetail.eventLog.descriptionLabel')}</TableHead>
+                <TableHead className="text-right">{t('assetDetail.eventLog.tef')}</TableHead>
+                <TableHead className="text-right">{t('assetDetail.eventLog.tr')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -94,10 +97,10 @@ export default function EventLogTable({ events }: EventLogTableProps) {
                   <TableCell>{event.endDate}</TableCell>
                   <TableCell>{event.description}</TableCell>
                   <TableCell className="text-right font-mono">
-                    {event.timeBetweenFailures?.toFixed(2) ?? '-'}
+                    {event.timeBetweenFailures !== undefined ? event.timeBetweenFailures.toFixed(2) : '-'}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {event.timeToRepair?.toFixed(2) ?? '-'}
+                    {event.timeToRepair !== undefined ? event.timeToRepair.toFixed(2) : '-'}
                   </TableCell>
                 </TableRow>
               ))}
