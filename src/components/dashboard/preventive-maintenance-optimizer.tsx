@@ -80,7 +80,7 @@ export default function PreventiveMaintenanceOptimizer({ asset }: OptimizerProps
             const mttf_t = mttf_curve[i].value;
             if (t < 1 || mttf_t < 1e-6) continue;
 
-            const R_t = R_t_curve[i].value;
+            const R_t = R_t_curve[i + 1].value;
             const F_t = 1 - R_t;
             const cost_t = (costCp * R_t + costCu * F_t) / mttf_t;
             
