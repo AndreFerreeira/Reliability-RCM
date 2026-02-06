@@ -458,7 +458,7 @@
       "step1": "Copy your data from the spreadsheet, including the header row.",
       "step2": "Paste the copied data into the text area below.",
       "step3": "The tool will group events by 'TAG' and calculate reliability metrics.",
-      "requiredHeaders": "Required Headers"
+      "requiredHeaders": "Required Headers: tag, data, status, maintenance cost, gbv..."
     }
   },
   "assetDetail": {

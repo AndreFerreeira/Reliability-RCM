@@ -25,8 +25,10 @@ const headerMapping: Record<string, string> = {
     'id': 'id',
     'tag': 'id',
     'descrição': 'name',
+    'descricao': 'name',
     'nome': 'name',
     'localização': 'location',
+    'localizacao': 'location',
     'criticidade': 'criticality',
     'ciclo de vida': 'lifecycle',
     'saúde pdm': 'pdmHealth',
@@ -42,10 +44,12 @@ const headerMapping: Record<string, string> = {
     'severidade': 'severity',
     
     // Calculation fields
+    'data': 'startDate',
     'data de inicio': 'startDate',
     'data de início': 'startDate',
     'data de término': 'endDate',
     'data de termino': 'endDate',
+    'status': 'status',
     'tempos de falha': 'failureTimes',
     'mttr': 'mttr',
 
@@ -66,6 +70,8 @@ const headerMapping: Record<string, string> = {
     'severity': 'severity',
     'start date': 'startDate',
     'end date': 'endDate',
+    'date': 'startDate',
+    'status': 'status',
 };
 
 const requiredFields: (keyof AssetData)[] = [
@@ -75,10 +81,22 @@ const requiredFields: (keyof AssetData)[] = [
 
 function parseDate(dateStr: string): Date | null {
     if (!dateStr || typeof dateStr !== 'string') return null;
-    const parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
-    if (!parts) return null;
-    const [, day, month, year, hour, minute] = parts;
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+    
+    // Try to match with time
+    let parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
+    if (parts) {
+        const [, day, month, year, hour, minute] = parts;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+    }
+
+    // Try to match date only
+    parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (parts) {
+        const [, day, month, year] = parts;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    return null;
 }
 
 
@@ -95,77 +113,89 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
         }
 
         const headerLine = lines.shift()!.toLowerCase().split('\t').map(h => h.trim());
-        const hasEventLogHeaders = headerLine.includes('data de inicio') && (headerLine.includes('data de término') || headerLine.includes('data de termino'));
+        const headerMap: Record<string, number> = {};
+        headerLine.forEach((h, i) => { 
+            const mappedKey = headerMapping[h.toLowerCase()];
+            if(mappedKey) headerMap[mappedKey] = i;
+        });
 
+        const isEventLog = headerMap['id'] !== undefined && headerMap['startDate'] !== undefined;
         let newAssets: AssetData[];
 
-        if (hasEventLogHeaders) {
-            const headerMap: Record<string, number> = {};
-            headerLine.forEach((h, i) => { 
-                const mappedKey = headerMapping[h];
-                if(mappedKey) headerMap[mappedKey] = i;
-            });
-
-            if (headerMap['id'] === undefined) throw new Error("A coluna 'TAG' ou 'ID' é obrigatória para agrupar eventos.");
-            
+        if (isEventLog) {
+            const hasEndDate = headerMap['endDate'] !== undefined;
+            const hasStatus = headerMap['status'] !== undefined;
             const allRows = lines.map(line => line.split('\t'));
 
             const groupedByTag: Record<string, string[][]> = {};
-            for (const row of allRows) {
+            allRows.forEach(row => {
                 const tag = row[headerMap['id']];
                 if (tag) {
                     if (!groupedByTag[tag]) groupedByTag[tag] = [];
                     groupedByTag[tag].push(row);
                 }
-            }
-            
+            });
+
             newAssets = Object.values(groupedByTag).map((rows) => {
                 const firstRow = rows[0];
                 const tag = firstRow[headerMap['id']];
 
-                const events = rows.map(row => {
-                    const startDate = parseDate(row[headerMap['startDate']]);
-                    const endDate = parseDate(row[headerMap['endDate']]);
-                    if (!startDate || !endDate) return null;
-                    return { startDate, endDate };
-                }).filter((e): e is { startDate: Date; endDate: Date } => e !== null)
-                  .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+                const events = rows.map(row => ({
+                    row,
+                    startDate: parseDate(row[headerMap['startDate']]),
+                    endDate: hasEndDate ? parseDate(row[headerMap['endDate']]) : null,
+                    status: hasStatus ? row[headerMap['status']]?.toUpperCase().trim() : 'FALHA'
+                }))
+                .filter((e): e is { row: string[]; startDate: Date; endDate: Date | null; status: string } => e.startDate !== null)
+                .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
                 const failureTimes: number[] = [];
                 const repairTimes: number[] = [];
+                const failureEvents = events.filter(e => e.status === 'FALHA');
 
-                for (let i = 0; i < events.length; i++) {
-                    const repairTimeHours = (events[i].endDate.getTime() - events[i].startDate.getTime()) / (1000 * 60 * 60);
-                    if (repairTimeHours >= 0) repairTimes.push(repairTimeHours);
-
-                    if (i > 0) {
-                        const timeBetweenFailuresHours = (events[i].startDate.getTime() - events[i-1].endDate.getTime()) / (1000 * 60 * 60);
+                if (hasEndDate) { // Two-date event log
+                    for (let i = 0; i < failureEvents.length; i++) {
+                        const event = failureEvents[i];
+                        if (event.endDate) {
+                            const repairTimeHours = (event.endDate.getTime() - event.startDate.getTime()) / (1000 * 60 * 60);
+                            if (repairTimeHours >= 0) repairTimes.push(repairTimeHours);
+                        }
+                        if (i > 0) {
+                            const prevEvent = failureEvents[i - 1];
+                            if (prevEvent.endDate) {
+                                const timeBetweenFailuresHours = (event.startDate.getTime() - prevEvent.endDate.getTime()) / (1000 * 60 * 60);
+                                if (timeBetweenFailuresHours > 0) failureTimes.push(timeBetweenFailuresHours);
+                            }
+                        }
+                    }
+                } else { // Single-date event log
+                    for (let i = 1; i < failureEvents.length; i++) {
+                        const timeBetweenFailuresHours = (failureEvents[i].startDate.getTime() - failureEvents[i - 1].startDate.getTime()) / (1000 * 60 * 60);
                         if (timeBetweenFailuresHours > 0) failureTimes.push(timeBetweenFailuresHours);
                     }
                 }
+
+                const asset: Partial<AssetData> = { id: tag };
                 
-                const asset: Partial<AssetData> = { id: tag, name: tag };
+                asset.maintenanceCost = rows.reduce((sum, row) => {
+                    const costStr = row[headerMap['maintenanceCost']];
+                    if (costStr) return sum + (parseFloat(costStr.replace(/[^0-9,.-]+/g, '').replace(/\./g, '').replace(',', '.')) || 0);
+                    return sum;
+                }, 0);
 
-                 // Sum up costs and losses from all events for the asset
-                asset.maintenanceCost = 0;
-                asset.downtimeLoss = 0;
-                rows.forEach(row => {
-                    if(headerMap['maintenanceCost'] !== undefined) {
-                        asset.maintenanceCost! += parseFloat(row[headerMap['maintenanceCost']].replace(/\./g, '').replace(',', '.')) || 0;
-                    }
-                     if(headerMap['downtimeLoss'] !== undefined) {
-                        asset.downtimeLoss! += parseFloat(row[headerMap['downtimeLoss']].replace(/\./g, '').replace(',', '.')) || 0;
-                    }
-                });
+                asset.downtimeLoss = rows.reduce((sum, row) => {
+                    const lossStr = row[headerMap['downtimeLoss']];
+                    if (lossStr) return sum + (parseFloat(lossStr.replace(/[^0-9,.-]+/g, '').replace(/\./g, '').replace(',', '.')) || 0);
+                    return sum;
+                }, 0);
 
-                // Get static data from the first row
                 Object.keys(headerMap).forEach(key => {
                     const index = headerMap[key];
                     const value = firstRow[index]?.trim();
-                    if(value === undefined) return;
+                    if (value === undefined) return;
 
                     const staticFields: (keyof AssetData)[] = ['name', 'location', 'criticality', 'pdmHealth', 'availability', 'gbv', 'rpn', 'severity'];
-                    if(staticFields.includes(key as any)){
+                    if (staticFields.includes(key as any)) {
                         const mappedKey = key as keyof AssetData;
                         const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'gbv', 'rpn', 'severity'];
                         if (numericFields.includes(mappedKey)) {
@@ -178,12 +208,17 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                     }
                 });
 
-                asset.failureTimes = failureTimes.join(', ');
-                asset.mttr = repairTimes.length > 0 ? repairTimes.reduce((a, b) => a + b, 0) / repairTimes.length : 0;
                 if (!asset.name) asset.name = tag;
 
+                asset.failureTimes = failureTimes.join(', ');
+                asset.mttr = repairTimes.length > 0 ? repairTimes.reduce((a, b) => a + b, 0) / repairTimes.length : 0;
+                
+                if (asset.mttr === 0 && headerMap['mttr'] !== undefined) {
+                    asset.mttr = parseFloat(firstRow[headerMap['mttr']].replace(',', '.')) || 0;
+                }
+
                 const ftArray = asset.failureTimes.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                 if (ftArray.length >= 3) {
+                if (ftArray.length >= 3) {
                     const { params } = estimateParameters({ dist: 'Weibull', failureTimes: ftArray, method: 'MLE' });
                     if (params.beta) {
                         if (params.beta < 0.95) asset.lifecycle = 'infant';
@@ -195,8 +230,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 return asset as AssetData;
             });
         } else {
-             const columnIndexMap: Partial<Record<keyof AssetData, number>> = {};
-            
+            const columnIndexMap: Partial<Record<keyof AssetData, number>> = {};
             headerLine.forEach((header, index) => {
                 const mappedKey = headerMapping[header];
                 if (mappedKey && requiredFields.includes(mappedKey as any)) {
@@ -204,7 +238,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 }
             });
             
-            const missingHeaders = requiredFields.filter(field => columnIndexMap[field] === undefined && !hasEventLogHeaders);
+            const missingHeaders = requiredFields.filter(field => columnIndexMap[field] === undefined);
             if (missingHeaders.length > 0) {
                 throw new Error(t('tsvError.missingHeaders', { headers: missingHeaders.join(', ') }));
             }
@@ -282,7 +316,7 @@ function AssetDataMassEditor({ onSave, t }: { onSave: (assets: AssetData[]) => v
                 <li>{t('assetEditor.instructions.step2')}</li>
                  <li>{t('assetEditor.instructions.step3')}</li>
             </ol>
-            <p><strong>{t('assetEditor.instructions.requiredHeaders')}:</strong> <code className="text-xs">tag, data de inicio, data de término, custo de manutenção, gbv...</code></p>
+            <p><strong>{t('assetEditor.instructions.requiredHeaders')}:</strong> <code className="text-xs">tag, data, status, custo de manutenção, gbv...</code></p>
         </div>
         <ScrollArea className="flex-grow pr-6 -mr-6">
            <Textarea

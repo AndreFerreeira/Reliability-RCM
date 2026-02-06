@@ -457,7 +457,7 @@
       "step1": "Copie seus dados da planilha, incluindo a linha de cabeçalho.",
       "step2": "Cole os dados copiados na área de texto abaixo.",
       "step3": "A ferramenta agrupará os eventos por 'TAG' e calculará as métricas de confiabilidade.",
-      "requiredHeaders": "Cabeçalhos Necessários"
+      "requiredHeaders": "Cabeçalhos Necessários: tag, data, status, custo de manutenção, gbv..."
     }
   },
   "assetDetail": {

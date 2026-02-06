@@ -457,7 +457,7 @@
       "step1": "Copie sus datos de la hoja de cálculo, incluyendo la fila de encabezado.",
       "step2": "Pegue los datos copiados en el área de texto a continuación.",
       "step3": "La herramienta agrupará los eventos por 'TAG' y calculará las métricas de fiabilidad.",
-      "requiredHeaders": "Encabezados Requeridos"
+      "requiredHeaders": "Encabezados Requeridos: tag, data, status, costo de mantenimiento, gbv..."
     }
   },
   "assetDetail": {
