@@ -129,7 +129,7 @@ export default function BathtubCurveAnalysis({ failureTimes }: BathtubCurveAnaly
     } else {
       setPoints([]);
     }
-  }, [failureTimes, isClient]);
+  }, [isClient, JSON.stringify(failureTimes)]);
 
   if (failureTimes.length === 0) {
     return (
