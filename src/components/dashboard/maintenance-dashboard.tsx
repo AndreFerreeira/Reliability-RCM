@@ -729,11 +729,15 @@ export default function MaintenanceDashboard() {
                         const totalHoursDown = numFailures * asset.mttr;
                         const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
                         const health = healthData.get(asset.id);
+                        const isCritical = health && health.daysRemaining <= 0;
 
                         return (
                             <div 
                                 key={asset.id} 
-                                className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-lg hover:bg-muted/50 cursor-pointer border"
+                                className={cn(
+                                    "group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-lg hover:bg-muted/50 cursor-pointer border",
+                                    isCritical && "animate-flash"
+                                )}
                                 onClick={() => setSelectedAsset(asset)}
                             >
                                 {/* Asset Info */}
