@@ -646,7 +646,7 @@ export default function MaintenanceDashboard() {
                 ? failureTimesArray.reduce((sum, t) => sum + t, 0) / numFailures
                 : 0;
             
-            const availability = (asset.mttr > 0 && mtbf > 0)
+            const availability = (mtbf + asset.mttr) > 0
                 ? (mtbf / (mtbf + asset.mttr))
                 : 1;
 
@@ -717,20 +717,23 @@ export default function MaintenanceDashboard() {
         const totalGbv = processedAssets.reduce((sum, asset) => sum + (asset.gbv || 0), 0);
         const totalMaintenanceCost = processedAssets.reduce((sum, asset) => sum + (asset.maintenanceCost || 0), 0);
         
-        let validAvailabilityAssets = 0;
-        const totalAvailability = processedAssets.reduce((sum, asset) => {
-          if (asset.availability != null) {
-            validAvailabilityAssets++;
-            return sum + asset.availability;
-          }
-          return sum;
+        const totalUptime = processedAssets.reduce((sum, asset) => {
+            const assetUptime = asset.mtbf * asset.calculatedNumFailures;
+            return sum + assetUptime;
         }, 0);
-        const avgAvailability = validAvailabilityAssets > 0 ? totalAvailability / validAvailabilityAssets : 0;
+
+        const totalDowntime = processedAssets.reduce((sum, asset) => {
+            return sum + (asset.calculatedTotalHoursDown || 0);
+        }, 0);
+
+        const fleetAvailability = (totalUptime + totalDowntime) > 0
+            ? (totalUptime / (totalUptime + totalDowntime)) * 100
+            : 100;
 
         const maintIntensity = totalGbv > 0 ? (totalMaintenanceCost / totalGbv) * 100 : 0;
 
         return {
-            avgAvailability,
+            avgAvailability: fleetAvailability,
             totalDowntimeLoss,
             totalMaintenanceCost,
             totalGbv,
