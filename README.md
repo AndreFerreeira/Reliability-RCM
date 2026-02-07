@@ -71,4 +71,4 @@ Este é um aplicativo web interativo, construído com Next.js e TypeScript, proj
 4.  **Analisar Gráficos:** Navegue pelos gráficos interativos para comparar o desempenho e entender o comportamento de falha.
 5.  **Usar IA:** Vá para a aba "Análise com IA" para obter insights mais profundos e relatórios automatizados sobre seus dados.
 6.  **Consultar Papéis de Probabilidade:** Na aba "Papéis de Probabilidade", explore as tabelas de postos medianos e visualize gráficos dinâmicos para dados inseridos manualmente, uma ótima ferramenta para aprendizado e cálculos manuais.
-7.  **Executar Simulações:** Na aba "Simulador Monte Carlo", escolha entre as análises de Limites de Confiança, Dispersão de Parâmetros ou Gráfico de Contorno para aprofundar a análise de incerteza de suas estimativas.
+7.  **Executar Simulações:** Na aba "Simulador Monte Carlo", escolha entre as análises de Limites de Confiança, Dispersão de Parâmetros ou Gráfico de Contorno para aprofundar a análise de incerteza de suas estimativas.# RCM-Ativos
