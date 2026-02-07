@@ -414,7 +414,7 @@
   "performance": {
     "title": "Maintenance Performance Dashboard",
     "kpi": {
-      "availability": "Fleet Availability",
+      "availability": "Availability",
       "availabilityTarget": "Target: 98.5%",
       "high": "High",
       "veryHigh": "Very High",
@@ -426,7 +426,7 @@
       "intensity": "Maint / GBV Intensity",
       "intensityBenchmark": "Industry Benchmark: 2-3%",
       "stable": "Stable",
-      "gbv": "Total Fleet GBV",
+      "gbv": "Total GBV",
       "gbvSub": "Gross Book Value of Assets"
     },
     "inventory": {
@@ -483,7 +483,7 @@
     "gbv": "Gross Book Value (GBV)"
   },
   "assetDetail": {
-    "backToFleet": "Back to Fleet",
+    "backToFleet": "Back",
     "scheduleMaintenance": "Schedule Maintenance",
     "generateWorkOrder": "Generate Work Order",
     "weibullAndOptimize": {

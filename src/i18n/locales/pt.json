@@ -413,7 +413,7 @@
     "performance": {
     "title": "Painel de Performance da Manutenção",
     "kpi": {
-      "availability": "Disponibilidade da Frota",
+      "availability": "Disponibilidade",
       "availabilityTarget": "Meta: 98.5%",
       "high": "Alto",
       "veryHigh": "Muito Alto",
@@ -425,7 +425,7 @@
       "intensity": "Intensidade Manut./GBV",
       "intensityBenchmark": "Benchmark da Indústria: 2-3%",
       "stable": "Estável",
-      "gbv": "GBV Total da Frota",
+      "gbv": "GBV Total",
       "gbvSub": "Valor Contábil Bruto dos Ativos"
     },
     "inventory": {
@@ -482,7 +482,7 @@
     "gbv": "Valor Contábil Bruto (GBV)"
   },
   "assetDetail": {
-    "backToFleet": "Voltar para a Frota",
+    "backToFleet": "Voltar",
     "scheduleMaintenance": "Agendar Manutenção",
     "generateWorkOrder": "Gerar Ordem de Serviço",
     "weibullAndOptimize": {
