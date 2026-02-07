@@ -142,7 +142,7 @@ export async function generateRcaReport(
   asset: AssetData,
   mtbf: number
 ): Promise<{ report: string } | { error: string }> {
-    const maintGbvRatio = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+    const maintGbvRatio = asset.gbv > 0 ? asset.maintenanceCost / (asset.gbv / 100) : 0;
     
     const getModoDeFalha = () => {
         switch (asset.lifecycle) {

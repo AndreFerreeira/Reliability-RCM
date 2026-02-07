@@ -679,7 +679,7 @@ export default function MaintenanceDashboard() {
         }, 0);
         const avgAvailability = validAvailabilityAssets > 0 ? totalAvailability / validAvailabilityAssets : 0;
 
-        const maintIntensity = totalGbv > 0 ? (totalMaintenanceCost / totalGbv) * 100 : 0;
+        const maintIntensity = totalGbv > 0 ? totalMaintenanceCost / (totalGbv / 100) : 0;
 
         return {
             avgAvailability,
@@ -777,7 +777,7 @@ export default function MaintenanceDashboard() {
                         <div className="text-right">{t('performance.table.pmCountdown')}</div>
                     </div>
                     {processedAssets.map((asset) => {
-                        const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+                        const maintIntensity = asset.gbv > 0 ? asset.maintenanceCost / (asset.gbv / 100) : 0;
                         const health = healthData.get(asset.id);
                         const isCritical = health && health.daysRemaining <= 0;
 

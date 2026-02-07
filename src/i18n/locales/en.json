@@ -424,7 +424,7 @@
       "maintenanceCost": "Maintenance Cost",
       "maintenanceCostPeriod": "Last 12 months",
       "intensity": "Maint / GBV Intensity",
-      "intensityBenchmark": "Benchmark: 2-3% (Stability Period)",
+      "intensityBenchmark": "Industry Benchmark: 2-3% (Stability Period)",
       "stable": "Stable",
       "gbv": "Total GBV",
       "gbvSub": "Gross Book Value of Assets"
