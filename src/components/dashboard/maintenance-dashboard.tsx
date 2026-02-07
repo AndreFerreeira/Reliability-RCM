@@ -781,6 +781,24 @@ export default function MaintenanceDashboard() {
                         const health = healthData.get(asset.id);
                         const isCritical = health && health.daysRemaining <= 0;
 
+                        const lifecycleText = t(`performance.lifecycle.${asset.lifecycle}`);
+                        const lifecycleStyle: React.CSSProperties = {};
+                        switch (asset.lifecycle) {
+                            case 'wearOut':
+                                lifecycleStyle.backgroundColor = 'hsl(var(--destructive))';
+                                lifecycleStyle.color = 'hsl(var(--destructive-foreground))';
+                                break;
+                            case 'infant':
+                                lifecycleStyle.backgroundColor = 'hsl(var(--chart-4))';
+                                lifecycleStyle.color = '#111';
+                                break;
+                            case 'stable':
+                            default:
+                                lifecycleStyle.backgroundColor = 'hsl(var(--accent))';
+                                lifecycleStyle.color = 'hsl(var(--accent-foreground))';
+                                break;
+                        }
+
                         return (
                             <div 
                                 key={asset.id} 
@@ -796,7 +814,7 @@ export default function MaintenanceDashboard() {
                                         <Tag className="h-5 w-5 text-muted-foreground" />
                                     </div>
                                     <div>
-                                        <div className="font-bold flex items-center gap-2">
+                                        <div className="font-bold flex items-center gap-2 flex-wrap">
                                             <span>{asset.name}</span>
                                             <Badge
                                                 style={{
@@ -812,6 +830,11 @@ export default function MaintenanceDashboard() {
                                             >
                                                 {asset.criticality}
                                             </Badge>
+                                            {asset.lifecycle && (
+                                                <Badge className="border-transparent" style={lifecycleStyle}>
+                                                    {lifecycleText}
+                                                </Badge>
+                                            )}
                                         </div>
                                         <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                                             <span>{asset.id}</span>
