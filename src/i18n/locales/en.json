@@ -6,7 +6,8 @@
     "reliabilityAnalysis": "Reliability Analysis",
     "aiAnalysis": "AI Analysis",
     "monteCarlo": "Monte Carlo",
-    "performanceDashboard": "Performance"
+    "performanceDashboard": "Performance",
+    "strategicActionPlan": "Strategic Action Plan"
   },
   "supplierManager": {
     "cardTitle": "Equipment Data",
@@ -173,6 +174,8 @@
     }
   },
   "weibullAnalysis": {
+    "cardTitle": "Weibull Parameter Analysis (β & η)",
+    "cardDescription": "Interpret the failure mode and characteristic life of your equipment based on the Weibull distribution.",
     "beta": {
       "infantMortality": {
         "phase": "Infant Mortality",

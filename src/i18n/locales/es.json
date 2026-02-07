@@ -6,7 +6,8 @@
     "reliabilityAnalysis": "Análisis de Confiabilidad",
     "aiAnalysis": "Análisis con IA",
     "monteCarlo": "Simulador Monte Carlo",
-    "performanceDashboard": "Performance"
+    "performanceDashboard": "Performance",
+    "strategicActionPlan": "Plan de Acción Estratégico"
   },
   "supplierManager": {
     "cardTitle": "Datos del Equipo",
@@ -173,6 +174,8 @@
     }
   },
   "weibullAnalysis": {
+    "cardTitle": "Análisis de Parámetros Weibull (β & η)",
+    "cardDescription": "Interprete el modo de fallo y la vida característica de su equipo basándose en la distribución de Weibull.",
     "beta": {
       "infantMortality": {
         "phase": "Mortalidad Infantil",

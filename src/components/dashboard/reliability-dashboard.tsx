@@ -8,7 +8,7 @@ import type { Supplier, EstimationMethod } from '@/lib/types';
 import SupplierManager from './supplier-manager';
 import ReliabilityCharts from './reliability-charts';
 import AiRiskPredictor from './ai-risk-predictor';
-import { LineChart as LineChartIcon, TestTube, LayoutDashboard } from '@/components/icons';
+import { LineChart as LineChartIcon, TestTube, LayoutDashboard, ClipboardList } from '@/components/icons';
 import AiComprehensiveAnalysis from './ai-comprehensive-analysis';
 import WeibullParameterAnalysis from './weibull-parameter-analysis';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
@@ -17,6 +17,7 @@ import MonteCarloSimulator from './monte-carlo-simulator';
 import LanguageSwitcher from './language-switcher';
 import { useI18n } from '@/i18n/i18n-provider';
 import MaintenanceDashboard from './maintenance-dashboard';
+import StrategicAnalysis from './strategic-analysis';
 
 const initialSuppliersData = [
   { 
@@ -137,10 +138,11 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-4">
           <TabsTrigger value="performance"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
           <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
+          <TabsTrigger value="action_plan"><ClipboardList />{t('tabs.strategicActionPlan')}</TabsTrigger>
         </TabsList>
         <TabsContent value="performance" className="space-y-4">
             <MaintenanceDashboard />
@@ -188,9 +190,10 @@ export default function ReliabilityDashboard() {
         <TabsContent value="monte_carlo" className="space-y-4">
           <MonteCarloSimulator suppliers={suppliers} />
         </TabsContent>
+        <TabsContent value="action_plan" className="space-y-4">
+          <StrategicAnalysis />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    
