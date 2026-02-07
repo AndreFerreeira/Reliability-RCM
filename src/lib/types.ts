@@ -275,9 +275,18 @@ export interface AssetData {
   severity: number;
   mttr: number;
   events?: LogEvent[];
+  
+  // Parameters for reliability analysis
+  distribution?: Distribution;
   beta?: number;
   eta?: number;
+  mean?: number;
+  stdDev?: number;
+  lambda?: number;
+  rho?: number;
+
   serialNumber?: string;
   tags?: string[];
   downtimeCostPerHour?: number;
+  units?: string;
 }

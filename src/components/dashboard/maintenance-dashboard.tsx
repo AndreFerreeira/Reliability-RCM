@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '../ui/textarea';
-import { estimateParameters, calculateOptimalInterval } from '@/lib/reliability';
+import { findBestDistribution, calculateOptimalInterval } from '@/lib/reliability';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -241,19 +241,31 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                 }
 
                 const ftArray = asset.failureTimes.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                if (ftArray.length >= 3) {
-                    const { params } = estimateParameters({ dist: 'Weibull', failureTimes: ftArray, method: 'MLE' });
-                    if (params.beta && params.eta) {
-                        asset.beta = params.beta;
-                        asset.eta = params.eta;
-                        if (params.beta < 0.95) asset.lifecycle = 'infant';
-                        else if (params.beta > 1.05) asset.lifecycle = 'wearOut';
-                        else asset.lifecycle = 'stable';
-                    } else {
-                         asset.lifecycle = 'stable';
+                const stArray: number[] = []; // Suspensions are not yet parsed from event logs
+                if (ftArray.length >= 2) {
+                    const { results, best } = findBestDistribution(ftArray, stArray);
+                    if (best && results.length > 0) {
+                        const bestFit = results.find(r => r.distribution === best);
+                        if (bestFit) {
+                            asset.distribution = best;
+                            asset.beta = bestFit.params.beta;
+                            asset.eta = bestFit.params.eta;
+                            asset.mean = bestFit.params.mean;
+                            asset.stdDev = bestFit.params.stdDev;
+                            asset.lambda = bestFit.params.lambda;
+                            asset.rho = bestFit.rSquared;
+
+                            if (best === 'Weibull' && asset.beta) {
+                                if (asset.beta < 0.95) asset.lifecycle = 'infant';
+                                else if (asset.beta > 1.05) asset.lifecycle = 'wearOut';
+                                else asset.lifecycle = 'stable';
+                            } else {
+                                asset.lifecycle = 'stable';
+                            }
+                        }
                     }
                 } else {
-                     asset.lifecycle = 'stable';
+                    asset.lifecycle = 'stable';
                 }
 
                 asset.events = logEvents;
@@ -299,16 +311,27 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                 if (!asset.name) asset.name = `Asset ${lineIndex + 1}`;
 
                 const failureTimesArray = (asset.failureTimes || '').split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                if (failureTimesArray.length >= 3) {
-                    const { params } = estimateParameters({ dist: 'Weibull', failureTimes: failureTimesArray, method: 'MLE' });
-                    if (params.beta && params.eta) {
-                        asset.beta = params.beta;
-                        asset.eta = params.eta;
-                        if (params.beta < 0.95) asset.lifecycle = 'infant';
-                        else if (params.beta > 1.05) asset.lifecycle = 'wearOut';
-                        else asset.lifecycle = 'stable';
-                    } else {
-                        asset.lifecycle = 'stable';
+                 if (failureTimesArray.length >= 2) {
+                    const { results, best } = findBestDistribution(failureTimesArray, []);
+                    if (best && results.length > 0) {
+                        const bestFit = results.find(r => r.distribution === best);
+                        if (bestFit) {
+                            asset.distribution = best;
+                            asset.beta = bestFit.params.beta;
+                            asset.eta = bestFit.params.eta;
+                            asset.mean = bestFit.params.mean;
+                            asset.stdDev = bestFit.params.stdDev;
+                            asset.lambda = bestFit.params.lambda;
+                            asset.rho = bestFit.rSquared;
+
+                            if (best === 'Weibull' && asset.beta) {
+                                if (asset.beta < 0.95) asset.lifecycle = 'infant';
+                                else if (asset.beta > 1.05) asset.lifecycle = 'wearOut';
+                                else asset.lifecycle = 'stable';
+                            } else {
+                                asset.lifecycle = 'stable';
+                            }
+                        }
                     }
                 } else {
                     asset.lifecycle = 'stable';
@@ -346,6 +369,7 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                     rpn: 0,
                     severity: 0,
                     mttr: 0,
+                    units: 'h',
                 };
                 assetsMap.set(newAsset.id!, { ...defaultAsset, ...cleanNewAsset } as AssetData);
             }
@@ -440,10 +464,36 @@ function AssetEditorDialog({ asset, onSave, onCancel, t }: { asset: AssetData; o
     });
 
     function onSubmit(data: z.infer<typeof assetSchema>) {
-        onSave({
-            ...asset,
-            ...data,
-        });
+        const ftArray = data.failureTimes.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
+        let updatedAssetData: AssetData = { ...asset, ...data, units: asset.units || 'h' };
+        
+        if (ftArray.length >= 2) {
+            const { results, best } = findBestDistribution(ftArray, []); // Assuming no suspensions
+            if (best && results.length > 0) {
+                const bestFit = results.find(r => r.distribution === best);
+                if (bestFit) {
+                    updatedAssetData.distribution = best;
+                    updatedAssetData.beta = bestFit.params.beta;
+                    updatedAssetData.eta = bestFit.params.eta;
+                    updatedAssetData.mean = bestFit.params.mean;
+                    updatedAssetData.stdDev = bestFit.params.stdDev;
+                    updatedAssetData.lambda = bestFit.params.lambda;
+                    updatedAssetData.rho = bestFit.rSquared;
+
+                    if (best === 'Weibull' && updatedAssetData.beta) {
+                        if (updatedAssetData.beta < 0.95) updatedAssetData.lifecycle = 'infant';
+                        else if (updatedAssetData.beta > 1.05) updatedAssetData.lifecycle = 'wearOut';
+                        else updatedAssetData.lifecycle = 'stable';
+                    } else {
+                        updatedAssetData.lifecycle = 'stable';
+                    }
+                }
+            }
+        } else {
+            updatedAssetData.lifecycle = 'stable';
+        }
+        
+        onSave(updatedAssetData);
     }
 
     return (
@@ -620,7 +670,7 @@ export default function MaintenanceDashboard() {
         const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
         
         processedAssets.forEach(asset => {
-            if (asset.beta && asset.eta) {
+            if (asset.beta && asset.eta && asset.distribution === 'Weibull') {
                 const result = calculateOptimalInterval({
                     beta: asset.beta,
                     eta: asset.eta,
@@ -679,7 +729,7 @@ export default function MaintenanceDashboard() {
         }, 0);
         const avgAvailability = validAvailabilityAssets > 0 ? totalAvailability / validAvailabilityAssets : 0;
 
-        const maintIntensity = totalGbv > 0 ? totalMaintenanceCost / totalGbv * 100 : 0;
+        const maintIntensity = totalGbv > 0 ? (totalMaintenanceCost / totalGbv) * 100 : 0;
 
         return {
             avgAvailability,

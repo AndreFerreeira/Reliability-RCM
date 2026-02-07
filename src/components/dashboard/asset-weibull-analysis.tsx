@@ -73,14 +73,14 @@ export default function AssetWeibullAnalysis({ asset }: AssetWeibullAnalysisProp
     const hasData = asset.beta !== undefined && asset.eta !== undefined;
     const failureTimesArray = (asset.failureTimes || '').split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
 
-    if (!hasData || failureTimesArray.length < 3) {
+    if (asset.distribution !== 'Weibull' || !hasData || failureTimesArray.length < 3) {
         return (
            <Card>
                <CardHeader>
                    <CardTitle>{t('weibullAnalysis.cardTitle')}</CardTitle>
                </CardHeader>
                <CardContent>
-                   <p className="text-sm text-muted-foreground">{failureTimesArray.length < 3 ? t('toasts.insufficientFailureData.description') : t('weibullAnalysis.noData')}</p>
+                   <p className="text-sm text-muted-foreground">{asset.distribution !== 'Weibull' ? 'Análise disponível apenas para distribuição Weibull.' : (failureTimesArray.length < 3 ? t('toasts.insufficientFailureData.description') : t('weibullAnalysis.noData'))}</p>
                </CardContent>
            </Card>
        );

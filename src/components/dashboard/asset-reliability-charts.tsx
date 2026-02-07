@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { ReliabilityData, Supplier, AssetData } from '@/lib/types';
+import type { ReliabilityData, Supplier, AssetData, Parameters } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { calculateReliabilityData } from '@/lib/reliability';
 
@@ -38,26 +38,50 @@ export default function AssetReliabilityCharts({ asset }: AssetReliabilityCharts
   const { t } = useI18n();
 
   const assetAsSupplier = useMemo((): Supplier | null => {
-    if (asset.beta === undefined || asset.eta === undefined || asset.beta === null || asset.eta === null) {
-      return null;
+    const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
+    if (failureTimes.length < 2 || !asset.distribution) return null;
+
+    const params: Parameters = {};
+    let isValid = false;
+
+    switch(asset.distribution) {
+        case 'Weibull':
+            if (asset.beta && asset.eta) {
+                params.beta = asset.beta;
+                params.eta = asset.eta;
+                params.rho = asset.rho;
+                isValid = true;
+            }
+            break;
+        case 'Lognormal':
+        case 'Normal':
+            if (asset.mean && asset.stdDev) {
+                params.mean = asset.mean;
+                params.stdDev = asset.stdDev;
+                params.rho = asset.rho;
+                isValid = true;
+            }
+            break;
+        case 'Exponential':
+             if (asset.lambda) {
+                params.lambda = asset.lambda;
+                params.rho = asset.rho;
+                isValid = true;
+            }
+            break;
     }
 
-    const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
-    if (failureTimes.length < 2) return null;
+    if (!isValid) return null;
     
     return {
       id: asset.id,
       name: asset.name,
       failureTimes: failureTimes,
-      suspensionTimes: [],
+      suspensionTimes: [], // Assuming no suspensions in this context
       color: 'hsl(var(--chart-1))',
-      distribution: 'Weibull',
-      params: {
-        beta: asset.beta,
-        eta: asset.eta,
-        rho: 0 // Not needed for this chart
-      },
-      units: 'h',
+      distribution: asset.distribution,
+      params: params,
+      units: asset.units || 'h',
       dataType: { hasSuspensions: false, hasIntervals: false, isGrouped: false }
     };
   }, [asset]);
@@ -132,7 +156,7 @@ export default function AssetReliabilityCharts({ asset }: AssetReliabilityCharts
     <div className="space-y-6">
         <CardHeader className="px-0 pt-0">
             <CardTitle>{t('assetDetail.reliabilityCurves.title')}</CardTitle>
-            <CardDescription>{t('assetDetail.reliabilityCurves.description')}</CardDescription>
+            <CardDescription>{t('assetDetail.reliabilityCurves.description', { distribution: assetAsSupplier.distribution })}</CardDescription>
         </CardHeader>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {renderChart('charts.reliability.title', 'charts.reliability.description', 'Rt', [0, 1])}

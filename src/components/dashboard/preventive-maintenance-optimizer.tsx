@@ -106,7 +106,7 @@ export default function PreventiveMaintenanceOptimizer({ asset, onCalculationCom
   const costCu = form.watch('costCu');
 
   const runCalculation = useCallback(() => {
-    if (!asset.beta || !asset.eta || !costCp || !costCu) {
+    if (asset.distribution !== 'Weibull' || !asset.beta || !asset.eta || !costCp || !costCu) {
       return;
     }
     
@@ -140,16 +140,16 @@ export default function PreventiveMaintenanceOptimizer({ asset, onCalculationCom
             setIsCalculating(false);
         }
     }, 50);
-  }, [asset.beta, asset.eta, costCp, costCu, t, toast, onCalculationComplete]);
+  }, [asset.beta, asset.eta, asset.distribution, costCp, costCu, t, toast, onCalculationComplete]);
   
   useEffect(() => {
-    if (asset.beta && asset.eta) {
+    if (asset.distribution === 'Weibull' && asset.beta && asset.eta) {
       runCalculation();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asset.beta, asset.eta, costCp, costCu]);
+  }, [asset.beta, asset.eta, costCp, costCu, asset.distribution]);
   
-  if (!asset.beta || !asset.eta) {
+  if (asset.distribution !== 'Weibull' || !asset.beta || !asset.eta) {
     return (
         <Card>
             <CardHeader>

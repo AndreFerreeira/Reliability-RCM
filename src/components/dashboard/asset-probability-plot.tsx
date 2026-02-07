@@ -154,7 +154,7 @@ export default function AssetProbabilityPlot({ asset }: AssetProbabilityPlotProp
   }, [asset.failureTimes]);
 
   useEffect(() => {
-    if (failureTimes.length < 2) {
+    if (asset.distribution !== 'Weibull' || failureTimes.length < 2) {
       setBoundsData(null);
       setIsLoading(false);
       return;
@@ -184,16 +184,16 @@ export default function AssetProbabilityPlot({ asset }: AssetProbabilityPlotProp
         setIsLoading(false);
       }
     }, 50);
-  }, [failureTimes, confidenceLevel, t, toast]);
+  }, [failureTimes, confidenceLevel, t, toast, asset.distribution]);
 
-  if (failureTimes.length < 2) {
+  if (asset.distribution !== 'Weibull' || failureTimes.length < 2) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>{t('assetDetail.confidencePlot.title')}</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-48">
-          <p className="text-muted-foreground">{t('toasts.insufficientFailureData.description')}</p>
+          <p className="text-muted-foreground">{asset.distribution !== 'Weibull' ? 'Análise disponível apenas para distribuição Weibull.' : t('toasts.insufficientFailureData.description')}</p>
         </CardContent>
       </Card>
     );
