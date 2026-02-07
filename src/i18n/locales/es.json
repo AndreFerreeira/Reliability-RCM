@@ -423,7 +423,7 @@
       "maintenanceCost": "Costo de Mantenimiento",
       "maintenanceCostPeriod": "Últimos 12 meses",
       "intensity": "Intensidad Mant./GBV",
-      "intensityBenchmark": "Benchmark de la Industria: 2-3%",
+      "intensityBenchmark": "Benchmark de la Industria: 2-3% (Período de Estabilidad)",
       "stable": "Estable",
       "gbv": "GBV Total",
       "gbvSub": "Valor Contable Bruto de los Activos"

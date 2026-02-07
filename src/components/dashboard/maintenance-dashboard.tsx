@@ -746,7 +746,23 @@ export default function MaintenanceDashboard() {
                                         <Tag className="h-5 w-5 text-muted-foreground" />
                                     </div>
                                     <div>
-                                        <div className="font-bold">{asset.name}</div>
+                                        <div className="font-bold flex items-center gap-2">
+                                            <span>{asset.name}</span>
+                                            <Badge
+                                                style={{
+                                                    backgroundColor: {
+                                                        'AA': 'hsl(var(--destructive))',
+                                                        'A': 'hsl(var(--chart-3))',
+                                                        'B': 'hsl(var(--chart-4))',
+                                                        'C': 'hsl(var(--secondary))'
+                                                    }[asset.criticality],
+                                                    color: ['A', 'B'].includes(asset.criticality) ? '#111' : 'hsl(var(--primary-foreground))',
+                                                }}
+                                                className="border-transparent"
+                                            >
+                                                {asset.criticality}
+                                            </Badge>
+                                        </div>
                                         <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                                             <span>{asset.id}</span>
                                             {asset.tags && asset.tags.length > 0 && (
