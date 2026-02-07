@@ -544,7 +544,16 @@
     },
     "confidencePlot": {
       "title": "Probability Plot with Confidence Bounds",
-      "description": "Analyze the Weibull model fit and estimation uncertainty. The bounds show the likely range of the true failure line."
+      "description": "Analyze the Weibull model fit and estimation uncertainty. The bounds show the likely range of the true failure line.",
+      "interpretationTitle": "Interpreting the Confidence Bounds",
+      "interpretation1": "This chart helps visualize the uncertainty of your reliability analysis. The center fit line is your \"best guess\", but the confidence bounds show the range where the true failure line likely lies.",
+      "interpretation2_1": "Center Line (Median Fit)",
+      "interpretation2_2": "Represents the most likely failure characteristic based on the data you entered. If the data points are close to this line, the Weibull model is a good fit.",
+      "interpretation3_1": "Confidence Bands (Upper and Lower)",
+      "interpretation3_2": "They create an \"uncertainty corridor\". We can state, with the confidence level you selected (e.g., 90%), that the true failure line for the entire population of your assets lies within this range.",
+      "interpretation4_1": "Band Width",
+      "interpretation4_2": "Wide bands indicate greater uncertainty (often due to few data points). Narrow bands indicate a more precise and reliable estimate.",
+      "interpretation5": "In practice, for critical decisions, consider the pessimistic scenario (the upper failure bound) for safer maintenance planning."
     }
   }
 }

@@ -543,7 +543,16 @@
     },
     "confidencePlot": {
       "title": "Gráfico de Probabilidade com Limites de Confiança",
-      "description": "Analise a aderência do modelo Weibull e a incerteza da estimativa. Os limites mostram a faixa provável da verdadeira linha de falha."
+      "description": "Analise a aderência do modelo Weibull e a incerteza da estimativa. Os limites mostram a faixa provável da verdadeira linha de falha.",
+      "interpretationTitle": "Interpretando os Limites de Confiança",
+      "interpretation1": "Este gráfico ajuda a visualizar a incerteza da sua análise de confiabilidade. A linha de ajuste (central) é a sua \"melhor estimativa\", mas os limites de confiança mostram a faixa onde a verdadeira linha de falha provavelmente está.",
+      "interpretation2_1": "Linha Central (Ajuste Mediano)",
+      "interpretation2_2": "Representa a característica de falha mais provável com base nos dados que você inseriu. Se os pontos de dados estiverem próximos a esta linha, o modelo Weibull é um bom ajuste.",
+      "interpretation3_1": "Bandas de Confiança (Superior e Inferior)",
+      "interpretation3_2": "Elas criam um \"corredor de incerteza\". Podemos afirmar, com o nível de confiança que você selecionou (ex: 90%), que a verdadeira linha de falha para toda a população de seus ativos está dentro desta faixa.",
+      "interpretation4_1": "Largura das Bandas",
+      "interpretation4_2": "Bandas largas indicam maior incerteza (geralmente por poucos dados). Bandas estreitas indicam uma estimativa mais precisa e confiável.",
+      "interpretation5": "Na prática, para decisões críticas, considere o cenário pessimista (o limite superior de falha) para um planejamento de manutenção mais seguro."
     }
   }
 }

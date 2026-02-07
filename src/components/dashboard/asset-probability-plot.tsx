@@ -8,7 +8,7 @@ import { useI18n } from '@/i18n/i18n-provider';
 import type { AssetData, LRBoundsResult } from '@/lib/types';
 import { calculateLikelihoodRatioBounds } from '@/lib/reliability';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Lightbulb } from 'lucide-react';
 
 interface AssetProbabilityPlotProps {
   asset: AssetData;
@@ -200,40 +200,60 @@ export default function AssetProbabilityPlot({ asset }: AssetProbabilityPlotProp
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('assetDetail.confidencePlot.title')}</CardTitle>
-        <CardDescription>{t('assetDetail.confidencePlot.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <label htmlFor="confidence-slider" className="text-sm font-medium">{t('monteCarlo.confidence.levelLabel')}</label>
-          <div className="flex items-center gap-4">
-            <Slider
-              id="confidence-slider"
-              value={[confidenceLevel]}
-              onValueChange={(value) => setConfidenceLevel(value[0])}
-              max={99.9}
-              min={80}
-              step={0.1}
-              className="flex-1"
-            />
-            <span className="text-sm font-medium text-muted-foreground w-16 text-center">
-              {confidenceLevel.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-        
-        {isLoading && (
-            <div className="flex justify-center items-center h-[450px]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('assetDetail.confidencePlot.title')}</CardTitle>
+          <CardDescription>{t('assetDetail.confidencePlot.description')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label htmlFor="confidence-slider" className="text-sm font-medium">{t('monteCarlo.confidence.levelLabel')}</label>
+            <div className="flex items-center gap-4">
+              <Slider
+                id="confidence-slider"
+                value={[confidenceLevel]}
+                onValueChange={(value) => setConfidenceLevel(value[0])}
+                max={99.9}
+                min={80}
+                step={0.1}
+                className="flex-1"
+              />
+              <span className="text-sm font-medium text-muted-foreground w-16 text-center">
+                {confidenceLevel.toFixed(1)}%
+              </span>
             </div>
-        )}
+          </div>
+          
+          {isLoading && (
+              <div className="flex justify-center items-center h-[450px]">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+          )}
 
-        {!isLoading && boundsData && (
-            <Plot data={boundsData} />
-        )}
-      </CardContent>
-    </Card>
+          {!isLoading && boundsData && (
+              <Plot data={boundsData} />
+          )}
+        </CardContent>
+      </Card>
+
+      {!isLoading && boundsData && (
+        <Card>
+            <CardHeader className="flex flex-row items-center gap-3">
+                <Lightbulb className="h-6 w-6 text-yellow-500" />
+                <CardTitle>{t('assetDetail.confidencePlot.interpretationTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-4">
+                <p>{t('assetDetail.confidencePlot.interpretation1')}</p>
+                <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>{t('assetDetail.confidencePlot.interpretation2_1')}:</strong> {t('assetDetail.confidencePlot.interpretation2_2')}</li>
+                    <li><strong>{t('assetDetail.confidencePlot.interpretation3_1')}:</strong> {t('assetDetail.confidencePlot.interpretation3_2')}</li>
+                    <li><strong>{t('assetDetail.confidencePlot.interpretation4_1')}:</strong> {t('assetDetail.confidencePlot.interpretation4_2')}</li>
+                </ul>
+                <p>{t('assetDetail.confidencePlot.interpretation5')}</p>
+            </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

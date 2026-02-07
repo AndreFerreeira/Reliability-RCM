@@ -544,7 +544,16 @@
     },
     "confidencePlot": {
       "title": "Gráfico de Probabilidad con Límites de Confianza",
-      "description": "Analice el ajuste del modelo de Weibull y la incertidumbre de la estimación. Los límites muestran el rango probable de la verdadera línea de fallo."
+      "description": "Analice el ajuste del modelo de Weibull y la incertidumbre de la estimación. Los límites muestran el rango probable de la verdadera línea de fallo.",
+      "interpretationTitle": "Interpretando los Límites de Confianza",
+      "interpretation1": "Este gráfico ayuda a visualizar la incertidumbre de su análisis de confiabilidad. La línea de ajuste central es su \"mejor estimación\", pero los límites de confianza muestran el rango donde probablemente se encuentra la verdadera línea de fallo.",
+      "interpretation2_1": "Línea Central (Ajuste Mediano)",
+      "interpretation2_2": "Representa la característica de fallo más probable basada en los datos que ha introducido. Si los puntos de datos están cerca de esta línea, el modelo Weibull es un buen ajuste.",
+      "interpretation3_1": "Bandas de Confianza (Superior e Inferior)",
+      "interpretation3_2": "Crean un \"corredor de incertidumbre\". Podemos afirmar, con el nivel de confianza que ha seleccionado (p. ej., 90%), que la verdadera línea de fallo para toda la población de sus activos se encuentra dentro de este rango.",
+      "interpretation4_1": "Ancho de las Bandas",
+      "interpretation4_2": "Las bandas anchas indican una mayor incertidumbre (a menudo debido a pocos puntos de datos). Las bandas estrechas indican una estimación más precisa y confiable.",
+      "interpretation5": "En la práctica, para decisiones críticas, considere el escenario pesimista (el límite superior de fallo) para una planificación de mantenimiento más segura."
     }
   }
 }
