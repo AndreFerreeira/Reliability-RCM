@@ -135,6 +135,7 @@
     "button": "Distribution Wizard",
     "title": "Distribution Wizard - {{supplierName}}",
     "description": "Analyze which probability distribution best fits your equipment data.",
+    "analyzeButton": "Analyze Data",
     "howTitle": "🔍 How we choose the best distribution",
     "howIntro": "The tool evaluates different statistical distributions to find which model best represents the equipment's failure behavior. The main criterion is:",
     "howCriterion": "LKV – Log-Likelihood Value",

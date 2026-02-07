@@ -135,6 +135,7 @@
     "button": "Asistente de Distribución",
     "title": "Asistente de Distribución - {{supplierName}}",
     "description": "Analice qué distribución de probabilidad se ajusta mejor a los datos de su equipo.",
+    "analyzeButton": "Analizar Datos",
     "howTitle": "🔍 Cómo elegimos la mejor distribución",
     "howIntro": "La herramienta evalúa diferentes distribuciones estadísticas para encontrar qué modelo representa mejor el comportamiento de fallo del equipo. El criterio principal es:",
     "howCriterion": "LKV – Valor de Log-Verosimilitud",
