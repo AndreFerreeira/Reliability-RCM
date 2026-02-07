@@ -16,6 +16,7 @@ import { marked } from 'marked';
 import EventLogTable from './event-log-table';
 import AssetReliabilityCharts from './asset-reliability-charts';
 import PreventiveMaintenanceOptimizer from './preventive-maintenance-optimizer';
+import AssetProbabilityPlot from './asset-probability-plot';
 
 
 interface AssetDetailViewProps {
@@ -206,6 +207,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                 asset={asset}
                 onCalculationComplete={(result) => setOptimalInterval(result.optimalInterval)}
              />
+
+             <AssetProbabilityPlot asset={asset} />
 
              <AssetReliabilityCharts asset={asset} />
 

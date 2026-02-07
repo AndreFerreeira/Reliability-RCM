@@ -525,7 +525,6 @@
       "description": "The four fundamental reliability charts calculated based on the asset's Weibull parameters."
     },
     "optimizePM": {
-      "button": "Optimize PM",
       "title": "Preventive Maintenance Optimization",
       "description": "Calculate the optimal interval for preventive replacement based on asset costs and reliability.",
       "costCpLabel": "Preventive Cost (Cp)",
@@ -542,6 +541,10 @@
       "interpretation1": "The curve represents the <strong>Total Cost per Unit of Time</strong>. It combines the cost of a planned replacement (Cp) with the increasing cost of an in-service failure (Cu), weighted by the asset's reliability.",
       "interpretation2": "The <strong>lowest point on the curve</strong> indicates the <strong>Optimal Interval</strong>. Performing maintenance at this point minimizes the total long-term cost.",
       "interpretation3": "Replacing <strong>before</strong> the optimal interval means spending more on preventive actions. Replacing <strong>after</strong> means risking in-service failures, which are much more expensive."
+    },
+    "confidencePlot": {
+      "title": "Probability Plot with Confidence Bounds",
+      "description": "Analyze the Weibull model fit and estimation uncertainty. The bounds show the likely range of the true failure line."
     }
   }
 }

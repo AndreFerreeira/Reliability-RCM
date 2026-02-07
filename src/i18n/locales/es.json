@@ -525,7 +525,6 @@
       "description": "Los cuatro gráficos fundamentales de la confiabilidad calculados a partir de los parámetros Weibull del activo."
     },
     "optimizePM": {
-      "button": "Optimizar PM",
       "title": "Optimización de Mantenimiento Preventivo",
       "description": "Calcule el intervalo óptimo para el reemplazo preventivo basado en los costos y la confiabilidad del activo.",
       "costCpLabel": "Costo Preventivo (Cp)",
@@ -542,6 +541,10 @@
       "interpretation1": "La curva representa el <strong>Costo Total por Unidad de Tiempo</strong>. Combina el costo de un reemplazo planificado (Cp) con el costo creciente de una falla en servicio (Cu), ponderado por la confiabilidad del activo.",
       "interpretation2": "El <strong>punto más bajo de la curva</strong> indica el <strong>Intervalo Óptimo</strong>. Realizar el mantenimiento en este punto minimiza el costo total a largo plazo.",
       "interpretation3": "Reemplazar <strong>antes</strong> del intervalo óptimo significa gastar más en acciones preventivas. Reemplazar <strong>después</strong> significa arriesgarse a fallas en servicio, que son mucho más costosas."
+    },
+    "confidencePlot": {
+      "title": "Gráfico de Probabilidad con Límites de Confianza",
+      "description": "Analice el ajuste del modelo de Weibull y la incertidumbre de la estimación. Los límites muestran el rango probable de la verdadera línea de fallo."
     }
   }
 }
