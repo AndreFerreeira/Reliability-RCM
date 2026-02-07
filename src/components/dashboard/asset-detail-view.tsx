@@ -137,8 +137,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
           <p className="text-muted-foreground">{asset.location}</p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          <Button variant="outline">{t('assetDetail.scheduleMaintenance')}</Button>
-          <Button>{t('assetDetail.generateWorkOrder')}</Button>
           <Button variant="destructive" onClick={handleGenerateReport} disabled={isGenerating}>
             {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
             {t('assetDetail.decisionEngine.button')}
