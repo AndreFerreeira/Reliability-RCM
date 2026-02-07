@@ -670,6 +670,9 @@ export default function MaintenanceDashboard() {
         const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
         
         processedAssets.forEach(asset => {
+            let referenceInterval: number | null = null;
+            
+            // Prioritize Weibull optimal interval if available
             if (asset.beta && asset.eta && asset.distribution === 'Weibull') {
                 const result = calculateOptimalInterval({
                     beta: asset.beta,
@@ -678,25 +681,34 @@ export default function MaintenanceDashboard() {
                     costCu: 5000  // Default cost
                 });
 
-                if (result && result.optimalInterval > 0 && asset.events && asset.events.length > 0) {
-                     const failureEvents = asset.events
-                        .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
-                        .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
-                        .sort((a, b) => b.date.getTime() - a.date.getTime());
+                if (result && result.optimalInterval > 0) {
+                    referenceInterval = result.optimalInterval;
+                }
+            }
 
-                    if (failureEvents.length > 0) {
-                        const lastFailureDate = failureEvents[0].date;
-                        const now = new Date();
-                        const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
-                        
-                        const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / result.optimalInterval)));
-                        const daysRemaining = (result.optimalInterval - hoursSinceLastFailure) / 24;
+            // Fallback to MTBF for any distribution if optimal interval is not found
+            if (!referenceInterval && asset.mtbf > 0) {
+                referenceInterval = asset.mtbf;
+            }
 
-                        newHealthData.set(asset.id, {
-                            score: Math.round(score),
-                            daysRemaining: Math.round(daysRemaining)
-                        });
-                    }
+            if (referenceInterval && asset.events && asset.events.length > 0) {
+                 const failureEvents = asset.events
+                    .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
+                    .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
+                    .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+                if (failureEvents.length > 0) {
+                    const lastFailureDate = failureEvents[0].date;
+                    const now = new Date();
+                    const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
+                    
+                    const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / referenceInterval)));
+                    const daysRemaining = (referenceInterval - hoursSinceLastFailure) / 24;
+
+                    newHealthData.set(asset.id, {
+                        score: Math.round(score),
+                        daysRemaining: Math.round(daysRemaining)
+                    });
                 }
             }
         });
