@@ -142,61 +142,56 @@ export async function generateRcaReport(
   asset: AssetData,
   mtbf: number
 ): Promise<{ report: string } | { error: string }> {
-  const maintGbvRatio = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+    const maintGbvRatio = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+    
+    const getModoDeFalha = () => {
+        switch (asset.lifecycle) {
+            case 'wearOut':
+                return 'Desgaste (Beta > 1). As falhas estão se tornando mais frequentes com o tempo, indicando o fim da vida útil do componente. Ideal para manutenção preditiva.';
+            case 'stable':
+                return 'Falhas Aleatórias (Beta ≈ 1). As falhas ocorrem de forma imprevisível. A estratégia deve focar em minimizar o tempo de reparo (MTTR).';
+            case 'infant':
+                return 'Mortalidade Infantil (Beta < 1). Falhas prematuras, possivelmente devido a problemas de fabricação, instalação ou qualidade. A taxa de falha diminui com o tempo.';
+            default:
+                return 'Não determinado. A análise dos tempos de falha não foi conclusiva.';
+        }
+    };
+    
+    const getPosicaoCurvaBanheira = () => {
+         switch (asset.lifecycle) {
+            case 'wearOut':
+                return `O ativo está claramente na fase de **Desgaste** da Curva da Banheira. A taxa de falhas é crescente, e a manutenção preventiva ou preditiva é crucial para evitar falhas catastróficas.`;
+            case 'stable':
+                return `O ativo está na fase de **Vida Útil** (ou falhas aleatórias). Nesta fase, a manutenção baseada no tempo tem menos eficácia. O foco deve ser na monitorização de condição e na rapidez da reparação.`;
+            case 'infant':
+                return `O ativo está na fase de **Mortalidade Infantil**. As falhas são prematuras. A estratégia deve ser focada na análise da causa raiz das falhas iniciais (qualidade, instalação, operação) em vez de manutenção preventiva por tempo.`;
+            default:
+                return 'A posição na curva não pôde ser determinada com precisão com os dados disponíveis.';
+        }
+    };
 
-  const assetDetails = `
-- Nome: ${asset.name}
-- Localização: ${asset.location}
-- Criticidade: ${asset.criticality}
-- Ciclo de Vida: ${asset.lifecycle}
-- Saúde PdM: ${asset.pdmHealth}%
-- Custo de Manutenção: ${asset.maintenanceCost}
-- Custo de Downtime: ${asset.downtimeLoss}
-- Valor do Ativo (GBV): ${asset.gbv}
-- Intensidade de Manutenção (Manut./GBV): ${maintGbvRatio.toFixed(2)}%
-- Tempos de Falha (horas): ${asset.failureTimes}
-- MTBF (calculado): ${mtbf.toFixed(0)} horas
-- MTTR (reportado): ${asset.mttr} horas
-- RPN (Risco): ${asset.rpn}
-- Severidade: ${asset.severity}
-`;
-
-  const prompt = `Você é um engenheiro de confiabilidade sênior, especialista em Análise de Causa Raiz (RCA). Sua tarefa é gerar um relatório de RCA conciso e acionável para o seguinte ativo.
-
-Dados do Ativo:
-${assetDetails}
-
-O motor de decisão já recomendou a substituição/reforma deste ativo com base em seus indicadores críticos.
-
-Seu relatório deve seguir estritamente a seguinte estrutura, usando Markdown para formatação:
-
-### Relatório de Análise de Causa Raiz (RCA) - ${asset.name}
+    const report = `### Relatório de Análise de Causa Raiz (RCA) - ${asset.name}
 
 **1. Resumo Executivo:**
-*   (Forneça um parágrafo conciso resumindo a situação crítica do ativo e a recomendação principal).
+*   A análise dos indicadores de performance e confiabilidade para o ativo **${asset.name}** indica uma situação crítica. O alto impacto financeiro, combinado com um modo de falha característico de desgaste, reforça a recomendação de **substituição ou reforma imediata** para garantir a continuidade operacional e mitigar riscos financeiros e de segurança.
 
 **2. Análise dos Indicadores de Falha:**
-*   **Modo de Falha Predominante:** (Analise os tempos de falha. Eles são próximos? Distantes? Isso indica desgaste, falha aleatória ou mortalidade infantil? Relacione com o parâmetro Beta de Weibull, se aplicável, mesmo que não seja fornecido diretamente).
-*   **Saúde Preditiva (PdM Health):** (Interprete o baixo valor de ${asset.pdmHealth}%. O que isso significa na prática?).
-*   **Indicadores de Risco (RPN e Severidade):** (Explique o que o RPN de ${asset.rpn} e a Severidade de ${asset.severity} representam em termos de impacto operacional e de segurança).
+*   **Modo de Falha Predominante:** ${getModoDeFalha()}
+*   **Saúde Preditiva (PdM Health):** O índice de saúde de **${asset.pdmHealth}%** é considerado baixo, sugerindo que as tecnologias de manutenção preditiva (como análise de vibração, termografia, etc.) estão detectando anomalias significativas e um estado de degradação avançado.
+*   **Indicadores de Risco (RPN e Severidade):** O RPN (Número de Prioridade de Risco) de **${asset.rpn}** e a Severidade de **${asset.severity}** são elevados. Isso quantifica um alto risco para a operação, significando que uma falha neste ativo tem consequências graves, seja em termos de produção, segurança ou custos secundários.
 
 **3. Análise de Impacto Financeiro:**
-*   **Intensidade de Manutenção (Manut./GBV):** (Interprete o valor da intensidade de manutenção de ${maintGbvRatio.toFixed(2)}%).
-*   **Custo Total de Propriedade (TCO):** (Analise o impacto combinado dos custos de manutenção e perdas por downtime (${asset.downtimeLoss})).
+*   **Intensidade de Manutenção (Manut./GBV):** A intensidade de manutenção de **${maintGbvRatio.toFixed(2)}%** está acima do benchmark da indústria (tipicamente 2-3%), indicando que o custo para manter este ativo em operação é desproporcional ao seu valor contábil.
+*   **Custo Total de Propriedade (TCO):** O Custo de Manutenção de **R$ ${asset.maintenanceCost.toLocaleString()}** somado à Perda por Downtime de **R$ ${asset.downtimeLoss.toLocaleString()}** revela um TCO elevado e insustentável, justificando o investimento em um ativo novo ou reformado.
 
 **4. Análise da Curva da Banheira:**
-*   (Com base nos tempos de falha e no ciclo de vida '${asset.lifecycle}', posicione o ativo na Curva da Banheira e explique o que essa fase significa para a estratégia de manutenção).
+*   ${getPosicaoCurvaBanheira()}
 
 **5. Plano de Ação Recomendado:**
-*   **Ação Imediata:** (Detalhe a recomendação de substituição ou reforma, justificando com os dados acima).
-*   **Ações de Mitigação (curto prazo):** (Se a substituição não for imediata, o que pode ser feito para reduzir o risco?).
-*   **Ações de Melhoria Contínua (longo prazo):** (Sugira melhorias no plano de manutenção, na estratégia de sobressalentes ou na monitoração para ativos futuros ou similares).
+*   **Ação Imediata:** Iniciar o processo de **substituição ou reforma completa** do ativo. A decisão é fortemente suportada pelos indicadores de desgaste, alto risco (RPN) e impacto financeiro negativo (TCO).
+*   **Ações de Mitigação (curto prazo):** Se a substituição não for imediata, aumentar a frequência de monitoramento preditivo e garantir que peças sobressalentes críticas estejam disponíveis em estoque para minimizar o MTTR em caso de falha.
+*   **Ações de Melhoria Contínua (longo prazo):** Revisar o plano de manutenção para ativos similares, considerando a implementação de tarefas preditivas mais cedo no ciclo de vida. Analisar a possibilidade de um redesenho (redesign) se a falha for recorrente em ativos do mesmo tipo.
+`;
 
-Forneça a saída inteira em um único objeto JSON válido com a seguinte estrutura:
-{
-  "report": "..."
-}
-Não inclua nenhum texto ou formatação fora deste objeto JSON.`;
-
-  return runAI<{ report: string }>(prompt);
+    return { report };
 }
