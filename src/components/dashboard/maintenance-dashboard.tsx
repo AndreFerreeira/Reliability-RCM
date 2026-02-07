@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '../ui/textarea';
-import { findBestDistribution, calculateOptimalInterval } from '@/lib/reliability';
+import { findBestDistribution, getReliability, getMedianLife } from '@/lib/reliability';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -670,44 +670,30 @@ export default function MaintenanceDashboard() {
         const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
         
         processedAssets.forEach(asset => {
-            let referenceInterval: number | null = null;
-            
-            // Prioritize Weibull optimal interval if available
-            if (asset.beta && asset.eta && asset.distribution === 'Weibull') {
-                const result = calculateOptimalInterval({
-                    beta: asset.beta,
-                    eta: asset.eta,
-                    costCp: 1000, // Default cost
-                    costCu: 5000  // Default cost
-                });
-
-                if (result && result.optimalInterval > 0) {
-                    referenceInterval = result.optimalInterval;
-                }
+            if (!asset.distribution || !asset.events || asset.events.length === 0) {
+                return;
             }
 
-            // Fallback to MTBF for any distribution if optimal interval is not found
-            if (!referenceInterval && asset.mtbf > 0) {
-                referenceInterval = asset.mtbf;
-            }
+            const failureEvents = asset.events
+                .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
+                .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
+                .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-            if (referenceInterval && asset.events && asset.events.length > 0) {
-                 const failureEvents = asset.events
-                    .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
-                    .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
-                    .sort((a, b) => b.date.getTime() - a.date.getTime());
+            if (failureEvents.length > 0) {
+                const lastFailureDate = failureEvents[0].date;
+                const now = new Date();
+                const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
 
-                if (failureEvents.length > 0) {
-                    const lastFailureDate = failureEvents[0].date;
-                    const now = new Date();
-                    const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
-                    
-                    const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / referenceInterval)));
-                    const daysRemaining = (referenceInterval - hoursSinceLastFailure) / 24;
+                const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
+                const score = isNaN(reliability) ? null : Math.round(reliability * 100);
+    
+                const medianLife = getMedianLife(asset.distribution, asset);
+                const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastFailure) / 24);
 
+                if (score !== null && daysRemaining !== null) {
                     newHealthData.set(asset.id, {
-                        score: Math.round(score),
-                        daysRemaining: Math.round(daysRemaining)
+                        score: score,
+                        daysRemaining: daysRemaining
                     });
                 }
             }

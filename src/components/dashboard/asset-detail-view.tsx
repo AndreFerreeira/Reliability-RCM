@@ -17,6 +17,7 @@ import EventLogTable from './event-log-table';
 import AssetReliabilityCharts from './asset-reliability-charts';
 import PreventiveMaintenanceOptimizer from './preventive-maintenance-optimizer';
 import AssetProbabilityPlot from './asset-probability-plot';
+import { getReliability, getMedianLife } from '@/lib/reliability';
 
 
 interface AssetDetailViewProps {
@@ -57,13 +58,12 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const [isReportOpen, setIsReportOpen] = React.useState(false);
   const [reportContent, setReportContent] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
-  const [optimalInterval, setOptimalInterval] = React.useState<number | null>(null);
-  const [dynamicHealth, setDynamicHealth] = React.useState<{ score: number, daysSinceFailure: number, daysRemaining: number } | null>(null);
+  const [dynamicHealth, setDynamicHealth] = React.useState<{ score: number, daysSinceFailure: number, daysRemaining: number, referenceInterval: number } | null>(null);
 
   const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? [];
 
   React.useEffect(() => {
-    if (optimalInterval === null || !asset.events || asset.events.length === 0) {
+    if (!asset.distribution || !asset.events || asset.events.length === 0) {
       setDynamicHealth(null);
       return;
     }
@@ -82,17 +82,30 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
     const now = new Date();
     const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
     
-    const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / optimalInterval)));
-    const optimalDays = optimalInterval / 24;
+    const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
+    const score = isNaN(reliability) ? 0 : Math.round(reliability * 100);
+
+    let referenceInterval = getMedianLife(asset.distribution, asset);
+    if (isNaN(referenceInterval)) {
+        if (failureTimes.length > 0) {
+          const sumOfFailureTimes = failureTimes.reduce((sum, time) => sum + time, 0);
+          referenceInterval = sumOfFailureTimes / failureTimes.length;
+        } else {
+          referenceInterval = 0;
+        }
+    }
+    
     const daysSince = hoursSinceLastFailure / 24;
+    const daysRemaining = (referenceInterval - hoursSinceLastFailure) / 24;
 
     setDynamicHealth({
-      score: Math.round(score),
+      score: score,
       daysSinceFailure: Math.round(daysSince),
-      daysRemaining: Math.round(optimalDays - daysSince),
+      daysRemaining: Math.round(daysRemaining),
+      referenceInterval,
     });
 
-  }, [optimalInterval, asset.events]);
+  }, [asset, failureTimes]);
 
   const calculatedMtbf = React.useMemo(() => {
     if (failureTimes.length === 0) {
@@ -189,7 +202,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                             <span className="ml-2 text-2xl font-medium text-muted-foreground">dias</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                            {dynamicHealth ? `${t('assetDetail.dynamicHealth.timeSinceFailure')}: ${dynamicHealth.daysSinceFailure} / ${Math.round((optimalInterval ?? 0)/24)} dias` : ''}
+                            {dynamicHealth ? `${t('assetDetail.dynamicHealth.timeSinceFailure')}: ${dynamicHealth.daysSinceFailure} / ${Math.round(dynamicHealth.referenceInterval / 24)} dias` : ''}
                         </div>
                     </div>
                 </CardContent>
@@ -205,7 +218,6 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
              <PreventiveMaintenanceOptimizer
                 asset={asset}
-                onCalculationComplete={(result) => setOptimalInterval(result.optimalInterval)}
              />
 
              <AssetProbabilityPlot asset={asset} />

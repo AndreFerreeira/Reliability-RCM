@@ -66,7 +66,7 @@ function erf(x: number): number {
   return sign * y;
 }
 
-function normalCdf(x: number, mean: number = 0, stdDev: number = 1): number {
+export function normalCdf(x: number, mean: number = 0, stdDev: number = 1): number {
     if (stdDev <= 0) return x < mean ? 0 : 1;
     return 0.5 * (1 + erf((x - mean) / (stdDev * Math.sqrt(2))));
 }
@@ -90,7 +90,7 @@ const lognormalCdf = (t: number, mu: number, sigma: number) => {
     return normalCdf(z);
 };
 
-const lognormalSurvival = (t: number, mu: number, sigma: number) => {
+export const lognormalSurvival = (t: number, mu: number, sigma: number) => {
     return 1 - lognormalCdf(t, mu, sigma);
 };
 
@@ -1124,4 +1124,58 @@ export function analyzeCompetingFailureModes(
         period,
         tables: analysisTables,
     };
+}
+
+export function getReliability(distribution: Distribution, params: Parameters, time: number): number {
+    if (time < 0) return 1;
+
+    switch(distribution) {
+        case 'Weibull':
+            if (params.beta && params.eta) {
+                return weibullSurvival(time, params.beta, params.eta);
+            }
+            break;
+        case 'Lognormal':
+            if (params.mean !== undefined && params.stdDev) {
+                return lognormalSurvival(time, params.mean, params.stdDev);
+            }
+            break;
+        case 'Normal':
+            if (params.mean !== undefined && params.stdDev) {
+                return 1 - normalCdf(time, params.mean, params.stdDev);
+            }
+            break;
+        case 'Exponential':
+            if (params.lambda) {
+                return Math.exp(-params.lambda * time);
+            }
+            break;
+    }
+    return NaN;
+}
+
+export function getMedianLife(distribution: Distribution, params: Parameters): number {
+    switch(distribution) {
+        case 'Weibull':
+            if (params.beta && params.eta) {
+                return params.eta * Math.pow(Math.log(2), 1 / params.beta);
+            }
+            break;
+        case 'Lognormal':
+            if (params.mean !== undefined) {
+                return Math.exp(params.mean);
+            }
+            break;
+        case 'Normal':
+            if (params.mean !== undefined) {
+                return params.mean;
+            }
+            break;
+        case 'Exponential':
+            if (params.lambda) {
+                return Math.log(2) / params.lambda;
+            }
+            break;
+    }
+    return NaN;
 }
