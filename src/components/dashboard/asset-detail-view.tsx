@@ -224,7 +224,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
           </DialogHeader>
           <ScrollArea className="flex-grow pr-6 -mr-2">
             <div 
-              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-ul:pl-4" 
+              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-ul:pl-4 prose-ul:prose-ul:pl-2 prose-ul:prose-ul:prose-li:text-xs"
               dangerouslySetInnerHTML={{ __html: marked.parse(reportContent) as string }} 
             />
           </ScrollArea>

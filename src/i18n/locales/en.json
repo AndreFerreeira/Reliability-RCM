@@ -302,7 +302,6 @@
       "cardTitle": "Contour Plot",
       "cardDescription": "Calculate the likelihood ratio confidence ellipse.",
       "button": "Calculate Contour",
-
       "chartTitle": "Likelihood Ratio Contour Plot",
       "mleEstimate": "MLE Estimate",
       "confidenceContour": "{{level}}% Confidence Contour",

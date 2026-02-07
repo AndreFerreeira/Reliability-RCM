@@ -189,8 +189,17 @@ export async function generateRcaReport(
 
 **5. Plano de Ação Recomendado:**
 *   **Ação Imediata:** Iniciar o processo de **substituição ou reforma completa** do ativo. A decisão é fortemente suportada pelos indicadores de desgaste, alto risco (RPN) e impacto financeiro negativo (TCO).
+    *   **Responsável:** Engenharia de Manutenção / Planejamento.
+    *   **Prazo:** 30 dias para apresentar estudo de viabilidade (substituir vs. reformar).
+    *   **Verificação:** Apresentação do estudo LCC (Life Cycle Cost).
 *   **Ações de Mitigação (curto prazo):** Se a substituição não for imediata, aumentar a frequência de monitoramento preditivo e garantir que peças sobressalentes críticas estejam disponíveis em estoque para minimizar o MTTR em caso de falha.
+    *   **Responsável:** Equipe de Preditiva / PCM.
+    *   **Prazo:** 7 dias.
+    *   **Verificação:** Revisão do plano de inspeção e confirmação de estoque.
 *   **Ações de Melhoria Contínua (longo prazo):** Revisar o plano de manutenção para ativos similares, considerando a implementação de tarefas preditivas mais cedo no ciclo de vida. Analisar a possibilidade de um redesenho (redesign) se a falha for recorrente em ativos do mesmo tipo.
+    *   **Responsável:** Engenharia de Confiabilidade.
+    *   **Prazo:** 180 dias.
+    *   **Verificação:** Publicação da revisão do plano de manutenção para a frota.
 `;
 
     return { report };

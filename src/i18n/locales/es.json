@@ -456,7 +456,7 @@
       "rmCosts": "COSTOS TOTALES R&M",
       "lossAnalysis": "ANÁLISIS DE PÉRDIDAS (DOWNTIME)",
       "maintIntensity": "INTENSIDAD MANT.",
-      "pmCountdown": "CUENTA ATRÁS MP",
+      "pmCountdown": "PM COUNTDOWN",
       "days": "días",
       "health": "Salud"
     },

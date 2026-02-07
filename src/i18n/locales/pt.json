@@ -6,8 +6,7 @@
     "reliabilityAnalysis": "Análise de Confiabilidade",
     "aiAnalysis": "Análise com IA",
     "monteCarlo": "Simulador Monte Carlo",
-    "performanceDashboard": "Performance",
-    "strategicActionPlan": "Plano de Ação Estratégico"
+    "performanceDashboard": "Performance"
   },
   "supplierManager": {
     "cardTitle": "Dados do Equipamento",
@@ -525,7 +524,6 @@
       "description": "Os quatro gráficos fundamentais da confiabilidade calculados com base nos parâmetros Weibull do ativo."
     },
     "optimizePM": {
-      "button": "Otimizar PM",
       "title": "Otimização de Manutenção Preventiva",
       "description": "Calcule o intervalo ótimo para substituição preventiva com base nos custos e na confiabilidade do ativo.",
       "costCpLabel": "Custo da Preventiva (Cp)",
