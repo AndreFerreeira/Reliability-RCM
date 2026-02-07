@@ -556,13 +556,42 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, trend, trendDirection, tr
     );
 };
 
+const getInitialAssets = (): AssetData[] => {
+    if (typeof window === 'undefined') {
+        return [];
+    }
+    try {
+        const savedAssets = localStorage.getItem('rcm-assets');
+        if (savedAssets) {
+            return JSON.parse(savedAssets);
+        }
+    } catch (error) {
+        console.error("Failed to parse assets from localStorage", error);
+    }
+    return assetData.assets;
+};
+
 export default function MaintenanceDashboard() {
     const { t } = useI18n();
     const { toast } = useToast();
-    const [assets, setAssets] = React.useState<AssetData[]>(assetData.assets);
+    const [assets, setAssets] = React.useState<AssetData[]>([]);
     const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
     const [healthData, setHealthData] = React.useState<Map<string, { score: number, daysRemaining: number }>>(new Map());
+
+    React.useEffect(() => {
+        setAssets(getInitialAssets());
+    }, []);
+
+    React.useEffect(() => {
+        if (assets.length > 0) {
+            try {
+                localStorage.setItem('rcm-assets', JSON.stringify(assets));
+            } catch (error) {
+                console.error("Failed to save assets to localStorage", error);
+            }
+        }
+    }, [assets]);
 
     React.useEffect(() => {
         const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
@@ -845,3 +874,5 @@ export default function MaintenanceDashboard() {
         </div>
     );
 }
+
+    

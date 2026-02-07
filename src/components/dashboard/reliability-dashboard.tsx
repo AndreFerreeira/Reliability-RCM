@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { calculateReliabilityData, estimateParameters } from '@/lib/reliability';
@@ -31,25 +31,53 @@ const initialSuppliersData = [
   },
 ];
 
-const initialSuppliers: Supplier[] = initialSuppliersData.map(s => {
-  const estimationResult = estimateParameters({
-    dist: s.distribution, 
-    failureTimes: s.failureTimes, 
-    suspensionTimes: s.suspensionTimes, 
-    method: 'SRM'
+const getInitialSuppliers = (): Supplier[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const savedSuppliers = localStorage.getItem('rcm-suppliers');
+    if (savedSuppliers) {
+      return JSON.parse(savedSuppliers);
+    }
+  } catch (error) {
+    console.error("Failed to parse suppliers from localStorage", error);
+  }
+
+  return initialSuppliersData.map(s => {
+    const estimationResult = estimateParameters({
+      dist: s.distribution,
+      failureTimes: s.failureTimes,
+      suspensionTimes: s.suspensionTimes,
+      method: 'SRM'
+    });
+    return {
+      ...s,
+      params: estimationResult.params,
+      plotData: estimationResult.plotData
+    };
   });
-  return {
-    ...s,
-    params: estimationResult.params,
-    plotData: estimationResult.plotData
-  };
-});
+};
 
 
 export default function ReliabilityDashboard() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [estimationMethod, setEstimationMethod] = useState<EstimationMethod>('MLE');
   const { t } = useI18n();
+
+  useEffect(() => {
+    setSuppliers(getInitialSuppliers());
+  }, []);
+
+  useEffect(() => {
+    if (suppliers.length > 0) {
+        try {
+            localStorage.setItem('rcm-suppliers', JSON.stringify(suppliers));
+        } catch (error) {
+            console.error("Failed to save suppliers to localStorage", error);
+        }
+    }
+  }, [suppliers]);
 
   const handleSetSuppliers = (updater: (prev: Supplier[]) => Supplier[]) => {
     setSuppliers(prev => {
@@ -80,11 +108,11 @@ export default function ReliabilityDashboard() {
             }
             
             // Keep manual overrides for params if data hasn't changed
-            if (JSON.stringify(s.params) !== JSON.stringify(originalSupplier.params)) {
+            if (originalSupplier && JSON.stringify(s.params) !== JSON.stringify(originalSupplier.params)) {
               return s; 
             }
 
-            return { ...s, plotData: originalSupplier.plotData, params: originalSupplier.params };
+            return { ...s, plotData: originalSupplier?.plotData, params: originalSupplier?.params ?? {} };
         });
     });
   };
@@ -164,3 +192,5 @@ export default function ReliabilityDashboard() {
     </div>
   );
 }
+
+    
