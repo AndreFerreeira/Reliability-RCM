@@ -13,7 +13,7 @@ import { Loader2, Lightbulb, Target, TrendingUp, TrendingDown, Minus } from 'luc
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
-import { weibullSurvival } from '@/lib/reliability';
+import { calculateOptimalInterval } from '@/lib/reliability';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
@@ -115,47 +115,20 @@ export default function PreventiveMaintenanceOptimizer({ asset, onCalculationCom
 
     setTimeout(() => {
         try {
-            const { beta, eta } = asset;
+            const calculationResult = calculateOptimalInterval({
+                beta: asset.beta!,
+                eta: asset.eta!,
+                costCp,
+                costCu
+            });
 
-            const maxTime = eta * 3;
-            const steps = 200;
-            const timePoints = Array.from({ length: steps + 1 }, (_, i) => (i / steps) * maxTime);
-
-            let cumulativeIntegral = 0;
-            const costCurve = timePoints.map((t_i, i) => {
-                if (i > 0) {
-                    const t_prev = timePoints[i-1];
-                    const dt = t_i - t_prev;
-                    const R_avg = (weibullSurvival(t_i, beta, eta) + weibullSurvival(t_prev, beta, eta)) / 2;
-                    cumulativeIntegral += R_avg * dt;
-                }
-                
-                const mttf_t = cumulativeIntegral;
-                if (t_i < 1 || mttf_t < 1e-9) return null;
-
-                const R_t = weibullSurvival(t_i, beta, eta);
-                const F_t = 1 - R_t;
-                const cost_t = (costCp * R_t + costCu * F_t) / mttf_t;
-                
-                return isFinite(cost_t) ? { time: t_i, cost: cost_t } : null;
-            }).filter((p): p is { time: number; cost: number } => p !== null);
-
-            if (costCurve.length === 0) {
+            if (!calculationResult) {
                 throw new Error('Não foi possível calcular a curva de custo.');
             }
 
-            let minCost = Infinity;
-            let optimalInterval = 0;
-            costCurve.forEach(point => {
-                if (point.cost < minCost) {
-                    minCost = point.cost;
-                    optimalInterval = point.time;
-                }
-            });
-
-            setResult({ costCurve, optimalInterval, minCost });
+            setResult(calculationResult);
             if (onCalculationComplete) {
-                onCalculationComplete({ optimalInterval, minCost });
+                onCalculationComplete(calculationResult);
             }
         } catch (error) {
              toast({

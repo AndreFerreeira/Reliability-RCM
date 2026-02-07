@@ -453,7 +453,10 @@
       "gbv": "GBV VALUE",
       "rmCosts": "R&M TOTAL COSTS",
       "lossAnalysis": "LOSS ANALYSIS (DOWNTIME)",
-      "maintIntensity": "MAINT INTENSITY"
+      "maintIntensity": "MAINT INTENSITY",
+      "pmCountdown": "PM COUNTDOWN",
+      "days": "days",
+      "health": "Health"
     },
     "lifecycle": {
       "wearOut": "End of Life / Wear-out",

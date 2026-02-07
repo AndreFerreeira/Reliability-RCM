@@ -787,6 +787,44 @@ export function calculateLikelihoodRatioContour(
     };
 }
 
+export function calculateOptimalInterval({ beta, eta, costCp, costCu }: { beta: number, eta: number, costCp: number, costCu: number }) {
+  const maxTime = eta * 3;
+  const steps = 200;
+  const timePoints = Array.from({ length: steps + 1 }, (_, i) => (i / steps) * maxTime);
+
+  let cumulativeIntegral = 0;
+  const costCurve = timePoints.map((t_i, i) => {
+    if (i > 0) {
+      const t_prev = timePoints[i - 1];
+      const dt = t_i - t_prev;
+      const R_avg = (weibullSurvival(t_i, beta, eta) + weibullSurvival(t_prev, beta, eta)) / 2;
+      cumulativeIntegral += R_avg * dt;
+    }
+
+    const mttf_t = cumulativeIntegral;
+    if (t_i < 1 || mttf_t < 1e-9) return null;
+
+    const R_t = weibullSurvival(t_i, beta, eta);
+    const F_t = 1 - R_t;
+    const cost_t = (costCp * R_t + costCu * F_t) / mttf_t;
+
+    return isFinite(cost_t) ? { time: t_i, cost: cost_t } : null;
+  }).filter((p): p is { time: number; cost: number } => p !== null);
+
+  if (costCurve.length === 0) return null;
+
+  let minCost = Infinity;
+  let optimalInterval = 0;
+  costCurve.forEach(point => {
+    if (point.cost < minCost) {
+      minCost = point.cost;
+      optimalInterval = point.time;
+    }
+  });
+  
+  return { costCurve, optimalInterval, minCost };
+}
+
 
 // --- Reliability Calculations ---
 

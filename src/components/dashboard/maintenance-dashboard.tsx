@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Clock, Cog, DollarSign, MapPin, Pencil, Search, Tag, Trash2, TrendingUp, Upload, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Clock, Cog, DollarSign, MapPin, Pencil, Search, Tag, Trash2, TrendingUp, Upload, Wrench, CalendarClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '../ui/textarea';
-import { estimateParameters } from '@/lib/reliability';
+import { estimateParameters, calculateOptimalInterval } from '@/lib/reliability';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -562,6 +562,45 @@ export default function MaintenanceDashboard() {
     const [assets, setAssets] = React.useState<AssetData[]>(assetData.assets);
     const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
+    const [healthData, setHealthData] = React.useState<Map<string, { score: number, daysRemaining: number }>>(new Map());
+
+    React.useEffect(() => {
+        const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
+        
+        assets.forEach(asset => {
+            if (asset.beta && asset.eta) {
+                const result = calculateOptimalInterval({
+                    beta: asset.beta,
+                    eta: asset.eta,
+                    costCp: 1000, // Default cost
+                    costCu: 5000  // Default cost
+                });
+
+                if (result && result.optimalInterval > 0 && asset.events && asset.events.length > 0) {
+                     const failureEvents = asset.events
+                        .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
+                        .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
+                        .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+                    if (failureEvents.length > 0) {
+                        const lastFailureDate = failureEvents[0].date;
+                        const now = new Date();
+                        const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
+                        
+                        const score = Math.max(0, 100 * (1 - (hoursSinceLastFailure / result.optimalInterval)));
+                        const daysRemaining = (result.optimalInterval - hoursSinceLastFailure) / 24;
+
+                        newHealthData.set(asset.id, {
+                            score: Math.round(score),
+                            daysRemaining: Math.round(daysRemaining)
+                        });
+                    }
+                }
+            }
+        });
+
+        setHealthData(newHealthData);
+    }, [assets]);
 
     const kpiValues = React.useMemo(() => {
         if (!assets || assets.length === 0) {
@@ -679,15 +718,17 @@ export default function MaintenanceDashboard() {
                      <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">
                         <div className="col-span-3">{t('performance.table.assetInfo')}</div>
                         <div className="col-span-2">{t('performance.table.locationSerial')}</div>
-                        <div className="col-span-2 text-right">{t('performance.table.gbv')}</div>
+                        <div className="col-span-1 text-right">{t('performance.table.gbv')}</div>
                         <div className="col-span-2 text-right">{t('performance.table.rmCosts')}</div>
                         <div className="col-span-2 text-right">{t('performance.table.lossAnalysis')}</div>
                         <div className="text-right">{t('performance.table.maintIntensity')}</div>
+                        <div className="text-right">{t('performance.table.pmCountdown')}</div>
                     </div>
                     {assets.map((asset) => {
                         const numFailures = asset.failureTimes ? asset.failureTimes.split(',').filter(t => t.trim()).length : 0;
                         const totalHoursDown = numFailures * asset.mttr;
                         const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+                        const health = healthData.get(asset.id);
 
                         return (
                             <div 
@@ -721,7 +762,7 @@ export default function MaintenanceDashboard() {
                                 </div>
 
                                 {/* GBV */}
-                                <div className="text-right font-medium col-span-2">{formatCurrency(asset.gbv)}</div>
+                                <div className="text-right font-medium col-span-1">{formatCurrency(asset.gbv)}</div>
 
                                 {/* R&M Costs */}
                                 <div className="text-right col-span-2">
@@ -747,10 +788,30 @@ export default function MaintenanceDashboard() {
                                 </div>
 
                                 {/* Maint Intensity */}
-                                <div className="flex items-center justify-end gap-2 text-right">
+                                <div className="text-right">
                                      <span className="font-bold text-red-500">{maintIntensity.toFixed(2)}%</span>
                                      <Progress value={maintIntensity > 100 ? 100 : maintIntensity} className="h-1 w-10 bg-red-500/20 [&>div]:bg-red-500"/>
                                 </div>
+
+                                 {/* PM Countdown */}
+                                <div className="text-right">
+                                     {health ? (
+                                        <div className="flex flex-col items-end">
+                                            <div className={cn(
+                                                "font-bold text-lg",
+                                                health.daysRemaining < 7 && "text-red-500",
+                                                health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500",
+                                                health.daysRemaining >= 30 && "text-green-500"
+                                            )}>
+                                                {Math.max(0, health.daysRemaining)} {t('performance.table.days')}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">{health.score}% {t('performance.table.health')}</div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-muted-foreground">--</div>
+                                    )}
+                                </div>
+
                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} aria-label={t('performance.table.edit')}><Pencil className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteAsset(asset.id); }} aria-label={t('performance.table.delete')}><Trash2 className="h-4 w-4 text-destructive" /></Button>
