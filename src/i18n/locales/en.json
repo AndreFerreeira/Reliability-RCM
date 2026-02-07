@@ -476,6 +476,7 @@
       "step3": "The tool will group events by 'TAG' and calculate reliability metrics.",
       "requiredHeaders": "Required Headers: tag, date, status, maintenance cost, gbv..."
     },
+    "downtimeCostPerHour": "Downtime Cost / Hour",
     "titleEdit": "Edit Asset",
     "descriptionEdit": "Modify the asset details below.",
     "saveButton": "Save Changes",
@@ -483,7 +484,7 @@
     "gbv": "Gross Book Value (GBV)"
   },
   "assetDetail": {
-    "backToFleet": "Back",
+    "back": "Back",
     "scheduleMaintenance": "Schedule Maintenance",
     "generateWorkOrder": "Generate Work Order",
     "weibullAndOptimize": {

@@ -279,4 +279,5 @@ export interface AssetData {
   eta?: number;
   serialNumber?: string;
   tags?: string[];
+  downtimeCostPerHour?: number;
 }

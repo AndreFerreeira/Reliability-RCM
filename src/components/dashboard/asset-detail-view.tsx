@@ -94,18 +94,14 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   }, [optimalInterval, asset.events]);
 
   const calculatedMtbf = React.useMemo(() => {
-    if (failureTimes.length < 2) {
-      return 0; // Not enough data to calculate intervals
+    if (failureTimes.length === 0) {
+      return 0;
     }
-    const firstFailure = failureTimes[0];
-    const lastFailure = failureTimes[failureTimes.length - 1];
-    const numberOfIntervals = failureTimes.length - 1;
-    
-    return (lastFailure - firstFailure) / numberOfIntervals;
+    const sumOfFailureTimes = failureTimes.reduce((sum, time) => sum + time, 0);
+    return sumOfFailureTimes / failureTimes.length;
   }, [failureTimes]);
 
-  const totalDowntimeHours = asset.mttr * failureTimes.length;
-  const downtimeCostPerHour = totalDowntimeHours > 0 && asset.downtimeLoss > 0 ? asset.downtimeLoss / totalDowntimeHours : 0;
+  const downtimeCostPerHour = asset.downtimeCostPerHour ?? 0;
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
@@ -135,7 +131,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
         <div>
           <Button variant="outline" onClick={onBack} className="mb-2">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            {t('assetDetail.backToFleet')}
+            {t('assetDetail.back')}
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">{asset.name}</h2>
           <p className="text-muted-foreground">{asset.location}</p>
@@ -158,7 +154,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoCard title="MTBF" value={calculatedMtbf > 0 ? calculatedMtbf.toFixed(0) : '--'} unit="h" icon={Clock} />
                 <InfoCard title="MTTR" value={asset.mttr} unit="h" icon={AlertTriangle} />
-                <InfoCard title="Custo / Hora de Downtime" value={`$${downtimeCostPerHour.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
+                <InfoCard title={t('assetEditor.downtimeCostPerHour')} value={`$${downtimeCostPerHour.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
             </div>
 
             <Card className="bg-card shadow-lg">

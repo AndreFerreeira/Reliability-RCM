@@ -475,6 +475,7 @@
       "step3": "A ferramenta agrupará os eventos por 'TAG' e calculará as métricas de confiabilidade.",
       "requiredHeaders": "Cabeçalhos Necessários: tag, data, status, custo de manutenção, gbv..."
     },
+    "downtimeCostPerHour": "Custo / Hora de Downtime",
     "titleEdit": "Editar Ativo",
     "descriptionEdit": "Modifique os detalhes do ativo abaixo.",
     "saveButton": "Salvar Alterações",
@@ -482,7 +483,7 @@
     "gbv": "Valor Contábil Bruto (GBV)"
   },
   "assetDetail": {
-    "backToFleet": "Voltar",
+    "back": "Voltar",
     "scheduleMaintenance": "Agendar Manutenção",
     "generateWorkOrder": "Gerar Ordem de Serviço",
     "weibullAndOptimize": {

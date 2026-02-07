@@ -56,8 +56,7 @@ const headerMapping: Record<string, string> = {
     'custo r&m': 'maintenanceCost',
     'total real': 'maintenanceCost',
     'gbv': 'gbv',
-    'perda por downtime': 'downtimeLoss',
-    'perdas por parada': 'downtimeLoss',
+    'custo por hora de downtime': 'downtimeCostPerHour',
     'rpn': 'rpn',
     'severidade': 'severity',
     
@@ -84,7 +83,7 @@ const headerMapping: Record<string, string> = {
     'availability': 'availability',
     'maintenance cost': 'maintenanceCost',
     'r&m cost': 'maintenanceCost',
-    'downtime loss': 'downtimeLoss',
+    'downtime cost per hour': 'downtimeCostPerHour',
     'failure times': 'failureTimes',
     'rpn': 'rpn',
     'severity': 'severity',
@@ -95,8 +94,8 @@ const headerMapping: Record<string, string> = {
 };
 
 const requiredFields: (keyof AssetData)[] = [
-    'id', 'name', 'criticality', 'pdmHealth', 'availability', 
-    'maintenanceCost', 'gbv', 'downtimeLoss', 'failureTimes', 'rpn', 'severity', 'mttr'
+    'id', 'name', 'criticality', 'pdmHealth',
+    'maintenanceCost', 'gbv', 'failureTimes', 'rpn', 'severity', 'mttr', 'downtimeCostPerHour'
 ];
 
 function parseDate(dateStr: string): Date | null {
@@ -213,21 +212,15 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                     return sum;
                 }, 0);
 
-                asset.downtimeLoss = rows.reduce((sum, row) => {
-                    const lossStr = row[headerMap['downtimeLoss']];
-                    if (lossStr) return sum + (parseFloat(lossStr.replace(/[^0-9,.-]+/g, '').replace(/\./g, '').replace(',', '.')) || 0);
-                    return sum;
-                }, 0);
-
                 Object.keys(headerMap).forEach(key => {
                     const index = headerMap[key];
                     const value = firstRow[index]?.trim();
                     if (value === undefined) return;
 
-                    const staticFields: (keyof AssetData)[] = ['name', 'location', 'criticality', 'pdmHealth', 'availability', 'gbv', 'rpn', 'severity'];
+                    const staticFields: (keyof AssetData)[] = ['name', 'location', 'criticality', 'pdmHealth', 'availability', 'gbv', 'rpn', 'severity', 'downtimeCostPerHour'];
                     if (staticFields.includes(key as any)) {
                         const mappedKey = key as keyof AssetData;
-                        const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'gbv', 'rpn', 'severity'];
+                        const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'gbv', 'rpn', 'severity', 'downtimeCostPerHour'];
                         if (numericFields.includes(mappedKey)) {
                            (asset[mappedKey] as any) = parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
                         } else if (mappedKey === 'criticality') {
@@ -289,7 +282,7 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                     const index = columnIndexMap[key];
                     if (index !== undefined && index < values.length) {
                          const value = values[index].trim();
-                         const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeLoss', 'rpn', 'severity', 'mttr'];
+                         const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeCostPerHour', 'rpn', 'severity', 'mttr'];
                         
                         if (numericFields.includes(key)) {
                             (asset[key] as any) = parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
@@ -348,6 +341,7 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                     maintenanceCost: 0,
                     gbv: 0,
                     downtimeLoss: 0,
+                    downtimeCostPerHour: 0,
                     failureTimes: '',
                     rpn: 0,
                     severity: 0,
@@ -419,7 +413,7 @@ const assetSchema = z.object({
     availability: z.coerce.number(),
     maintenanceCost: z.coerce.number(),
     gbv: z.coerce.number(),
-    downtimeLoss: z.coerce.number(),
+    downtimeCostPerHour: z.coerce.number().optional(),
     failureTimes: z.string(),
     rpn: z.coerce.number(),
     severity: z.coerce.number(),
@@ -437,7 +431,7 @@ function AssetEditorDialog({ asset, onSave, onCancel, t }: { asset: AssetData; o
             availability: asset.availability ?? 0,
             maintenanceCost: asset.maintenanceCost ?? 0,
             gbv: asset.gbv ?? 0,
-            downtimeLoss: asset.downtimeLoss ?? 0,
+            downtimeCostPerHour: asset.downtimeCostPerHour ?? 0,
             failureTimes: asset.failureTimes ?? '',
             rpn: asset.rpn ?? 0,
             severity: asset.severity ?? 0,
@@ -495,8 +489,8 @@ function AssetEditorDialog({ asset, onSave, onCancel, t }: { asset: AssetData; o
                            <FormField control={form.control} name="maintenanceCost" render={({ field }) => (
                                 <FormItem><FormLabel>{t('performance.kpi.maintenanceCost')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
-                             <FormField control={form.control} name="downtimeLoss" render={({ field }) => (
-                                <FormItem><FormLabel>{t('performance.kpi.revenueLoss')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                             <FormField control={form.control} name="downtimeCostPerHour" render={({ field }) => (
+                                <FormItem><FormLabel>{t('assetEditor.downtimeCostPerHour')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                               <FormField control={form.control} name="mttr" render={({ field }) => (
                                 <FormItem><FormLabel>MTTR</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
@@ -592,11 +586,40 @@ export default function MaintenanceDashboard() {
             }
         }
     }, [assets]);
+    
+    const processedAssets = React.useMemo(() => {
+        return assets.map(asset => {
+            const failureTimesArray = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
+            const numFailures = failureTimesArray.length;
+
+            const mtbf = numFailures > 0 
+                ? failureTimesArray.reduce((sum, t) => sum + t, 0) / numFailures
+                : 0;
+            
+            const availability = (asset.mttr > 0 && mtbf > 0)
+                ? (mtbf / (mtbf + asset.mttr))
+                : 1;
+
+            const totalHoursDown = numFailures * asset.mttr;
+
+            const downtimeLoss = totalHoursDown * (asset.downtimeCostPerHour ?? 0);
+
+            return {
+                ...asset,
+                availability: availability * 100, // Stored as percentage
+                downtimeLoss: downtimeLoss,
+                calculatedTotalHoursDown: totalHoursDown,
+                calculatedNumFailures: numFailures,
+                mtbf: mtbf
+            };
+        });
+    }, [assets]);
+
 
     React.useEffect(() => {
         const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
         
-        assets.forEach(asset => {
+        processedAssets.forEach(asset => {
             if (asset.beta && asset.eta) {
                 const result = calculateOptimalInterval({
                     beta: asset.beta,
@@ -629,10 +652,10 @@ export default function MaintenanceDashboard() {
         });
 
         setHealthData(newHealthData);
-    }, [assets]);
+    }, [processedAssets]);
 
     const kpiValues = React.useMemo(() => {
-        if (!assets || assets.length === 0) {
+        if (processedAssets.length === 0) {
             return {
                 avgAvailability: 0,
                 totalDowntimeLoss: 0,
@@ -642,12 +665,12 @@ export default function MaintenanceDashboard() {
             };
         }
 
-        const totalDowntimeLoss = assets.reduce((sum, asset) => sum + (asset.downtimeLoss || 0), 0);
-        const totalGbv = assets.reduce((sum, asset) => sum + (asset.gbv || 0), 0);
-        const totalMaintenanceCost = assets.reduce((sum, asset) => sum + (asset.maintenanceCost || 0), 0);
+        const totalDowntimeLoss = processedAssets.reduce((sum, asset) => sum + (asset.downtimeLoss || 0), 0);
+        const totalGbv = processedAssets.reduce((sum, asset) => sum + (asset.gbv || 0), 0);
+        const totalMaintenanceCost = processedAssets.reduce((sum, asset) => sum + (asset.maintenanceCost || 0), 0);
         
         let validAvailabilityAssets = 0;
-        const totalAvailability = assets.reduce((sum, asset) => {
+        const totalAvailability = processedAssets.reduce((sum, asset) => {
           if (asset.availability != null) {
             validAvailabilityAssets++;
             return sum + asset.availability;
@@ -665,7 +688,7 @@ export default function MaintenanceDashboard() {
             totalGbv,
             maintIntensity,
         };
-    }, [assets]);
+    }, [processedAssets]);
     
     let intensityTrend, intensityTrendColor, intensityTrendDirection;
 
@@ -753,9 +776,7 @@ export default function MaintenanceDashboard() {
                         <div className="text-right">{t('performance.table.maintIntensity')}</div>
                         <div className="text-right">{t('performance.table.pmCountdown')}</div>
                     </div>
-                    {assets.map((asset) => {
-                        const numFailures = asset.failureTimes ? asset.failureTimes.split(',').filter(t => t.trim()).length : 0;
-                        const totalHoursDown = numFailures * asset.mttr;
+                    {processedAssets.map((asset) => {
                         const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
                         const health = healthData.get(asset.id);
                         const isCritical = health && health.daysRemaining <= 0;
@@ -830,9 +851,9 @@ export default function MaintenanceDashboard() {
                                         {formatCurrency(asset.downtimeLoss)}
                                      </div>
                                      <div className="text-xs text-muted-foreground">
-                                         <span><Clock className="inline h-3 w-3 mr-1"/>{totalHoursDown}h Down</span>
+                                         <span><Clock className="inline h-3 w-3 mr-1"/>{asset.calculatedTotalHoursDown}h Down</span>
                                          <span className="font-bold mx-1">·</span>
-                                         <span>{numFailures} Failures</span>
+                                         <span>{asset.calculatedNumFailures} Failures</span>
                                      </div>
                                 </div>
 

@@ -15,6 +15,7 @@
         "cmCost": 125000,
         "gbv": 2500000,
         "downtimeLoss": 2880000,
+        "downtimeCostPerHour": 15000,
         "failureTimes": "2100, 4500, 6800, 8700",
         "rpn": 320,
         "severity": 7,
