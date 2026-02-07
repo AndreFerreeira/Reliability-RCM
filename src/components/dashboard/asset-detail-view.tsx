@@ -217,14 +217,14 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
       </div>
 
       <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-        <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{t('assetDetail.rcaReport.title', { assetName: asset.name })}</DialogTitle>
             <DialogDescription>{t('assetDetail.rcaReport.description')}</DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-grow pr-6 -mr-2">
             <div 
-              className="prose dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-ul:pl-4 prose-ul:prose-ul:pl-2 prose-ul:prose-ul:prose-li:text-xs"
+              className="prose prose-base dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-ul:list-disc prose-ul:pl-6"
               dangerouslySetInnerHTML={{ __html: marked.parse(reportContent) as string }} 
             />
           </ScrollArea>
