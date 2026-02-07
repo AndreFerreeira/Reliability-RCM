@@ -685,14 +685,14 @@ export default function MaintenanceDashboard() {
                 const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
 
                 const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
-                const score = isNaN(reliability) ? null : Math.round(reliability * 100);
+                let score = isNaN(reliability) ? null : Math.round(reliability * 100);
     
                 const medianLife = getMedianLife(asset.distribution, asset);
                 const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastFailure) / 24);
 
                 if (score !== null && daysRemaining !== null) {
                     newHealthData.set(asset.id, {
-                        score: score,
+                        score: daysRemaining <= 0 ? 0 : score,
                         daysRemaining: daysRemaining
                     });
                 }
