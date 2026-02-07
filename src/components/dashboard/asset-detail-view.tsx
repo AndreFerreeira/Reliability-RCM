@@ -5,7 +5,7 @@ import type { AssetData } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, Gem, Lightbulb, TrendingUp, ShieldCheck, Loader2, CalendarClock } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, DollarSign, BrainCircuit, Lightbulb, Loader2, CalendarClock } from 'lucide-react';
 import BathtubCurveAnalysis from './bathtub-curve-analysis';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -60,7 +60,9 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [dynamicHealth, setDynamicHealth] = React.useState<{ score: number, daysSinceFailure: number, daysRemaining: number, referenceInterval: number } | null>(null);
 
-  const failureTimes = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? [];
+  const failureTimes = React.useMemo(() => (
+    asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0).sort((a,b) => a - b) ?? []
+  ), [asset.failureTimes]);
 
   React.useEffect(() => {
     if (!asset.distribution || !asset.events || asset.events.length === 0) {
