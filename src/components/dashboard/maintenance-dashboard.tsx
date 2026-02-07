@@ -851,112 +851,133 @@ export default function MaintenanceDashboard() {
                         }
 
                         return (
-                            <div 
-                                key={asset.id} 
+                            <div
+                                key={asset.id}
                                 className={cn(
-                                    "group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-lg hover:bg-muted/50 cursor-pointer border",
-                                    isCritical && "animate-flash"
+                                    'group relative cursor-pointer rounded-lg border p-4 hover:bg-muted/50',
+                                    isCritical && 'animate-flash'
                                 )}
                                 onClick={() => setSelectedAsset(asset)}
                             >
-                                {/* Asset Info */}
-                                <div className="flex items-center gap-3 col-span-3">
-                                    <div className="bg-muted p-2 rounded-lg">
-                                        <Tag className="h-5 w-5 text-muted-foreground" />
-                                    </div>
-                                    <div>
-                                        <div className="font-bold flex items-center gap-2 flex-wrap">
-                                            <span>{asset.name}</span>
-                                            <Badge
-                                                style={{
-                                                    backgroundColor: {
-                                                        'AA': 'hsl(var(--destructive))',
-                                                        'A': 'hsl(var(--chart-3))',
-                                                        'B': 'hsl(var(--chart-4))',
-                                                        'C': 'hsl(var(--secondary))'
-                                                    }[asset.criticality],
-                                                    color: ['A', 'B'].includes(asset.criticality) ? '#111' : 'hsl(var(--primary-foreground))',
-                                                }}
-                                                className="border-transparent"
-                                            >
-                                                {asset.criticality}
-                                            </Badge>
-                                            {asset.lifecycle && (
-                                                <Badge className="border-transparent" style={lifecycleStyle}>
-                                                    {lifecycleText}
-                                                </Badge>
-                                            )}
+                                {/* Desktop layout */}
+                                <div className="hidden md:grid md:grid-cols-12 md:gap-4 md:items-center">
+                                    <div className="flex items-center gap-3 md:col-span-3">
+                                        <div className="bg-muted p-2 rounded-lg">
+                                            <Tag className="h-5 w-5 text-muted-foreground" />
                                         </div>
-                                        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                            <span>{asset.id}</span>
-                                            {asset.tags && asset.tags.length > 0 && (
-                                                <>
-                                                    <span className="font-bold text-muted-foreground/50">·</span>
-                                                    <span className="truncate">{asset.tags.join(' · ')}</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Location & Serial */}
-                                <div className="col-span-2">
-                                     <div className="font-medium flex items-center gap-2"><MapPin className="h-3 w-3 text-muted-foreground" />{asset.location}</div>
-                                     <div className="text-xs text-muted-foreground ml-5">SN: {asset.serialNumber || 'N/A'}</div>
-                                </div>
-
-                                {/* GBV */}
-                                <div className="text-right font-medium col-span-1">{formatCurrency(asset.gbv)}</div>
-
-                                {/* R&M Costs */}
-                                <div className="text-right col-span-2">
-                                     <div className="font-bold">{formatCurrency(asset.maintenanceCost)}</div>
-                                     <div className="text-xs text-muted-foreground">
-                                         <span>PM: {formatCurrency(asset.pmCost ?? 0)}</span>
-                                         <span className="font-bold mx-1 text-muted-foreground/50">·</span>
-                                         <span className="text-red-500">CM: {formatCurrency(asset.cmCost ?? 0)}</span>
-                                     </div>
-                                </div>
-                                
-                                {/* Loss Analysis */}
-                                <div className="text-right col-span-2">
-                                     <div className="font-bold text-red-500 flex items-center justify-end gap-1">
-                                        <AlertTriangle className="h-4 w-4"/>
-                                        {formatCurrency(asset.downtimeLoss)}
-                                     </div>
-                                     <div className="text-xs text-muted-foreground">
-                                         <span><Clock className="inline h-3 w-3 mr-1"/>{asset.calculatedTotalHoursDown}h Down</span>
-                                         <span className="font-bold mx-1">·</span>
-                                         <span>{asset.calculatedNumFailures} Failures</span>
-                                     </div>
-                                </div>
-
-                                {/* Maint Intensity */}
-                                <div className="text-right">
-                                     <span className="font-bold text-red-500">{maintIntensity.toFixed(2)}%</span>
-                                     <Progress value={maintIntensity > 100 ? 100 : maintIntensity} className="h-1 w-10 bg-red-500/20 [&>div]:bg-red-500"/>
-                                </div>
-
-                                 {/* PM Countdown */}
-                                <div className="text-right">
-                                     {health ? (
-                                        <div className="flex flex-col items-end">
-                                            <div className={cn(
-                                                "font-bold text-lg",
-                                                health.daysRemaining < 7 && "text-red-500",
-                                                health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500",
-                                                health.daysRemaining >= 30 && "text-green-500"
-                                            )}>
-                                                {Math.max(0, health.daysRemaining)} {t('performance.table.days')}
+                                        <div>
+                                            <div className="font-bold flex items-center gap-2 flex-wrap">
+                                                <span>{asset.name}</span>
+                                                <Badge
+                                                    style={{
+                                                        backgroundColor: { 'AA': 'hsl(var(--destructive))', 'A': 'hsl(var(--chart-3))', 'B': 'hsl(var(--chart-4))', 'C': 'hsl(var(--secondary))' }[asset.criticality],
+                                                        color: ['A', 'B'].includes(asset.criticality) ? '#111' : 'hsl(var(--primary-foreground))',
+                                                    }}
+                                                    className="border-transparent"
+                                                >{asset.criticality}</Badge>
+                                                {asset.lifecycle && <Badge className="border-transparent" style={lifecycleStyle}>{lifecycleText}</Badge>}
                                             </div>
-                                            <div className="text-xs text-muted-foreground">{health.score}% {t('performance.table.health')}</div>
+                                            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                <span>{asset.id}</span>
+                                                {asset.tags && asset.tags.length > 0 && (
+                                                    <>
+                                                        <span className="font-bold text-muted-foreground/50">·</span>
+                                                        <span className="truncate">{asset.tags.join(' · ')}</span>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="text-sm text-muted-foreground">--</div>
-                                    )}
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <div className="font-medium flex items-center gap-2"><MapPin className="h-3 w-3 text-muted-foreground" />{asset.location}</div>
+                                        <div className="text-xs text-muted-foreground ml-5">SN: {asset.serialNumber || 'N/A'}</div>
+                                    </div>
+                                    <div className="text-right font-medium md:col-span-1">{formatCurrency(asset.gbv)}</div>
+                                    <div className="text-right md:col-span-2">
+                                        <div className="font-bold">{formatCurrency(asset.maintenanceCost)}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            <span>PM: {formatCurrency(asset.pmCost ?? 0)}</span>
+                                            <span className="font-bold mx-1 text-muted-foreground/50">·</span>
+                                            <span className="text-red-500">CM: {formatCurrency(asset.cmCost ?? 0)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right md:col-span-2">
+                                        <div className="font-bold text-red-500 flex items-center justify-end gap-1"><AlertTriangle className="h-4 w-4"/>{formatCurrency(asset.downtimeLoss)}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            <span><Clock className="inline h-3 w-3 mr-1"/>{asset.calculatedTotalHoursDown}h Down</span>
+                                            <span className="font-bold mx-1">·</span>
+                                            <span>{asset.calculatedNumFailures} Failures</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="font-bold text-red-500">{maintIntensity.toFixed(2)}%</span>
+                                        <Progress value={maintIntensity > 100 ? 100 : maintIntensity} className="h-1 w-10 bg-red-500/20 [&>div]:bg-red-500"/>
+                                    </div>
+                                    <div className="text-right">
+                                        {health ? (
+                                            <div className="flex flex-col items-end">
+                                                <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
+                                                    {Math.max(0, health.daysRemaining)} {t('performance.table.days')}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">{health.score}% {t('performance.table.health')}</div>
+                                            </div>
+                                        ) : <div className="text-sm text-muted-foreground">--</div>}
+                                    </div>
                                 </div>
 
-                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {/* Mobile layout */}
+                                <div className="flex flex-col gap-4 md:hidden">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-muted p-2 rounded-lg"><Tag className="h-5 w-5 text-muted-foreground" /></div>
+                                            <div>
+                                                <div className="font-bold text-base">{asset.name}</div>
+                                                <div className="text-xs text-muted-foreground">{asset.id}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            {health ? (
+                                                <div className="flex flex-col items-end">
+                                                    <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
+                                                        {Math.max(0, health.daysRemaining)}
+                                                        <span className="text-sm ml-1">{t('performance.table.days')}</span>
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">{health.score}% {t('performance.table.health')}</div>
+                                                </div>
+                                            ) : <div className="text-sm text-muted-foreground">--</div>}
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        <Badge
+                                            style={{
+                                                backgroundColor: { 'AA': 'hsl(var(--destructive))', 'A': 'hsl(var(--chart-3))', 'B': 'hsl(var(--chart-4))', 'C': 'hsl(var(--secondary))' }[asset.criticality],
+                                                color: ['A', 'B'].includes(asset.criticality) ? '#111' : 'hsl(var(--primary-foreground))',
+                                            }}
+                                            className="border-transparent"
+                                        >{asset.criticality}</Badge>
+                                        {asset.lifecycle && <Badge className="border-transparent" style={lifecycleStyle}>{lifecycleText}</Badge>}
+                                    </div>
+                                    <div className="text-sm flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" />{asset.location}</div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm pt-4 border-t border-dashed">
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">{t('performance.table.rmCosts')}</div>
+                                            <div className="font-semibold">{formatCurrency(asset.maintenanceCost)}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-muted-foreground">{t('performance.table.lossAnalysis')}</div>
+                                            <div className="font-semibold text-red-500">{formatCurrency(asset.downtimeLoss)}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">{t('performance.table.maintIntensity')}</div>
+                                            <div className="font-semibold text-red-500">{maintIntensity.toFixed(2)}%</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-muted-foreground">{t('performance.table.gbv')}</div>
+                                            <div className="font-semibold">{formatCurrency(asset.gbv)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                 <div className="absolute right-2 top-2 md:top-1/2 md:-translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} aria-label={t('performance.table.edit')}><Pencil className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteAsset(asset.id); }} aria-label={t('performance.table.delete')}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                 </div>
@@ -969,5 +990,7 @@ export default function MaintenanceDashboard() {
         </div>
     );
 }
+
+    
 
     
