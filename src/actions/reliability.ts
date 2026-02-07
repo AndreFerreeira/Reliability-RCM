@@ -17,7 +17,7 @@ import type {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash', // <--- MODELO VÁLIDO
+  model: 'gemini-1.5-flash-latest', // <--- MODELO CORRIGIDO
   generationConfig: {
     temperature: 0.2,
     topP: 0.8,
@@ -33,7 +33,7 @@ const model = genAI.getGenerativeModel({
 });
 
 // DEBUG: Confirme no console se o modelo está certo
-console.log('MODEL USED:', model.model); // Deve logar: gemini-1.5-flash
+console.log('MODEL USED:', model.model); // Deve logar: gemini-1.5-flash-latest
 
 async function runAI<T>(prompt: string): Promise<T | { error: string }> {
   try {
