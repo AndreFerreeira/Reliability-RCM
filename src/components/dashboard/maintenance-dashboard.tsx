@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '../ui/textarea';
-import { findBestDistribution, getReliability, getMedianLife } from '@/lib/reliability';
+import { findBestDistribution, getReliability, getMedianLife, getFailureProbWithBounds } from '@/lib/reliability';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -121,274 +121,201 @@ function parseDate(dateStr: string): Date | null {
 
 function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSave: (assets: AssetData[]) => void, t: (key: string, args?: any) => string }) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isImporting, setIsImporting] = React.useState(false);
   const [textData, setTextData] = React.useState('');
   const { toast } = useToast();
   
   const handleImport = () => {
-    try {
-        const lines = textData.trim().split('\n');
-        if (lines.length < 2) {
-            throw new Error(t('tsvError.structure'));
-        }
+    setIsImporting(true);
 
-        const headerLine = lines.shift()!.toLowerCase().split('\t').map(h => h.trim());
-        const headerMap: Record<string, number> = {};
-        headerLine.forEach((h, i) => { 
-            const mappedKey = headerMapping[h.toLowerCase()];
-            if(mappedKey) headerMap[mappedKey] = i;
-        });
-
-        const isEventLog = headerMap['id'] !== undefined && headerMap['startDate'] !== undefined;
-        let newAssets: Partial<AssetData>[];
-
-        if (isEventLog) {
-            const hasEndDate = headerMap['endDate'] !== undefined;
-            const hasStatus = headerMap['status'] !== undefined;
-            const allRows = lines.map(line => line.split('\t'));
-
-            const groupedByTag: Record<string, string[][]> = {};
-            allRows.forEach(row => {
-                const tag = row[headerMap['id']];
-                if (tag) {
-                    if (!groupedByTag[tag]) groupedByTag[tag] = [];
-                    groupedByTag[tag].push(row);
-                }
+    setTimeout(() => {
+        try {
+            const lines = textData.trim().split('\n');
+            if (lines.length < 2) {
+                throw new Error(t('tsvError.structure'));
+            }
+    
+            const headerLine = lines.shift()!.toLowerCase().split('\t').map(h => h.trim());
+            const headerMap: Record<string, number> = {};
+            headerLine.forEach((h, i) => { 
+                const mappedKey = headerMapping[h.toLowerCase()];
+                if(mappedKey) headerMap[mappedKey] = i;
             });
-
-            newAssets = Object.values(groupedByTag).map((rows, groupIndex) => {
-                const firstRow = rows[0];
-                const tag = firstRow[headerMap['id']];
-
-                const events = rows.map(row => ({
-                    row,
-                    startDate: parseDate(row[headerMap['startDate']]),
-                    endDate: hasEndDate ? parseDate(row[headerMap['endDate']]) : null,
-                    status: (hasStatus ? row[headerMap['status']]?.toUpperCase().trim() : 'FALHA').replace('Ç', 'C')
-                }))
-                .filter((e): e is { row: string[]; startDate: Date; endDate: Date | null; status: string } => e.startDate !== null)
-                .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-
-                const logEvents: LogEvent[] = events.map((e, index) => ({
-                    tag: e.row[headerMap['id']] || '',
-                    startDate: e.row[headerMap['startDate']] || '',
-                    endDate: hasEndDate ? e.row[headerMap['endDate']] || '' : '',
-                    description: e.row[headerMap['description']] || t('assetDetail.eventLog.defaultDescription'),
-                    orderNumber: e.row[headerMap['orderNumber']] || (100000 + index).toString(),
-                    interventionType: e.row[headerMap['interventionType']] || t('assetDetail.eventLog.defaultIntervention'),
-                    status: e.status,
-                }));
-
-                const failureTimes: number[] = [];
-                const repairTimes: number[] = [];
-                const failureEvents = events.filter(e => ['FALHA', 'CORRETIVA'].includes(e.status));
-
-                if (hasEndDate) { // Two-date event log
-                     for (let i = 0; i < failureEvents.length; i++) {
-                        const event = failureEvents[i];
-                        if (event.endDate) {
-                            const repairTimeHours = (event.endDate.getTime() - event.startDate.getTime()) / (1000 * 60 * 60);
-                            if (repairTimeHours >= 0) repairTimes.push(repairTimeHours === 0 ? 24 : repairTimeHours);
-                        }
-                        if (i > 0) {
-                            const prevEvent = failureEvents[i - 1];
-                            if (prevEvent.endDate) {
-                                const timeBetweenFailuresHours = (event.startDate.getTime() - prevEvent.endDate.getTime()) / (1000 * 60 * 60);
-                                if (timeBetweenFailuresHours > 0) failureTimes.push(timeBetweenFailuresHours);
-                            }
-                        }
-                    }
-                } else { // Single-date event log
-                    for (let i = 1; i < failureEvents.length; i++) {
-                        const timeBetweenFailuresHours = (failureEvents[i].startDate.getTime() - failureEvents[i - 1].startDate.getTime()) / (1000 * 60 * 60);
-                        if (timeBetweenFailuresHours > 0) failureTimes.push(timeBetweenFailuresHours);
-                    }
-                }
-
-                const asset: Partial<AssetData> = { id: tag };
-                
-                asset.maintenanceCost = rows.reduce((sum, row) => {
-                    const costStr = row[headerMap['maintenanceCost']];
-                    if (costStr) return sum + (parseFloat(costStr.replace(/[^0-9,.-]+/g, '').replace(/\./g, '').replace(',', '.')) || 0);
-                    return sum;
-                }, 0);
-
-                Object.keys(headerMap).forEach(key => {
-                    const index = headerMap[key];
-                    const value = firstRow[index]?.trim();
-                    if (value === undefined) return;
-
-                    const staticFields: (keyof AssetData)[] = ['name', 'location', 'criticality', 'pdmHealth', 'availability', 'gbv', 'rpn', 'severity', 'downtimeCostPerHour'];
-                    if (staticFields.includes(key as any)) {
-                        const mappedKey = key as keyof AssetData;
-                        const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'gbv', 'rpn', 'severity', 'downtimeCostPerHour'];
-                        if (numericFields.includes(mappedKey)) {
-                           (asset[mappedKey] as any) = parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
-                        } else if (mappedKey === 'criticality') {
-                            asset.criticality = (value.toUpperCase() as any) || 'C';
-                        } else {
-                           (asset[mappedKey] as any) = value;
-                        }
+    
+            const isEventLog = headerMap['id'] !== undefined && headerMap['startDate'] !== undefined;
+            let newAssets: Partial<AssetData>[];
+    
+            if (isEventLog) {
+                const hasEndDate = headerMap['endDate'] !== undefined;
+                const hasStatus = headerMap['status'] !== undefined;
+                const allRows = lines.map(line => line.split('\t'));
+    
+                const groupedByTag: Record<string, string[][]> = {};
+                allRows.forEach(row => {
+                    const tag = row[headerMap['id']];
+                    if (tag) {
+                        if (!groupedByTag[tag]) groupedByTag[tag] = [];
+                        groupedByTag[tag].push(row);
                     }
                 });
-
-                if (!asset.name) asset.name = tag;
-
-                asset.failureTimes = failureTimes.join(', ');
-                asset.mttr = repairTimes.length > 0 ? repairTimes.reduce((a, b) => a + b, 0) / repairTimes.length : 0;
-                
-                if (asset.mttr === 0 && headerMap['mttr'] !== undefined) {
-                    asset.mttr = parseFloat(firstRow[headerMap['mttr']].replace(',', '.')) || 0;
-                }
-
-                const ftArray = asset.failureTimes.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                const stArray: number[] = []; // Suspensions are not yet parsed from event logs
-                if (ftArray.length >= 2) {
-                    const { results, best } = findBestDistribution(ftArray, stArray);
-                    if (best && results.length > 0) {
-                        const bestFit = results.find(r => r.distribution === best);
-                        if (bestFit) {
-                            asset.distribution = best;
-                            asset.beta = bestFit.params.beta;
-                            asset.eta = bestFit.params.eta;
-                            asset.mean = bestFit.params.mean;
-                            asset.stdDev = bestFit.params.stdDev;
-                            asset.lambda = bestFit.params.lambda;
-                            asset.rho = bestFit.rSquared;
-
-                            if (best === 'Weibull' && asset.beta) {
-                                if (asset.beta < 0.95) asset.lifecycle = 'infant';
-                                else if (asset.beta > 1.05) asset.lifecycle = 'wearOut';
-                                else asset.lifecycle = 'stable';
-                            } else {
-                                asset.lifecycle = 'stable';
-                            }
-                        }
-                    }
-                } else {
-                    asset.lifecycle = 'stable';
-                }
-
-                asset.events = logEvents;
-
-                return asset;
-            });
-        } else {
-            const columnIndexMap: Partial<Record<keyof AssetData, number>> = {};
-            headerLine.forEach((header, index) => {
-                const mappedKey = headerMapping[header];
-                if (mappedKey && requiredFields.includes(mappedKey as any)) {
-                    columnIndexMap[mappedKey as keyof AssetData] = index;
-                }
-            });
-            
-            const missingHeaders = requiredFields.filter(field => columnIndexMap[field] === undefined);
-            if (missingHeaders.length > 0) {
-                throw new Error(t('tsvError.missingHeaders', { headers: missingHeaders.join(', ') }));
-            }
-            
-            newAssets = lines.map((line, lineIndex) => {
-                const values = line.split('\t');
-                const asset: Partial<AssetData> = {};
-
-                for (const key of Object.keys(columnIndexMap) as (keyof AssetData)[]) {
-                    const index = columnIndexMap[key];
-                    if (index !== undefined && index < values.length) {
-                         const value = values[index].trim();
-                         const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'maintenanceCost', 'gbv', 'downtimeCostPerHour', 'rpn', 'severity', 'mttr'];
+    
+                newAssets = Object.values(groupedByTag).map((rows, groupIndex) => {
+                    const firstRow = rows[0];
+                    const tag = firstRow[headerMap['id']];
+    
+                    const events = rows.map(row => {
+                        const statusText = row[headerMap['status']]?.toUpperCase().trim() || '';
+                        const status = statusText.includes('CORRETIVA') ? 'CORRETIVA' : (statusText.includes('FALHA') ? 'FALHA' : 'SUSPENSÃO');
                         
-                        if (numericFields.includes(key)) {
-                            (asset[key] as any) = parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
-                        } else if (key === 'criticality') {
-                            const crit = value.toUpperCase() as AssetData['criticality'];
-                            asset.criticality = ['AA', 'A', 'B', 'C'].includes(crit) ? crit : 'C';
-                        } else {
-                            (asset[key] as any) = value;
+                        return {
+                            row,
+                            startDate: parseDate(row[headerMap['startDate']]),
+                            endDate: hasEndDate ? parseDate(row[headerMap['endDate']]) : null,
+                            status: status,
                         }
-                    }
-                }
-                
-                if (!asset.id) asset.id = `ASSET-${Date.now()}-${lineIndex}`;
-                if (!asset.name) asset.name = `Asset ${lineIndex + 1}`;
-
-                const failureTimesArray = (asset.failureTimes || '').split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                 if (failureTimesArray.length >= 2) {
-                    const { results, best } = findBestDistribution(failureTimesArray, []);
-                    if (best && results.length > 0) {
-                        const bestFit = results.find(r => r.distribution === best);
-                        if (bestFit) {
-                            asset.distribution = best;
-                            asset.beta = bestFit.params.beta;
-                            asset.eta = bestFit.params.eta;
-                            asset.mean = bestFit.params.mean;
-                            asset.stdDev = bestFit.params.stdDev;
-                            asset.lambda = bestFit.params.lambda;
-                            asset.rho = bestFit.rSquared;
-
-                            if (best === 'Weibull' && asset.beta) {
-                                if (asset.beta < 0.95) asset.lifecycle = 'infant';
-                                else if (asset.beta > 1.05) asset.lifecycle = 'wearOut';
-                                else asset.lifecycle = 'stable';
-                            } else {
-                                asset.lifecycle = 'stable';
+                    })
+                    .filter((e): e is { row: string[]; startDate: Date; endDate: Date | null; status: string } => e.startDate !== null)
+                    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    
+                    const logEvents: LogEvent[] = events.map((e, index) => ({
+                        tag: e.row[headerMap['id']] || '',
+                        startDate: e.row[headerMap['startDate']] || '',
+                        endDate: hasEndDate ? e.row[headerMap['endDate']] || '' : '',
+                        description: e.row[headerMap['description']] || t('assetDetail.eventLog.defaultDescription'),
+                        orderNumber: e.row[headerMap['orderNumber']] || (100000 + index).toString(),
+                        interventionType: e.row[headerMap['interventionType']] || t('assetDetail.eventLog.defaultIntervention'),
+                        status: e.status,
+                    }));
+    
+                    const failureTimes: number[] = [];
+                    const repairTimes: number[] = [];
+                    const failureEvents = events.filter(e => ['FALHA', 'CORRETIVA'].includes(e.status));
+    
+                    if (hasEndDate) { 
+                         for (let i = 0; i < failureEvents.length; i++) {
+                            const event = failureEvents[i];
+                            if (event.endDate) {
+                                const repairTimeHours = (event.endDate.getTime() - event.startDate.getTime()) / (1000 * 60 * 60);
+                                if (repairTimeHours >= 0) repairTimes.push(repairTimeHours === 0 ? 24 : repairTimeHours);
+                            }
+                            if (i > 0) {
+                                const prevEvent = failureEvents[i - 1];
+                                if (prevEvent.endDate) {
+                                    const timeBetweenFailuresHours = (event.startDate.getTime() - prevEvent.endDate.getTime()) / (1000 * 60 * 60);
+                                    if (timeBetweenFailuresHours > 0) failureTimes.push(timeBetweenFailuresHours);
+                                }
                             }
                         }
+                    } else { 
+                        for (let i = 1; i < failureEvents.length; i++) {
+                            const timeBetweenFailuresHours = (failureEvents[i].startDate.getTime() - failureEvents[i - 1].startDate.getTime()) / (1000 * 60 * 60);
+                            if (timeBetweenFailuresHours > 0) failureTimes.push(timeBetweenFailuresHours);
+                        }
                     }
-                } else {
-                    asset.lifecycle = 'stable';
-                }
-
-                return asset;
-            });
-        }
-
-        const assetsMap = new Map(assets.map(a => [a.id, a]));
-
-        newAssets.forEach(newAsset => {
-            const existingAsset = assetsMap.get(newAsset.id!);
-            
-            const cleanNewAsset = Object.fromEntries(
-                Object.entries(newAsset).filter(([, v]) => v !== undefined)
-            );
-
-            if (existingAsset) {
-                assetsMap.set(newAsset.id!, { ...existingAsset, ...cleanNewAsset });
+    
+                    const asset: Partial<AssetData> = { id: tag };
+                    
+                    asset.maintenanceCost = rows.reduce((sum, row) => {
+                        const costStr = row[headerMap['maintenanceCost']];
+                        if (costStr) return sum + (parseFloat(costStr.replace(/[^0-9,.-]+/g, '').replace(/\./g, '').replace(',', '.')) || 0);
+                        return sum;
+                    }, 0);
+    
+                    Object.keys(headerMap).forEach(key => {
+                        const index = headerMap[key];
+                        const value = firstRow[index]?.trim();
+                        if (value === undefined) return;
+    
+                        const staticFields: (keyof AssetData)[] = ['name', 'location', 'criticality', 'pdmHealth', 'availability', 'gbv', 'rpn', 'severity', 'downtimeCostPerHour'];
+                        if (staticFields.includes(key as any)) {
+                            const mappedKey = key as keyof AssetData;
+                            const numericFields: (keyof AssetData)[] = ['pdmHealth', 'availability', 'gbv', 'rpn', 'severity', 'downtimeCostPerHour'];
+                            if (numericFields.includes(mappedKey)) {
+                               (asset[mappedKey] as any) = parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
+                            } else if (mappedKey === 'criticality') {
+                                asset.criticality = (value.toUpperCase() as any) || 'C';
+                            } else {
+                               (asset[mappedKey] as any) = value;
+                            }
+                        }
+                    });
+    
+                    if (!asset.name) asset.name = tag;
+    
+                    asset.failureTimes = failureTimes.join(', ');
+                    asset.mttr = repairTimes.length > 0 ? repairTimes.reduce((a, b) => a + b, 0) / repairTimes.length : 0;
+                    
+                    if (asset.mttr === 0 && headerMap['mttr'] !== undefined) {
+                        asset.mttr = parseFloat(firstRow[headerMap['mttr']].replace(',', '.')) || 0;
+                    }
+    
+                    asset.events = logEvents;
+    
+                    return asset;
+                });
             } else {
-                const defaultAsset: AssetData = {
-                    id: newAsset.id!,
-                    name: newAsset.name || `Asset ${newAsset.id}`,
-                    location: 'N/A',
-                    criticality: 'C',
-                    lifecycle: 'stable',
-                    pdmHealth: 0,
-                    availability: 0,
-                    maintenanceCost: 0,
-                    gbv: 0,
-                    downtimeLoss: 0,
-                    downtimeCostPerHour: 0,
-                    failureTimes: '',
-                    rpn: 0,
-                    severity: 0,
-                    mttr: 0,
-                    units: 'h',
-                };
-                assetsMap.set(newAsset.id!, { ...defaultAsset, ...cleanNewAsset } as AssetData);
+                 throw new Error("Formato de importação de planilha geral desativado. Use o formato de log de eventos com colunas 'TAG', 'Data de Início', etc.");
             }
-        });
-
-        onSave(Array.from(assetsMap.values()));
-
-        toast({
-            title: t('toasts.assetUpdateSuccess.title'),
-            description: t('toasts.assetUpdateSuccess.description'),
-        });
-        setIsOpen(false);
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: t('toasts.tsvError.title'),
-            description: error.message,
-        });
-    }
+    
+            const assetsMap = new Map(assets.map(a => [a.id, a]));
+    
+            newAssets.forEach(newAsset => {
+                const existingAsset = assetsMap.get(newAsset.id!);
+                
+                const cleanNewAsset = Object.fromEntries(
+                    Object.entries(newAsset).filter(([, v]) => v !== undefined)
+                );
+    
+                if (existingAsset) {
+                    assetsMap.set(newAsset.id!, { ...existingAsset, ...cleanNewAsset });
+                } else {
+                    const defaultAsset: AssetData = {
+                        id: newAsset.id!,
+                        name: newAsset.name || `Asset ${newAsset.id}`,
+                        location: 'N/A',
+                        criticality: 'C',
+                        lifecycle: 'stable',
+                        pdmHealth: 0,
+                        availability: 0,
+                        maintenanceCost: 0,
+                        gbv: 0,
+                        downtimeLoss: 0,
+                        downtimeCostPerHour: 0,
+                        failureTimes: '',
+                        rpn: 0,
+                        severity: 0,
+                        mttr: 0,
+                        units: 'h',
+                    };
+                    assetsMap.set(newAsset.id!, { ...defaultAsset, ...cleanNewAsset } as AssetData);
+                }
+            });
+    
+            const finalAssets = Array.from(assetsMap.values());
+            const chunkSize = 400;
+            const chunks = [];
+            for (let i = 0; i < finalAssets.length; i += chunkSize) {
+                chunks.push(finalAssets.slice(i, i + chunkSize));
+            }
+    
+            // We just save the raw data here, analysis is done on demand
+            onSave(finalAssets);
+    
+            toast({
+                title: t('toasts.assetUpdateSuccess.title'),
+                description: t('toasts.assetUpdateSuccess.description'),
+            });
+            setIsOpen(false);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: t('toasts.tsvError.title'),
+                description: error.message,
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    }, 50);
   };
 
   return (
@@ -411,7 +338,7 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
                 <li>{t('assetEditor.instructions.step2')}</li>
                  <li>{t('assetEditor.instructions.step3')}</li>
             </ol>
-            <p><strong>{t('assetEditor.instructions.requiredHeaders')}:</strong> <code className="text-xs">tag, data, status, custo de manutenção, gbv...</code></p>
+            <p><strong>{t('assetEditor.instructions.requiredHeaders')}:</strong> <code className="text-xs">tag, data de início, status, total real, gbv...</code></p>
         </div>
         <ScrollArea className="flex-grow pr-6 -mr-6">
            <Textarea
@@ -422,7 +349,10 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
             />
         </ScrollArea>
         <DialogFooter>
-          <Button onClick={handleImport}>{t('assetEditor.importButton')}</Button>
+          <Button onClick={handleImport} disabled={isImporting}>
+            {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t('assetEditor.importButton')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -621,7 +551,7 @@ export default function MaintenanceDashboard() {
     const [assets, setAssets] = React.useState<AssetData[]>([]);
     const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
-    const [healthData, setHealthData] = React.useState<Map<string, { score: number, daysRemaining: number }>>(new Map());
+    const [healthData, setHealthData] = React.useState<Map<string, { score: number, daysRemaining: number, ci?: {lower: number, upper: number} }>>(new Map());
 
     React.useEffect(() => {
         setAssets(getInitialAssets());
@@ -667,7 +597,7 @@ export default function MaintenanceDashboard() {
 
 
     React.useEffect(() => {
-        const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
+        const newHealthData = new Map<string, { score: number, daysRemaining: number, ci?: {lower: number, upper: number} }>();
         
         processedAssets.forEach(asset => {
             if (!asset.distribution || !asset.events || asset.events.length === 0) {
@@ -687,13 +617,40 @@ export default function MaintenanceDashboard() {
                 const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
                 let score = isNaN(reliability) ? null : Math.round(reliability * 100);
     
-                const medianLife = getMedianLife(asset.distribution, asset);
+                let medianLife, lowerCI, upperCI;
+                
+                if (asset.distribution === 'Weibull' && asset.beta && asset.eta && asset.failureTimes) {
+                    const failureTimesArray = asset.failureTimes.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
+                    if(failureTimesArray.length >= 2){
+                        const bounds = getFailureProbWithBounds(0, 1, asset.beta, asset.eta, failureTimesArray.length, 0.90);
+                        medianLife = getMedianLife(asset.distribution, asset);
+                        if (bounds && bounds.li > 0 && bounds.ls > 0 && medianLife) {
+                           const ratio = medianLife / getMedianLife('Weibull', {beta: asset.beta, eta: bounds.median});
+                           lowerCI = getMedianLife('Weibull', {beta: asset.beta, eta: bounds.li / ratio});
+                           upperCI = getMedianLife('Weibull', {beta: asset.beta, eta: bounds.ls / ratio});
+                        }
+                    }
+                }
+
+                if (!medianLife) {
+                    medianLife = getMedianLife(asset.distribution, asset);
+                }
+                
                 const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastFailure) / 24);
 
                 if (score !== null && daysRemaining !== null) {
+                    let ciData;
+                    if(lowerCI && upperCI){
+                         ciData = {
+                            lower: Math.round((lowerCI - hoursSinceLastFailure) / 24),
+                            upper: Math.round((upperCI - hoursSinceLastFailure) / 24),
+                        }
+                    }
+
                     newHealthData.set(asset.id, {
                         score: daysRemaining <= 0 ? 0 : score,
-                        daysRemaining: daysRemaining
+                        daysRemaining: daysRemaining,
+                        ci: ciData
                     });
                 }
             }
@@ -794,7 +751,7 @@ export default function MaintenanceDashboard() {
                 <h2 className="text-2xl font-semibold tracking-tight">{t('performance.title')}</h2>
             </div>
             
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 <KpiCard title={t('performance.kpi.availability')} value={`${kpiValues.avgAvailability.toFixed(2)}%`} subtitle={t('performance.kpi.availabilityTarget')} icon={TrendingUp} trend={t('performance.kpi.high')} trendDirection="up" trendColor="green" />
                 <KpiCard title={t('performance.kpi.revenueLoss')} value={formatCurrency(kpiValues.totalDowntimeLoss)} subtitle={t('performance.kpi.revenueLossPeriod')} icon={DollarSign} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
                 <KpiCard title={t('performance.kpi.maintenanceCost')} value={formatCurrency(kpiValues.totalMaintenanceCost)} subtitle={t('performance.kpi.maintenanceCostPeriod')} icon={Wrench} trend={t('performance.kpi.low')} trendDirection="down" trendColor="red" />
@@ -914,12 +871,14 @@ export default function MaintenanceDashboard() {
                                         <Progress value={maintIntensity > 100 ? 100 : maintIntensity} className="h-1 w-10 bg-red-500/20 [&>div]:bg-red-500"/>
                                     </div>
                                     <div className="text-right">
-                                        {health ? (
+                                         {health ? (
                                             <div className="flex flex-col items-end">
                                                 <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
-                                                    {Math.max(0, health.daysRemaining)} {t('performance.table.days')}
+                                                    {health.ci ? `Med: ${Math.max(0, health.daysRemaining)}` : `${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground">{health.score}% {t('performance.table.health')}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {health.ci ? `[Inf: ${Math.max(0,health.ci.lower)} | Sup: ${Math.max(0,health.ci.upper)}]` : `${health.score}% ${t('performance.table.health')}`}
+                                                </div>
                                             </div>
                                         ) : <div className="text-sm text-muted-foreground">--</div>}
                                     </div>
@@ -939,10 +898,11 @@ export default function MaintenanceDashboard() {
                                             {health ? (
                                                 <div className="flex flex-col items-end">
                                                     <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
-                                                        {Math.max(0, health.daysRemaining)}
-                                                        <span className="text-sm ml-1">{t('performance.table.days')}</span>
+                                                         {health.ci ? `Med: ${Math.max(0, health.daysRemaining)}` : `${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground">{health.score}% {t('performance.table.health')}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {health.ci ? `[Inf: ${Math.max(0,health.ci.lower)} | Sup: ${Math.max(0,health.ci.upper)}]` : `${health.score}% ${t('performance.table.health')}`}
+                                                    </div>
                                                 </div>
                                             ) : <div className="text-sm text-muted-foreground">--</div>}
                                         </div>

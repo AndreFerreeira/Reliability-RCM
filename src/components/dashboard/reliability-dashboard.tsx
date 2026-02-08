@@ -137,7 +137,7 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
+        <TabsList className="flex h-auto flex-wrap">
           <TabsTrigger value="performance"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
           <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
           <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
