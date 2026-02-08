@@ -289,4 +289,5 @@ export interface AssetData {
   tags?: string[];
   downtimeCostPerHour?: number;
   units?: string;
+  analysisState?: 'ok' | 'insufficient_data' | 'error';
 }

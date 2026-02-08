@@ -388,35 +388,7 @@ function AssetEditorDialog({ asset, onSave, onCancel, t }: { asset: AssetData; o
     });
 
     function onSubmit(data: z.infer<typeof assetSchema>) {
-        const ftArray = data.failureTimes.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-        let updatedAssetData: AssetData = { ...asset, ...data, units: asset.units || 'h' };
-        
-        if (ftArray.length >= 2) {
-            const { results, best } = findBestDistribution(ftArray, []); // Assuming no suspensions
-            if (best && results.length > 0) {
-                const bestFit = results.find(r => r.distribution === best);
-                if (bestFit) {
-                    updatedAssetData.distribution = best;
-                    updatedAssetData.beta = bestFit.params.beta;
-                    updatedAssetData.eta = bestFit.params.eta;
-                    updatedAssetData.mean = bestFit.params.mean;
-                    updatedAssetData.stdDev = bestFit.params.stdDev;
-                    updatedAssetData.lambda = bestFit.params.lambda;
-                    updatedAssetData.rho = bestFit.rSquared;
-
-                    if (best === 'Weibull' && updatedAssetData.beta) {
-                        if (updatedAssetData.beta < 0.95) updatedAssetData.lifecycle = 'infant';
-                        else if (updatedAssetData.beta > 1.05) updatedAssetData.lifecycle = 'wearOut';
-                        else updatedAssetData.lifecycle = 'stable';
-                    } else {
-                        updatedAssetData.lifecycle = 'stable';
-                    }
-                }
-            }
-        } else {
-            updatedAssetData.lifecycle = 'stable';
-        }
-        
+        const updatedAssetData: AssetData = { ...asset, ...data };
         onSave(updatedAssetData);
     }
 
@@ -549,39 +521,50 @@ export default function MaintenanceDashboard() {
 
     const runAssetsAnalysis = (assetsToAnalyze: AssetData[]): AssetData[] => {
         return assetsToAnalyze.map(asset => {
-            if (asset.distribution) {
-                return asset;
-            }
+            const assetToAnalyze: AssetData = { ...asset };
+            
+            // Clean slate for analysis fields
+            delete assetToAnalyze.distribution;
+            delete assetToAnalyze.beta;
+            delete assetToAnalyze.eta;
+            delete assetToAnalyze.mean;
+            delete assetToAnalyze.stdDev;
+            delete assetToAnalyze.lambda;
+            delete assetToAnalyze.rho;
+            assetToAnalyze.lifecycle = 'stable';
+            assetToAnalyze.analysisState = undefined;
 
-            const failureTimesArray = asset.failureTimes?.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
+            const failureTimesArray = (assetToAnalyze.failureTimes || '').split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
+
             if (failureTimesArray.length < 2) {
-                return asset;
+                assetToAnalyze.analysisState = 'insufficient_data';
+                return assetToAnalyze;
             }
 
             const { best, results } = findBestDistribution(failureTimesArray, []);
             const bestFit = results.find(r => r.distribution === best);
 
             if (best && bestFit) {
-                const updatedAsset: AssetData = {
-                    ...asset,
-                    distribution: best,
-                    beta: bestFit.params.beta,
-                    eta: bestFit.params.eta,
-                    mean: bestFit.params.mean,
-                    stdDev: bestFit.params.stdDev,
-                    lambda: bestFit.params.lambda,
-                    rho: bestFit.rSquared,
-                };
-                if (best === 'Weibull' && updatedAsset.beta) {
-                    if (updatedAsset.beta < 0.95) updatedAsset.lifecycle = 'infant';
-                    else if (updatedAsset.beta > 1.05) updatedAsset.lifecycle = 'wearOut';
-                    else updatedAsset.lifecycle = 'stable';
+                assetToAnalyze.distribution = best;
+                assetToAnalyze.beta = bestFit.params.beta;
+                assetToAnalyze.eta = bestFit.params.eta;
+                assetToAnalyze.mean = bestFit.params.mean;
+                assetToAnalyze.stdDev = bestFit.params.stdDev;
+                assetToAnalyze.lambda = bestFit.params.lambda;
+                assetToAnalyze.rho = bestFit.rSquared;
+                assetToAnalyze.analysisState = 'ok';
+
+                if (best === 'Weibull' && assetToAnalyze.beta) {
+                    if (assetToAnalyze.beta < 0.95) assetToAnalyze.lifecycle = 'infant';
+                    else if (assetToAnalyze.beta > 1.05) assetToAnalyze.lifecycle = 'wearOut';
+                    else assetToAnalyze.lifecycle = 'stable';
                 } else {
-                    updatedAsset.lifecycle = 'stable';
+                    assetToAnalyze.lifecycle = 'stable';
                 }
-                return updatedAsset;
+            } else {
+                assetToAnalyze.analysisState = 'error';
             }
-            return asset;
+            return assetToAnalyze;
         });
     };
 
@@ -741,7 +724,9 @@ export default function MaintenanceDashboard() {
     }
     
     const handleSaveAsset = (updatedAsset: AssetData) => {
-        setAssets(assets => assets.map(a => a.id === updatedAsset.id ? updatedAsset : a));
+        const newAssets = assets.map(a => (a.id === updatedAsset.id ? updatedAsset : a));
+        const assetsWithCalculations = runAssetsAnalysis(newAssets);
+        setAssets(assetsWithCalculations);
         setEditingAsset(null);
         toast({
             title: t('toasts.assetUpdateSuccess.title'),
@@ -829,6 +814,22 @@ export default function MaintenanceDashboard() {
                                 break;
                         }
 
+                        let healthContent;
+                        if (asset.analysisState === 'insufficient_data') {
+                            healthContent = <div className="text-xs font-medium text-yellow-400 text-right">{t('toasts.insufficientData.title')}</div>;
+                        } else if (health) {
+                             healthContent = (
+                                <div className="flex flex-col items-end">
+                                    <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
+                                        {`${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">{`${health.score}% ${t('performance.table.health')}`}</div>
+                                </div>
+                            );
+                        } else {
+                            healthContent = <div className="text-sm text-muted-foreground text-right">--</div>;
+                        }
+
                         return (
                             <div
                                 key={asset.id}
@@ -893,14 +894,7 @@ export default function MaintenanceDashboard() {
                                         <Progress value={maintIntensity > 100 ? 100 : maintIntensity} className="h-1 w-10 bg-red-500/20 [&>div]:bg-red-500"/>
                                     </div>
                                     <div className="text-right">
-                                         {health ? (
-                                            <div className="flex flex-col items-end">
-                                                <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
-                                                    {`${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">{`${health.score}% ${t('performance.table.health')}`}</div>
-                                            </div>
-                                        ) : <div className="text-sm text-muted-foreground">--</div>}
+                                        {healthContent}
                                     </div>
                                 </div>
 
@@ -915,14 +909,7 @@ export default function MaintenanceDashboard() {
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            {health ? (
-                                                <div className="flex flex-col items-end">
-                                                    <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
-                                                        {`${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">{`${health.score}% ${t('performance.table.health')}`}</div>
-                                                </div>
-                                            ) : <div className="text-sm text-muted-foreground">--</div>}
+                                            {healthContent}
                                         </div>
                                     </div>
                                     <div className="flex gap-2 flex-wrap">
@@ -977,4 +964,5 @@ export default function MaintenanceDashboard() {
 
 
     
+
 
