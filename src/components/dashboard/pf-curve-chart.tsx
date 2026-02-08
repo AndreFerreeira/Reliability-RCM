@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { ShieldAlert, ShieldCheck, ShieldHalf, ShieldX } from 'lucide-react';
 
 interface PFCurveChartProps {
-  pdmHealth: number; // Health score from 0 to 100
+  pdmHealth?: number | null;
 }
 
 const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any) => string }) => {
@@ -128,6 +128,20 @@ const InterpretationCard = ({ health, t }: { health: number, t: (key: string, ar
 
 export default function PFCurveChart({ pdmHealth }: PFCurveChartProps) {
   const { t } = useI18n();
+
+  if (pdmHealth === undefined || pdmHealth === null) {
+      return (
+          <Card>
+              <CardHeader>
+                  <CardTitle>{t('assetDetail.pfCurve.cardTitle')}</CardTitle>
+                  <CardDescription>{t('assetDetail.pfCurve.cardDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center h-48">
+                  <p className="text-muted-foreground">{t('assetDetail.dynamicHealth.noData')}</p>
+              </CardContent>
+          </Card>
+      );
+  }
 
   return (
     <Card>
