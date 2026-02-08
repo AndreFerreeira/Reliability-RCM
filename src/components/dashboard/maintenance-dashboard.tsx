@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AssetDetailView } from './asset-detail-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '../ui/textarea';
-import { findBestDistribution, getReliability, getMedianLife, getFailureProbWithBounds } from '@/lib/reliability';
+import { findBestDistribution, getReliability, getMedianLife } from '@/lib/reliability';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -292,12 +292,7 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
             });
     
             const finalAssets = Array.from(assetsMap.values());
-            const chunkSize = 400;
-            const chunks = [];
-            for (let i = 0; i < finalAssets.length; i += chunkSize) {
-                chunks.push(finalAssets.slice(i, i + chunkSize));
-            }
-    
+            
             // We just save the raw data here, analysis is done on demand
             onSave(finalAssets);
     
@@ -551,10 +546,47 @@ export default function MaintenanceDashboard() {
     const [assets, setAssets] = React.useState<AssetData[]>([]);
     const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
-    const [healthData, setHealthData] = React.useState<Map<string, { score: number, daysRemaining: number, ci?: {lower: number, upper: number} }>>(new Map());
+    const [healthData, setHealthData] = React.useState<Map<string, { score: number; daysRemaining: number }>>(new Map());
 
     React.useEffect(() => {
-        setAssets(getInitialAssets());
+        const initialAssets = getInitialAssets();
+        const assetsWithCalculations = initialAssets.map(asset => {
+            if (asset.distribution) {
+                return asset;
+            }
+
+            const failureTimesArray = asset.failureTimes?.split(/[,; ]+/).map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
+            if (failureTimesArray.length < 2) {
+                return asset;
+            }
+
+            const { best, results } = findBestDistribution(failureTimesArray, []);
+            const bestFit = results.find(r => r.distribution === best);
+
+            if (best && bestFit) {
+                const updatedAsset: AssetData = {
+                    ...asset,
+                    distribution: best,
+                    beta: bestFit.params.beta,
+                    eta: bestFit.params.eta,
+                    mean: bestFit.params.mean,
+                    stdDev: bestFit.params.stdDev,
+                    lambda: bestFit.params.lambda,
+                    rho: bestFit.rSquared,
+                };
+                if (best === 'Weibull' && updatedAsset.beta) {
+                    if (updatedAsset.beta < 0.95) updatedAsset.lifecycle = 'infant';
+                    else if (updatedAsset.beta > 1.05) updatedAsset.lifecycle = 'wearOut';
+                    else updatedAsset.lifecycle = 'stable';
+                } else {
+                    updatedAsset.lifecycle = 'stable';
+                }
+                return updatedAsset;
+            }
+            return asset;
+        });
+
+        setAssets(assetsWithCalculations);
     }, []);
 
     React.useEffect(() => {
@@ -597,7 +629,7 @@ export default function MaintenanceDashboard() {
 
 
     React.useEffect(() => {
-        const newHealthData = new Map<string, { score: number, daysRemaining: number, ci?: {lower: number, upper: number} }>();
+        const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
         
         processedAssets.forEach(asset => {
             if (!asset.distribution || !asset.events || asset.events.length === 0) {
@@ -617,40 +649,14 @@ export default function MaintenanceDashboard() {
                 const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
                 let score = isNaN(reliability) ? null : Math.round(reliability * 100);
     
-                let medianLife, lowerCI, upperCI;
-                
-                if (asset.distribution === 'Weibull' && asset.beta && asset.eta && asset.failureTimes) {
-                    const failureTimesArray = asset.failureTimes.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0);
-                    if(failureTimesArray.length >= 2){
-                        const bounds = getFailureProbWithBounds(0, 1, asset.beta, asset.eta, failureTimesArray.length, 0.90);
-                        medianLife = getMedianLife(asset.distribution, asset);
-                        if (bounds && bounds.li > 0 && bounds.ls > 0 && medianLife) {
-                           const ratio = medianLife / getMedianLife('Weibull', {beta: asset.beta, eta: bounds.median});
-                           lowerCI = getMedianLife('Weibull', {beta: asset.beta, eta: bounds.li / ratio});
-                           upperCI = getMedianLife('Weibull', {beta: asset.beta, eta: bounds.ls / ratio});
-                        }
-                    }
-                }
-
-                if (!medianLife) {
-                    medianLife = getMedianLife(asset.distribution, asset);
-                }
+                let medianLife = getMedianLife(asset.distribution, asset);
                 
                 const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastFailure) / 24);
 
                 if (score !== null && daysRemaining !== null) {
-                    let ciData;
-                    if(lowerCI && upperCI){
-                         ciData = {
-                            lower: Math.round((lowerCI - hoursSinceLastFailure) / 24),
-                            upper: Math.round((upperCI - hoursSinceLastFailure) / 24),
-                        }
-                    }
-
                     newHealthData.set(asset.id, {
                         score: daysRemaining <= 0 ? 0 : score,
-                        daysRemaining: daysRemaining,
-                        ci: ciData
+                        daysRemaining: daysRemaining
                     });
                 }
             }
@@ -874,11 +880,9 @@ export default function MaintenanceDashboard() {
                                          {health ? (
                                             <div className="flex flex-col items-end">
                                                 <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
-                                                    {health.ci ? `Med: ${Math.max(0, health.daysRemaining)}` : `${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
+                                                    {`${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {health.ci ? `[Inf: ${Math.max(0,health.ci.lower)} | Sup: ${Math.max(0,health.ci.upper)}]` : `${health.score}% ${t('performance.table.health')}`}
-                                                </div>
+                                                <div className="text-xs text-muted-foreground">{`${health.score}% ${t('performance.table.health')}`}</div>
                                             </div>
                                         ) : <div className="text-sm text-muted-foreground">--</div>}
                                     </div>
@@ -898,11 +902,9 @@ export default function MaintenanceDashboard() {
                                             {health ? (
                                                 <div className="flex flex-col items-end">
                                                     <div className={cn("font-bold text-lg", health.daysRemaining < 7 && "text-red-500", health.daysRemaining >= 7 && health.daysRemaining < 30 && "text-yellow-500", health.daysRemaining >= 30 && "text-green-500")}>
-                                                         {health.ci ? `Med: ${Math.max(0, health.daysRemaining)}` : `${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
+                                                        {`${Math.max(0, health.daysRemaining)} ${t('performance.table.days')}`}
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {health.ci ? `[Inf: ${Math.max(0,health.ci.lower)} | Sup: ${Math.max(0,health.ci.upper)}]` : `${health.score}% ${t('performance.table.health')}`}
-                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">{`${health.score}% ${t('performance.table.health')}`}</div>
                                                 </div>
                                             ) : <div className="text-sm text-muted-foreground">--</div>}
                                         </div>
@@ -954,3 +956,4 @@ export default function MaintenanceDashboard() {
     
 
     
+

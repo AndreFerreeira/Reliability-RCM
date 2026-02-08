@@ -18,6 +18,7 @@ import AssetReliabilityCharts from './asset-reliability-charts';
 import PreventiveMaintenanceOptimizer from './preventive-maintenance-optimizer';
 import AssetProbabilityPlot from './asset-probability-plot';
 import { getReliability, getMedianLife } from '@/lib/reliability';
+import { Badge } from '@/components/ui/badge';
 
 
 interface AssetDetailViewProps {
@@ -149,7 +150,10 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t('assetDetail.back')}
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">{asset.name}</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-3xl font-bold tracking-tight">{asset.name}</h2>
+            {asset.distribution && <Badge variant="outline" className="text-base shrink-0">{asset.distribution}</Badge>}
+          </div>
           <p className="text-muted-foreground">{asset.location}</p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
