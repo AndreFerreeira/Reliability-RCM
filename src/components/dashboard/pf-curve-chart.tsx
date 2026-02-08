@@ -74,7 +74,7 @@ const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p className={cn(health < 20 ? 'text-red-500' : health < 50 ? 'text-yellow-500' : health < 80 ? 'text-blue-500' : 'text-green-500')}>{t('assetDetail.pfCurve.assetHealth', { health: pdmHealth })}</p>
+            <p className={cn(health < 20 ? 'text-red-500' : health < 50 ? 'text-yellow-500' : health < 80 ? 'text-blue-500' : 'text-green-500')}>{t('assetDetail.pfCurve.assetHealth', { health: health })}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
