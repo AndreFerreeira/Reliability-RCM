@@ -1,24 +1,38 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/i18n/i18n-provider';
 import { cn } from '@/lib/utils';
-import { ShieldAlert, ShieldCheck, ShieldHalf, ShieldX } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, ShieldHalf, ShieldX, HelpCircle, Sigma, BarChart } from 'lucide-react';
 
 interface PFCurveChartProps {
   pdmHealth?: number | null;
+  beta?: number | null;
+  rho?: number | null;
+  failureTimesCount?: number | null;
 }
 
-const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any) => string }) => {
+const PFCurveSVG = ({ health, curvePath, curveStyle, t }: { health: number; curvePath: string; curveStyle: React.CSSProperties; t: (key: string, args?: any) => string }) => {
   // Map health (100 -> 0) to x-coordinate (5% -> 95%)
   const xPosition = 5 + (100 - health) * 0.9;
   
-  // Calculate y-position on the curve. This is a simple quadratic curve for visualization.
-  // Equation: y = a*(x-h)^2 + k. Let's map x from 0 to 1.
   const normalizedX = (xPosition - 5) / 90;
-  const yPosition = 10 + Math.pow(normalizedX, 2) * 75;
+  
+  let yPosition;
+  if(health > 98) {
+      yPosition = 10;
+  } else if (health < 2) {
+      yPosition = 45;
+  } else {
+     const t = normalizedX;
+     const p0 = {x: 5, y: 10};
+     const p1 = {x: 55, y: 10};
+     const p2 = {x: 95, y: 45};
+     yPosition = Math.pow(1 - t, 2) * p0.y + 2 * (1 - t) * t * p1.y + Math.pow(t, 2) * p2.y;
+  }
+
 
   const healthColor = health < 20 ? 'border-red-500' : health < 50 ? 'border-yellow-500' : health < 80 ? 'border-blue-500' : 'border-green-500';
 
@@ -32,7 +46,7 @@ const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any
         <text x="50" y="50" textAnchor="middle" className="text-[4px] fill-muted-foreground">{t('charts.time')}</text>
 
         {/* P-F Curve path */}
-        <path d="M 5,10 Q 50,10 95,45" stroke="hsl(var(--primary))" strokeWidth="1" fill="none" strokeDasharray="2 2" />
+        <path d={curvePath} stroke="hsl(var(--primary))" strokeWidth="1" fill="none" style={curveStyle} />
 
         {/* P and F points */}
         <circle cx="35" cy={10 + Math.pow((30 / 90), 2) * 75} r="1.5" fill="hsl(var(--chart-4))" />
@@ -74,7 +88,7 @@ const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p className={cn(health < 20 ? 'text-red-500' : health < 50 ? 'text-yellow-500' : health < 80 ? 'text-blue-500' : 'text-green-500')}>{t('assetDetail.pfCurve.assetHealth', { health: health })}</p>
+            <p className={cn(health < 20 ? 'text-red-500' : health < 50 ? 'text-yellow-500' : health < 80 ? 'text-blue-500' : 'text-green-500')}>{t('assetDetail.pfCurve.assetHealth', { health })}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -83,53 +97,126 @@ const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any
 };
 
 
-const InterpretationCard = ({ health, t }: { health: number, t: (key: string, args?: any) => string }) => {
-  let titleKey: string;
-  let descriptionKey: string;
-  let Icon: React.ElementType;
-  let colorClass: string;
+const InterpretationSection = ({ health, beta, uncertaintyLevel, uncertaintyDescription, curveShapeDescription, t }: { 
+    health: number, 
+    beta: number,
+    uncertaintyLevel: 'high' | 'medium' | 'low',
+    uncertaintyDescription: string,
+    curveShapeDescription: string,
+    t: (key: string, args?: any) => string 
+}) => {
+  let statusTitleKey: string, statusDescriptionKey: string, StatusIcon: React.ElementType, statusColorClass: string;
 
   if (health >= 80) {
-    titleKey = 'assetDetail.pfCurve.status.excellent';
-    descriptionKey = 'assetDetail.pfCurve.interpretation.excellent';
-    Icon = ShieldCheck;
-    colorClass = "text-green-500";
+    statusTitleKey = 'assetDetail.pfCurve.status.excellent';
+    statusDescriptionKey = 'assetDetail.pfCurve.interpretation.excellent';
+    StatusIcon = ShieldCheck;
+    statusColorClass = "text-green-500";
   } else if (health >= 50) {
-    titleKey = 'assetDetail.pfCurve.status.good';
-    descriptionKey = 'assetDetail.pfCurve.interpretation.good';
-    Icon = ShieldHalf;
-    colorClass = "text-blue-500";
+    statusTitleKey = 'assetDetail.pfCurve.status.good';
+    statusDescriptionKey = 'assetDetail.pfCurve.interpretation.good';
+    StatusIcon = ShieldHalf;
+    statusColorClass = "text-blue-500";
   } else if (health >= 20) {
-    titleKey = 'assetDetail.pfCurve.status.alert';
-    descriptionKey = 'assetDetail.pfCurve.interpretation.alert';
-    Icon = ShieldAlert;
-    colorClass = "text-yellow-500";
+    statusTitleKey = 'assetDetail.pfCurve.status.alert';
+    statusDescriptionKey = 'assetDetail.pfCurve.interpretation.alert';
+    StatusIcon = ShieldAlert;
+    statusColorClass = "text-yellow-500";
   } else {
-    titleKey = 'assetDetail.pfCurve.status.critical';
-    descriptionKey = 'assetDetail.pfCurve.interpretation.critical';
-    Icon = ShieldX;
-    colorClass = "text-red-500";
+    statusTitleKey = 'assetDetail.pfCurve.status.critical';
+    statusDescriptionKey = 'assetDetail.pfCurve.interpretation.critical';
+    StatusIcon = ShieldX;
+    statusColorClass = "text-red-500";
+  }
+  
+  const uncertaintyColors = {
+      high: 'text-red-500',
+      medium: 'text-yellow-500',
+      low: 'text-green-500',
   }
   
   return (
-    <Card className="bg-muted/30">
-        <CardHeader>
-            <div className="flex items-center gap-3">
-                <Icon className={cn("h-6 w-6", colorClass)} />
-                <CardTitle className={cn("text-lg", colorClass)}>{t(titleKey)}</CardTitle>
-            </div>
-        </CardHeader>
-        <CardContent>
-            <p className="text-sm text-muted-foreground">{t(descriptionKey)}</p>
-        </CardContent>
-    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-muted/30">
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <StatusIcon className={cn("h-6 w-6", statusColorClass)} />
+                    <CardTitle className={cn("text-lg", statusColorClass)}>{t(statusTitleKey)}</CardTitle>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">{t(statusDescriptionKey)}</p>
+            </CardContent>
+        </Card>
+        <div className="space-y-4">
+             <Card className="bg-muted/30">
+                <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                    <HelpCircle className={cn("h-6 w-6", uncertaintyColors[uncertaintyLevel])} />
+                    <CardTitle className="text-lg">{t('assetDetail.pfCurve.uncertainty')}: <span className={cn(uncertaintyColors[uncertaintyLevel])}>{t(`assetDetail.pfCurve.uncertaintyLevel.${uncertaintyLevel}`)}</span></CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">{uncertaintyDescription}</p>
+                </CardContent>
+            </Card>
+             <Card className="bg-muted/30">
+                <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                    <Sigma className="h-6 w-6 text-primary" />
+                    <CardTitle className="text-lg">{t('assetDetail.pfCurve.shape.title')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">{curveShapeDescription}</p>
+                </CardContent>
+            </Card>
+        </div>
+    </div>
   )
 }
 
-export default function PFCurveChart({ pdmHealth }: PFCurveChartProps) {
+export default function PFCurveChart({ pdmHealth, beta, rho, failureTimesCount }: PFCurveChartProps) {
   const { t } = useI18n();
 
-  if (pdmHealth === undefined || pdmHealth === null) {
+  const uncertaintyLevel = useMemo(() => {
+    if (!failureTimesCount || !rho) return 'high';
+    if (failureTimesCount < 5 || rho < 0.85) return 'high';
+    if (failureTimesCount < 10 || rho < 0.95) return 'medium';
+    return 'low';
+  }, [failureTimesCount, rho]);
+
+  const uncertaintyDescription = useMemo(() => {
+      const count = failureTimesCount || 0;
+      const r2 = (rho || 0).toFixed(2);
+      return t(`assetDetail.pfCurve.uncertaintyDescription.${uncertaintyLevel}`, { count: count, rho: r2 });
+  }, [uncertaintyLevel, failureTimesCount, rho, t]);
+
+  const { curvePath, curveShapeDescription } = useMemo(() => {
+    if (!beta || beta <= 1.1) {
+        return { 
+            curvePath: "M 5,15 Q 40,15 95,45",
+            curveShapeDescription: t('assetDetail.pfCurve.shape.flat')
+        };
+    }
+    if (beta > 3) {
+        return { 
+            curvePath: "M 5,10 Q 80,10 95,45",
+            curveShapeDescription: t('assetDetail.pfCurve.shape.steep', { beta: beta.toFixed(2) })
+        };
+    }
+    return { 
+        curvePath: "M 5,10 Q 55,10 95,45",
+        curveShapeDescription: t('assetDetail.pfCurve.shape.normal', { beta: beta.toFixed(2) })
+    };
+  }, [beta, t]);
+
+  const curveStyle = useMemo((): React.CSSProperties => {
+    switch (uncertaintyLevel) {
+        case 'high': return { strokeDasharray: "2 3" };
+        case 'medium': return { strokeDasharray: "5 5" };
+        case 'low': return {};
+        default: return {};
+    }
+  }, [uncertaintyLevel]);
+
+  if (pdmHealth === undefined || pdmHealth === null || beta === undefined || beta === null) {
       return (
           <Card>
               <CardHeader>
@@ -137,7 +224,7 @@ export default function PFCurveChart({ pdmHealth }: PFCurveChartProps) {
                   <CardDescription>{t('assetDetail.pfCurve.cardDescription')}</CardDescription>
               </CardHeader>
               <CardContent className="flex items-center justify-center h-48">
-                  <p className="text-muted-foreground">{t('assetDetail.dynamicHealth.noData')}</p>
+                  <p className="text-muted-foreground">{beta ? t('assetDetail.dynamicHealth.noData') : t('weibullAnalysis.noData')}</p>
               </CardContent>
           </Card>
       );
@@ -150,8 +237,15 @@ export default function PFCurveChart({ pdmHealth }: PFCurveChartProps) {
         <CardDescription>{t('assetDetail.pfCurve.cardDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <PFCurveSVG health={pdmHealth} t={t} />
-        <InterpretationCard health={pdmHealth} t={t} />
+        <PFCurveSVG health={pdmHealth} curvePath={curvePath} curveStyle={curveStyle} t={t} />
+        <InterpretationSection
+          health={pdmHealth}
+          beta={beta}
+          uncertaintyLevel={uncertaintyLevel}
+          uncertaintyDescription={uncertaintyDescription}
+          curveShapeDescription={curveShapeDescription}
+          t={t}
+        />
       </CardContent>
     </Card>
   );

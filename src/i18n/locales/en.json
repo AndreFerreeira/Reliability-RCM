@@ -79,8 +79,7 @@
     },
     "insufficientData": {
       "title": "Insufficient Data",
-      "description": "Please enter at least two valid failure times.",
-      "budgetSource": "At least 2 failure points (F) are required to calculate Beta and Eta parameters."
+      "description": "Please enter at least two valid failure times."
     },
     "insufficientFailureData": {
         "description": "This asset does not have enough failure data for analysis."
@@ -577,6 +576,23 @@
         "good": "The asset shows early signs of degradation. Increase the frequency of predictive inspections to track its evolution and identify point 'P' (potential failure) as early as possible.",
         "alert": "The asset has passed point 'P' and is degrading. This is the P-F interval, the ideal window of opportunity to plan maintenance. Schedule the intervention to avoid an unscheduled shutdown.",
         "critical": "Imminent risk of functional failure. The asset is at the end of the P-F interval. Corrective maintenance is urgent to prevent total equipment shutdown and possible secondary damage."
+      },
+      "uncertainty": "Prediction Uncertainty",
+      "uncertaintyLevel": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "uncertaintyDescription": {
+        "high": "The forecast has high uncertainty due to a limited number of data points ({{count}}) or low model fit (R² {{rho}}). Decisions should be conservative.",
+        "medium": "The forecast has moderate uncertainty. The model is a reasonable fit, but more data would improve precision.",
+        "low": "The forecast has low uncertainty. The model is a good fit for the data ({{count}} points, R² {{rho}}), providing a reliable basis for decisions."
+      },
+      "shape": {
+        "title": "Curve Shape",
+        "flat": "The curve is flatter, as the Beta parameter (β) is low (≤1.1), suggesting failures are more random or premature, not following a clear degradation pattern.",
+        "normal": "The curve reflects a typical wear-out pattern (β = {{beta}}). The P-F interval is predictable, ideal for condition-based maintenance.",
+        "steep": "The curve is steep (β = {{beta}}), indicating rapid degradation once a potential failure is detected. The window for maintenance (P-F interval) is short."
       }
     }
   }

@@ -78,8 +78,7 @@
     },
     "insufficientData": {
       "title": "Dados Insuficientes",
-      "description": "Por favor, insira pelo menos dois tempos de falha válidos.",
-      "budgetSource": "São necessários pelo menos 2 pontos de falha (F) para calcular os parâmetros Beta e Eta."
+      "description": "Por favor, insira pelo menos dois tempos de falha válidos."
     },
     "insufficientFailureData": {
       "description": "Este ativo não possui dados de falha suficientes para análise."
@@ -575,6 +574,23 @@
         "good": "O ativo mostra sinais iniciais de degradação. Aumente a frequência das inspeções preditivas para acompanhar a evolução e identificar o ponto 'P' (falha potencial) o mais cedo possível.",
         "alert": "O ativo ultrapassou o ponto 'P' e está se degradando. Este é o intervalo P-F, a janela de oportunidade ideal para planejar a manutenção. Agende a intervenção para evitar uma parada não programada.",
         "critical": "Risco iminente de falha funcional. O ativo está no final do intervalo P-F. A manutenção corretiva é urgente para prevenir a parada total do equipamento e possíveis danos secundários."
+      },
+      "uncertainty": "Incerteza da Previsão",
+      "uncertaintyLevel": {
+        "high": "Alta",
+        "medium": "Média",
+        "low": "Baixa"
+      },
+      "uncertaintyDescription": {
+        "high": "A previsão tem alta incerteza devido a um número limitado de pontos de dados ({{count}}) ou baixo ajuste do modelo (R² {{rho}}). As decisões devem ser conservadoras.",
+        "medium": "A previsão tem incerteza moderada. O modelo tem um ajuste razoável, mas mais dados melhorariam a precisão.",
+        "low": "A previsão tem baixa incerteza. O modelo se ajusta bem aos dados ({{count}} pontos, R² {{rho}}), fornecendo uma base confiável para decisões."
+      },
+      "shape": {
+        "title": "Formato da Curva",
+        "flat": "A curva é mais plana, pois o parâmetro Beta (β) é baixo (≤1.1), sugerindo que as falhas são mais aleatórias ou prematuras, não seguindo um padrão claro de degradação.",
+        "normal": "A curva reflete um padrão de desgaste típico (β = {{beta}}). O intervalo P-F é previsível, ideal para manutenção baseada na condição.",
+        "steep": "A curva é íngreme (β = {{beta}}), indicando uma degradação rápida após a detecção de uma falha potencial. A janela para manutenção (intervalo P-F) é curta."
       }
     }
   }

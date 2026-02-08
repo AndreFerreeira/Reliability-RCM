@@ -221,7 +221,12 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                 </div>
             </Card>
 
-             <PFCurveChart pdmHealth={dynamicHealth?.score} />
+             <PFCurveChart
+                pdmHealth={dynamicHealth?.score}
+                beta={asset.beta}
+                rho={asset.rho}
+                failureTimesCount={failureTimes.length}
+             />
 
              <BathtubCurveAnalysis failureTimes={failureTimes} />
 
