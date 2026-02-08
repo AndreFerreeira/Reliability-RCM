@@ -137,11 +137,13 @@ export default function ReliabilityDashboard() {
         </div>
       </div>
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList className="flex h-auto flex-wrap justify-center">
-          <TabsTrigger value="performance"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
-          <TabsTrigger value="analysis"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
-          <TabsTrigger value="monte_carlo"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
-        </TabsList>
+        <div className="flex justify-center">
+          <TabsList className="flex h-auto flex-wrap justify-center">
+            <TabsTrigger value="performance" className="gap-2 px-4 py-2 text-base"><LayoutDashboard />{t('tabs.performanceDashboard')}</TabsTrigger>
+            <TabsTrigger value="analysis" className="gap-2 px-4 py-2 text-base"><LineChartIcon />{t('tabs.reliabilityAnalysis')}</TabsTrigger>
+            <TabsTrigger value="monte_carlo" className="gap-2 px-4 py-2 text-base"><TestTube />{t('tabs.monteCarlo')}</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="performance" className="space-y-4">
             <MaintenanceDashboard />
         </TabsContent>
