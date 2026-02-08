@@ -556,6 +556,18 @@
       "interpretation4_1": "Largura das Bandas",
       "interpretation4_2": "Bandas largas indicam maior incerteza (geralmente por poucos dados). Bandas estreitas indicam uma estimativa mais precisa e confiável.",
       "interpretation5": "Na prática, para decisões críticas, considere o cenário pessimista (o limite superior de falha) para um planejamento de manutenção mais seguro."
+    },
+    "pfCurve": {
+      "cardTitle": "Análise da Curva P-F",
+      "cardDescription": "Visualize a condição atual do ativo na curva P-F, desde a falha potencial (P) até a falha funcional (F).",
+      "potentialFailure": "Falha Potencial (Detectável)",
+      "functionalFailure": "Falha Funcional",
+      "condition": "Condição",
+      "assetHealth": "Saúde do Ativo: {{health}}%",
+      "interpretationTitle": "Como Interpretar a Curva P-F",
+      "interpretation1": "A curva P-F mostra a degradação de um ativo ao longo do tempo.",
+      "interpretation2": "O ponto 'P' é quando uma falha potencial pode ser detectada pela primeira vez (ex: por vibração, temperatura). O ponto 'F' é a perda total da função.",
+      "interpretation3": "A posição do seu ativo na curva indica quanta vida útil resta antes de uma falha funcional. Quanto menor a pontuação de saúde, mais próximo ele está de 'F'."
     }
   }
 }

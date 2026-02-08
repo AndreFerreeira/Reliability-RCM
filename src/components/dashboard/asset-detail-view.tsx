@@ -19,6 +19,7 @@ import PreventiveMaintenanceOptimizer from './preventive-maintenance-optimizer';
 import AssetProbabilityPlot from './asset-probability-plot';
 import { getReliability, getMedianLife } from '@/lib/reliability';
 import { Badge } from '@/components/ui/badge';
+import PFCurveChart from './pf-curve-chart';
 
 
 interface AssetDetailViewProps {
@@ -219,6 +220,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                     </div>
                 </div>
             </Card>
+
+             <PFCurveChart pdmHealth={asset.pdmHealth} />
 
              <BathtubCurveAnalysis failureTimes={failureTimes} />
 

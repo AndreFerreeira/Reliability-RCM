@@ -558,6 +558,18 @@
       "interpretation4_1": "Band Width",
       "interpretation4_2": "Wide bands indicate greater uncertainty (often due to few data points). Narrow bands indicate a more precise and reliable estimate.",
       "interpretation5": "In practice, for critical decisions, consider the pessimistic scenario (the upper failure bound) for safer maintenance planning."
+    },
+    "pfCurve": {
+      "cardTitle": "P-F Curve Analysis",
+      "cardDescription": "Visualize the asset's current condition on the P-F curve, from potential failure (P) to functional failure (F).",
+      "potentialFailure": "Potential Failure (Detectable)",
+      "functionalFailure": "Functional Failure",
+      "condition": "Condition",
+      "assetHealth": "Asset Health: {{health}}%",
+      "interpretationTitle": "How to Interpret the P-F Curve",
+      "interpretation1": "The P-F curve shows the degradation of an asset over time.",
+      "interpretation2": "The 'P' point is when a potential failure can first be detected (e.g., by vibration, temperature). The 'F' point is the total loss of function.",
+      "interpretation3": "The position of your asset on the curve indicates how much useful life is remaining before a functional failure. The lower the health score, the closer it is to 'F'."
     }
   }
 }

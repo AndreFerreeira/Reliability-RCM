@@ -558,6 +558,18 @@
       "interpretation4_1": "Ancho de las Bandas",
       "interpretation4_2": "Las bandas anchas indican una mayor incertidumbre (a menudo debido a pocos puntos de datos). Las bandas estrechas indican una estimación más precisa y confiable.",
       "interpretation5": "En la práctica, para decisiones críticas, considere el escenario pesimista (el límite superior de fallo) para una planificación de mantenimiento más segura."
+    },
+    "pfCurve": {
+      "cardTitle": "Análisis de la Curva P-F",
+      "cardDescription": "Visualice la condición actual del activo en la curva P-F, desde el fallo potencial (P) hasta el fallo funcional (F).",
+      "potentialFailure": "Fallo Potencial (Detectable)",
+      "functionalFailure": "Fallo Funcional",
+      "condition": "Condición",
+      "assetHealth": "Salud del Activo: {{health}}%",
+      "interpretationTitle": "Cómo Interpretar la Curva P-F",
+      "interpretation1": "La curva P-F muestra la degradación de un activo a lo largo del tiempo.",
+      "interpretation2": "El punto 'P' es cuando se puede detectar por primera vez un fallo potencial (p. ej., por vibración, temperatura). El punto 'F' es la pérdida total de la función.",
+      "interpretation3": "La posición de su activo en la curva indica cuánta vida útil queda antes de un fallo funcional. Cuanto menor sea la puntuación de salud, más cerca estará de 'F'."
     }
   }
 }
