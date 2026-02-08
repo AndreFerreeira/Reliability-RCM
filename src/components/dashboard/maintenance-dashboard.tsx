@@ -650,6 +650,15 @@ export default function MaintenanceDashboard() {
                 let score = isNaN(reliability) ? null : Math.round(reliability * 100);
     
                 let medianLife = getMedianLife(asset.distribution, asset);
+
+                if (isNaN(medianLife)) {
+                    const ft = asset.failureTimes?.split(',').map(t => parseFloat(t.trim())).filter(t => !isNaN(t) && t > 0) ?? [];
+                    if (ft.length > 0) {
+                        medianLife = ft.reduce((sum, time) => sum + time, 0) / ft.length;
+                    } else {
+                        medianLife = 0;
+                    }
+                }
                 
                 const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastFailure) / 24);
 
