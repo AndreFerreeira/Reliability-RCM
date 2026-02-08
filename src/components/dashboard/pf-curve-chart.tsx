@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/i18n/i18n-provider';
 import { cn } from '@/lib/utils';
-import { Lightbulb } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, ShieldHalf, ShieldX } from 'lucide-react';
 
 interface PFCurveChartProps {
   pdmHealth: number; // Health score from 0 to 100
@@ -20,7 +20,7 @@ const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any
   const normalizedX = (xPosition - 5) / 90;
   const yPosition = 10 + Math.pow(normalizedX, 2) * 75;
 
-  const healthColor = health < 30 ? 'text-red-500' : health < 70 ? 'text-yellow-500' : 'text-green-500';
+  const healthColor = health < 20 ? 'border-red-500' : health < 50 ? 'border-yellow-500' : health < 80 ? 'border-blue-500' : 'border-green-500';
 
   return (
     <div className="relative w-full aspect-[2/1] max-w-lg mx-auto">
@@ -70,19 +70,61 @@ const PFCurveSVG = ({ health, t }: { health: number; t: (key: string, args?: any
               className="absolute transform -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${xPosition}%`, top: `${yPosition}%` }}
             >
-              <div className={cn("w-3 h-3 rounded-full border-2 bg-background animate-pulse", 
-                health < 30 ? 'border-red-500' : health < 70 ? 'border-yellow-500' : 'border-green-500'
-              )} />
+              <div className={cn("w-3 h-3 rounded-full border-2 bg-background animate-pulse", healthColor)} />
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p className={healthColor}>{t('assetDetail.pfCurve.assetHealth', { health: health })}</p>
+            <p className={cn(health < 20 ? 'text-red-500' : health < 50 ? 'text-yellow-500' : health < 80 ? 'text-blue-500' : 'text-green-500')}>{t('assetDetail.pfCurve.assetHealth', { health: pdmHealth })}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>
   );
 };
+
+
+const InterpretationCard = ({ health, t }: { health: number, t: (key: string, args?: any) => string }) => {
+  let titleKey: string;
+  let descriptionKey: string;
+  let Icon: React.ElementType;
+  let colorClass: string;
+
+  if (health >= 80) {
+    titleKey = 'assetDetail.pfCurve.status.excellent';
+    descriptionKey = 'assetDetail.pfCurve.interpretation.excellent';
+    Icon = ShieldCheck;
+    colorClass = "text-green-500";
+  } else if (health >= 50) {
+    titleKey = 'assetDetail.pfCurve.status.good';
+    descriptionKey = 'assetDetail.pfCurve.interpretation.good';
+    Icon = ShieldHalf;
+    colorClass = "text-blue-500";
+  } else if (health >= 20) {
+    titleKey = 'assetDetail.pfCurve.status.alert';
+    descriptionKey = 'assetDetail.pfCurve.interpretation.alert';
+    Icon = ShieldAlert;
+    colorClass = "text-yellow-500";
+  } else {
+    titleKey = 'assetDetail.pfCurve.status.critical';
+    descriptionKey = 'assetDetail.pfCurve.interpretation.critical';
+    Icon = ShieldX;
+    colorClass = "text-red-500";
+  }
+  
+  return (
+    <Card className="bg-muted/30">
+        <CardHeader>
+            <div className="flex items-center gap-3">
+                <Icon className={cn("h-6 w-6", colorClass)} />
+                <CardTitle className={cn("text-lg", colorClass)}>{t(titleKey)}</CardTitle>
+            </div>
+        </CardHeader>
+        <CardContent>
+            <p className="text-sm text-muted-foreground">{t(descriptionKey)}</p>
+        </CardContent>
+    </Card>
+  )
+}
 
 export default function PFCurveChart({ pdmHealth }: PFCurveChartProps) {
   const { t } = useI18n();
@@ -95,21 +137,7 @@ export default function PFCurveChart({ pdmHealth }: PFCurveChartProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         <PFCurveSVG health={pdmHealth} t={t} />
-        <Card className="bg-muted/30">
-          <CardHeader className="flex flex-row items-start gap-4 space-y-0">
-             <Lightbulb className="h-5 w-5 text-yellow-500 mt-1" />
-             <div>
-                <CardTitle className="text-base">{t('assetDetail.pfCurve.interpretationTitle')}</CardTitle>
-             </div>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-             <ul className="list-disc pl-5 space-y-2">
-                <li>{t('assetDetail.pfCurve.interpretation1')}</li>
-                <li>{t('assetDetail.pfCurve.interpretation2')}</li>
-                <li>{t('assetDetail.pfCurve.interpretation3')}</li>
-            </ul>
-          </CardContent>
-        </Card>
+        <InterpretationCard health={pdmHealth} t={t} />
       </CardContent>
     </Card>
   );

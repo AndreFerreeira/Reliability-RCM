@@ -566,10 +566,18 @@
       "functionalFailure": "Functional Failure",
       "condition": "Condition",
       "assetHealth": "Asset Health: {{health}}%",
-      "interpretationTitle": "How to Interpret the P-F Curve",
-      "interpretation1": "The P-F curve shows the degradation of an asset over time.",
-      "interpretation2": "The 'P' point is when a potential failure can first be detected (e.g., by vibration, temperature). The 'F' point is the total loss of function.",
-      "interpretation3": "The position of your asset on the curve indicates how much useful life is remaining before a functional failure. The lower the health score, the closer it is to 'F'."
+      "status": {
+        "excellent": "Excellent Condition",
+        "good": "Monitoring Required",
+        "alert": "Alert - Plan Intervention",
+        "critical": "Critical Condition - Immediate Action"
+      },
+      "interpretation": {
+        "excellent": "The asset is in optimal operating condition, far from the potential failure zone. Maintain the standard predictive monitoring plan.",
+        "good": "The asset shows early signs of degradation. Increase the frequency of predictive inspections to track its evolution and identify point 'P' (potential failure) as early as possible.",
+        "alert": "The asset has passed point 'P' and is degrading. This is the P-F interval, the ideal window of opportunity to plan maintenance. Schedule the intervention to avoid an unscheduled shutdown.",
+        "critical": "Imminent risk of functional failure. The asset is at the end of the P-F interval. Corrective maintenance is urgent to prevent total equipment shutdown and possible secondary damage."
+      }
     }
   }
 }

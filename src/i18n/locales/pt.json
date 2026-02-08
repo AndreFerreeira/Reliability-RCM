@@ -564,10 +564,18 @@
       "functionalFailure": "Falha Funcional",
       "condition": "Condição",
       "assetHealth": "Saúde do Ativo: {{health}}%",
-      "interpretationTitle": "Como Interpretar a Curva P-F",
-      "interpretation1": "A curva P-F mostra a degradação de um ativo ao longo do tempo.",
-      "interpretation2": "O ponto 'P' é quando uma falha potencial pode ser detectada pela primeira vez (ex: por vibração, temperatura). O ponto 'F' é a perda total da função.",
-      "interpretation3": "A posição do seu ativo na curva indica quanta vida útil resta antes de uma falha funcional. Quanto menor a pontuação de saúde, mais próximo ele está de 'F'."
+      "status": {
+        "excellent": "Condição Excelente",
+        "good": "Monitoramento Requerido",
+        "alert": "Alerta - Planejar Intervenção",
+        "critical": "Condição Crítica - Ação Imediata"
+      },
+      "interpretation": {
+        "excellent": "O ativo está em ótimas condições operacionais, longe da zona de falha potencial. Mantenha o plano de monitoramento preditivo padrão.",
+        "good": "O ativo mostra sinais iniciais de degradação. Aumente a frequência das inspeções preditivas para acompanhar a evolução e identificar o ponto 'P' (falha potencial) o mais cedo possível.",
+        "alert": "O ativo ultrapassou o ponto 'P' e está se degradando. Este é o intervalo P-F, a janela de oportunidade ideal para planejar a manutenção. Agende a intervenção para evitar uma parada não programada.",
+        "critical": "Risco iminente de falha funcional. O ativo está no final do intervalo P-F. A manutenção corretiva é urgente para prevenir a parada total do equipamento e possíveis danos secundários."
+      }
     }
   }
 }
