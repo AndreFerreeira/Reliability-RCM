@@ -293,7 +293,6 @@ function AssetDataMassEditor({ assets, onSave, t }: { assets: AssetData[], onSav
     
             const finalAssets = Array.from(assetsMap.values());
             
-            // We just save the raw data here, analysis is done on demand
             onSave(finalAssets);
     
             toast({
@@ -548,9 +547,8 @@ export default function MaintenanceDashboard() {
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
     const [healthData, setHealthData] = React.useState<Map<string, { score: number; daysRemaining: number }>>(new Map());
 
-    React.useEffect(() => {
-        const initialAssets = getInitialAssets();
-        const assetsWithCalculations = initialAssets.map(asset => {
+    const runAssetsAnalysis = (assetsToAnalyze: AssetData[]): AssetData[] => {
+        return assetsToAnalyze.map(asset => {
             if (asset.distribution) {
                 return asset;
             }
@@ -585,7 +583,11 @@ export default function MaintenanceDashboard() {
             }
             return asset;
         });
+    };
 
+    React.useEffect(() => {
+        const initialAssets = getInitialAssets();
+        const assetsWithCalculations = runAssetsAnalysis(initialAssets);
         setAssets(assetsWithCalculations);
     }, []);
 
@@ -747,6 +749,11 @@ export default function MaintenanceDashboard() {
         });
     };
 
+    const handleSaveAssets = (updatedAssets: AssetData[]) => {
+        const assetsWithCalculations = runAssetsAnalysis(updatedAssets);
+        setAssets(assetsWithCalculations);
+    };
+
     const handleDeleteAsset = (assetId: string) => {
         setAssets(assets => assets.filter(a => a.id !== assetId));
         toast({
@@ -784,7 +791,7 @@ export default function MaintenanceDashboard() {
                             <Input placeholder={t('performance.inventory.searchPlaceholder')} className="pl-9" />
                         </div>
                         <div className="flex items-center gap-2">
-                            <AssetDataMassEditor assets={assets} onSave={setAssets} t={t} />
+                            <AssetDataMassEditor assets={assets} onSave={handleSaveAssets} t={t} />
                             <Button variant="link">{t('performance.inventory.export')}</Button>
                         </div>
                     </div>
@@ -970,3 +977,4 @@ export default function MaintenanceDashboard() {
 
 
     
+
