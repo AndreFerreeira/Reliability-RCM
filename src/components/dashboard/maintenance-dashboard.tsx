@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Clock, Cog, DollarSign, MapPin, Pencil, Search, Tag, Trash2, TrendingUp, Upload, Wrench, CalendarClock } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Clock, Cog, DollarSign, MapPin, Pencil, Search, Tag, Trash2, TrendingUp, Upload, Wrench, CalendarClock, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -958,3 +958,6 @@ export default function MaintenanceDashboard() {
     
 
 
+
+
+    
