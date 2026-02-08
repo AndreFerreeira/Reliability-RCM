@@ -543,6 +543,9 @@
       "interpretation2": "The <strong>lowest point on the curve</strong> indicates the <strong>Optimal Interval</strong>. Performing maintenance at this point minimizes the total long-term cost.",
       "interpretation3": "Replacing <strong>before</strong> the optimal interval means spending more on preventive actions. Replacing <strong>after</strong> means risking in-service failures, which are much more expensive."
     },
+    "pdmScore": {
+      "severity": "Severity"
+    },
     "confidencePlot": {
       "title": "Probability Plot with Confidence Bounds",
       "description": "Analyze the Weibull model fit and estimation uncertainty. The bounds show the likely range of the true failure line.",

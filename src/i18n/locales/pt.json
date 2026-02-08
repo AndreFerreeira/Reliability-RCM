@@ -134,7 +134,6 @@
     "button": "Mago da Distribuição",
     "title": "Mago da Distribuição - {{supplierName}}",
     "description": "Analise qual distribuição de probabilidade melhor se ajusta aos dados do seu equipamento.",
-    "analyzeButton": "Analisar Dados",
     "howTitle": "🔍 Como escolhemos a melhor distribuição",
     "howIntro": "A ferramenta avalia diferentes distribuições estatísticas para encontrar qual modelo melhor representa o comportamento de falha do equipamento. O critério principal é:",
     "howCriterion": "LKV – Log-Likelihood Value (Valor de Log-Verossimilhança)",
@@ -541,6 +540,9 @@
       "interpretation1": "A curva representa o <strong>Custo Total por Unidade de Tempo</strong>. Ela combina o custo de uma substituição planejada (Cp) com o custo crescente de uma falha em serviço (Cu), ponderado pela confiabilidade do ativo.",
       "interpretation2": "O <strong>ponto mais baixo da curva</strong> indica o <strong>Intervalo Ótimo</strong>. Realizar a manutenção neste ponto minimiza o custo total a longo prazo.",
       "interpretation3": "Trocar <strong>antes</strong> do intervalo ótimo significa gastar mais com preventivas. Trocar <strong>depois</strong> significa arriscar falhas em serviço, que são muito mais caras."
+    },
+    "pdmScore": {
+      "severity": "Severidade"
     },
     "confidencePlot": {
       "title": "Gráfico de Probabilidade com Limites de Confiança",
