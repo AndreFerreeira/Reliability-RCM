@@ -223,6 +223,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
 
              <PFCurveChart
                 pdmHealth={dynamicHealth?.score}
+                distribution={asset.distribution}
                 beta={asset.beta}
                 rho={asset.rho}
                 failureTimesCount={failureTimes.length}

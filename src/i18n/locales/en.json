@@ -588,11 +588,13 @@
         "medium": "The forecast has moderate uncertainty. The model is a reasonable fit, but more data would improve precision.",
         "low": "The forecast has low uncertainty. The model is a good fit for the data ({{count}} points, R² {{rho}}), providing a reliable basis for decisions."
       },
+      "notApplicable": "P-F Curve analysis is not applicable for this asset's failure mode (e.g., random failures or infant mortality).",
       "shape": {
         "title": "Curve Shape",
         "flat": "The curve is flatter, as the Beta parameter (β) is low (≤1.1), suggesting failures are more random or premature, not following a clear degradation pattern.",
         "normal": "The curve reflects a typical wear-out pattern (β = {{beta}}). The P-F interval is predictable, ideal for condition-based maintenance.",
-        "steep": "The curve is steep (β = {{beta}}), indicating rapid degradation once a potential failure is detected. The window for maintenance (P-F interval) is short."
+        "steep": "The curve is steep (β = {{beta}}), indicating rapid degradation once a potential failure is detected. The window for maintenance (P-F interval) is short.",
+        "genericWearOut": "The curve reflects a wear-out pattern, typical of distributions like Normal or Lognormal, where failure risk increases over time."
       }
     }
   }

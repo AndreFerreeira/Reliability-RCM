@@ -588,11 +588,13 @@
         "medium": "La predicción tiene una incertidumbre moderada. El modelo tiene un ajuste razonable, pero más datos mejorarían la precisión.",
         "low": "La predicción tiene una baja incertidumbre. El modelo se ajusta bien a los datos ({{count}} puntos, R² {{rho}}), proporcionando una base confiable para las decisiones."
       },
+      "notApplicable": "El análisis de la Curva P-F no es aplicable para el modo de fallo de este activo (p. ej., fallos aleatorios o mortalidad infantil).",
       "shape": {
         "title": "Forma de la Curva",
         "flat": "La curva es más plana, ya que el parámetro Beta (β) es bajo (≤1.1), lo que sugiere que las fallas son más aleatorias o prematuras, sin seguir un patrón claro de degradación.",
         "normal": "La curva refleja un patrón de desgaste típico (β = {{beta}}). El intervalo P-F es predecible, ideal para el mantenimiento basado en la condición.",
-        "steep": "La curva es pronunciada (β = {{beta}}), lo que indica una degradación rápida una vez que se detecta un fallo potencial. La ventana para el mantenimiento (intervalo P-f) es corta."
+        "steep": "La curva es pronunciada (β = {{beta}}), lo que indica una degradación rápida una vez que se detecta un fallo potencial. La ventana para el mantenimiento (intervalo P-f) es corta.",
+        "genericWearOut": "La curva refleja un patrón de desgaste, típico de distribuciones como Normal o Lognormal, donde el riesgo de fallo aumenta con el tiempo."
       }
     }
   }

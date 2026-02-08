@@ -586,11 +586,13 @@
         "medium": "A previsão tem incerteza moderada. O modelo tem um ajuste razoável, mas mais dados melhorariam a precisão.",
         "low": "A previsão tem baixa incerteza. O modelo se ajusta bem aos dados ({{count}} pontos, R² {{rho}}), fornecendo uma base confiável para decisões."
       },
+      "notApplicable": "A análise da Curva P-F não é aplicável para o modo de falha deste ativo (ex: falhas aleatórias ou mortalidade infantil).",
       "shape": {
         "title": "Formato da Curva",
         "flat": "A curva é mais plana, pois o parâmetro Beta (β) é baixo (≤1.1), sugerindo que as falhas são mais aleatórias ou prematuras, não seguindo um padrão claro de degradação.",
         "normal": "A curva reflete um padrão de desgaste típico (β = {{beta}}). O intervalo P-F é previsível, ideal para manutenção baseada na condição.",
-        "steep": "A curva é íngreme (β = {{beta}}), indicando uma degradação rápida após a detecção de uma falha potencial. A janela para manutenção (intervalo P-F) é curta."
+        "steep": "A curva é íngreme (β = {{beta}}), indicando uma degradação rápida após a detecção de uma falha potencial. A janela para manutenção (intervalo P-F) é curta.",
+        "genericWearOut": "A curva reflete um padrão de desgaste, típico de distribuições como Normal ou Lognormal, onde o risco de falha aumenta com o tempo."
       }
     }
   }

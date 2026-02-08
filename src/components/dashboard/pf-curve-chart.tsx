@@ -5,10 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/i18n/i18n-provider';
 import { cn } from '@/lib/utils';
-import { ShieldAlert, ShieldCheck, ShieldHalf, ShieldX, HelpCircle, Sigma, BarChart } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, ShieldHalf, ShieldX, HelpCircle, Sigma } from 'lucide-react';
+import type { Distribution } from '@/lib/types';
 
 interface PFCurveChartProps {
   pdmHealth?: number | null;
+  distribution?: Distribution | null;
   beta?: number | null;
   rho?: number | null;
   failureTimesCount?: number | null;
@@ -97,12 +99,8 @@ const PFCurveSVG = ({ health, curvePath, curveStyle, t }: { health: number; curv
 };
 
 
-const InterpretationSection = ({ health, beta, uncertaintyLevel, uncertaintyDescription, curveShapeDescription, t }: { 
+const InterpretationSection = ({ health, t }: { 
     health: number, 
-    beta: number,
-    uncertaintyLevel: 'high' | 'medium' | 'low',
-    uncertaintyDescription: string,
-    curveShapeDescription: string,
     t: (key: string, args?: any) => string 
 }) => {
   let statusTitleKey: string, statusDescriptionKey: string, StatusIcon: React.ElementType, statusColorClass: string;
@@ -129,14 +127,7 @@ const InterpretationSection = ({ health, beta, uncertaintyLevel, uncertaintyDesc
     statusColorClass = "text-red-500";
   }
   
-  const uncertaintyColors = {
-      high: 'text-red-500',
-      medium: 'text-yellow-500',
-      low: 'text-green-500',
-  }
-  
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="bg-muted/30">
             <CardHeader>
                 <div className="flex items-center gap-3">
@@ -148,31 +139,46 @@ const InterpretationSection = ({ health, beta, uncertaintyLevel, uncertaintyDesc
                 <p className="text-sm text-muted-foreground">{t(statusDescriptionKey)}</p>
             </CardContent>
         </Card>
-        <div className="space-y-4">
-             <Card className="bg-muted/30">
-                <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                    <HelpCircle className={cn("h-6 w-6", uncertaintyColors[uncertaintyLevel])} />
-                    <CardTitle className="text-lg">{t('assetDetail.pfCurve.uncertainty')}: <span className={cn(uncertaintyColors[uncertaintyLevel])}>{t(`assetDetail.pfCurve.uncertaintyLevel.${uncertaintyLevel}`)}</span></CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-muted-foreground">{uncertaintyDescription}</p>
-                </CardContent>
-            </Card>
-             <Card className="bg-muted/30">
-                <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                    <Sigma className="h-6 w-6 text-primary" />
-                    <CardTitle className="text-lg">{t('assetDetail.pfCurve.shape.title')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-muted-foreground">{curveShapeDescription}</p>
-                </CardContent>
-            </Card>
-        </div>
+  )
+}
+
+const ModelInfoSection = ({ uncertaintyLevel, uncertaintyDescription, curveShapeDescription, t }: { 
+    uncertaintyLevel: 'high' | 'medium' | 'low',
+    uncertaintyDescription: string,
+    curveShapeDescription: string,
+    t: (key: string, args?: any) => string 
+}) => {
+   const uncertaintyColors = {
+      high: 'text-red-500',
+      medium: 'text-yellow-500',
+      low: 'text-green-500',
+  }
+
+  return (
+    <div className="space-y-4">
+        <Card className="bg-muted/30">
+            <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <HelpCircle className={cn("h-6 w-6", uncertaintyColors[uncertaintyLevel])} />
+                <CardTitle className="text-lg">{t('assetDetail.pfCurve.uncertainty')}: <span className={cn(uncertaintyColors[uncertaintyLevel])}>{t(`assetDetail.pfCurve.uncertaintyLevel.${uncertaintyLevel}`)}</span></CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">{uncertaintyDescription}</p>
+            </CardContent>
+        </Card>
+        <Card className="bg-muted/30">
+            <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <Sigma className="h-6 w-6 text-primary" />
+                <CardTitle className="text-lg">{t('assetDetail.pfCurve.shape.title')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">{curveShapeDescription}</p>
+            </CardContent>
+        </Card>
     </div>
   )
 }
 
-export default function PFCurveChart({ pdmHealth, beta, rho, failureTimesCount }: PFCurveChartProps) {
+export default function PFCurveChart({ pdmHealth, distribution, beta, rho, failureTimesCount }: PFCurveChartProps) {
   const { t } = useI18n();
 
   const uncertaintyLevel = useMemo(() => {
@@ -188,24 +194,32 @@ export default function PFCurveChart({ pdmHealth, beta, rho, failureTimesCount }
       return t(`assetDetail.pfCurve.uncertaintyDescription.${uncertaintyLevel}`, { count: count, rho: r2 });
   }, [uncertaintyLevel, failureTimesCount, rho, t]);
 
+  const isWearOutDistribution = useMemo(() => {
+    if (!distribution) return false;
+    if (distribution === 'Normal' || distribution === 'Lognormal') return true;
+    if (distribution === 'Weibull' && beta && beta > 1.1) return true;
+    return false;
+  }, [distribution, beta]);
+
   const { curvePath, curveShapeDescription } = useMemo(() => {
-    if (!beta || beta <= 1.1) {
-        return { 
-            curvePath: "M 5,15 Q 40,15 95,45",
-            curveShapeDescription: t('assetDetail.pfCurve.shape.flat')
+    if (distribution === 'Weibull' && beta) {
+      if (beta > 3) {
+        return {
+          curvePath: 'M 5,10 Q 80,10 95,45',
+          curveShapeDescription: t('assetDetail.pfCurve.shape.steep', { beta: beta.toFixed(2) }),
         };
+      }
+      return {
+        curvePath: 'M 5,10 Q 55,10 95,45',
+        curveShapeDescription: t('assetDetail.pfCurve.shape.normal', { beta: beta.toFixed(2) }),
+      };
     }
-    if (beta > 3) {
-        return { 
-            curvePath: "M 5,10 Q 80,10 95,45",
-            curveShapeDescription: t('assetDetail.pfCurve.shape.steep', { beta: beta.toFixed(2) })
-        };
-    }
-    return { 
-        curvePath: "M 5,10 Q 55,10 95,45",
-        curveShapeDescription: t('assetDetail.pfCurve.shape.normal', { beta: beta.toFixed(2) })
+    // For Normal or Lognormal
+    return {
+      curvePath: 'M 5,10 Q 55,10 95,45', // Standard wear-out curve
+      curveShapeDescription: t('assetDetail.pfCurve.shape.genericWearOut'),
     };
-  }, [beta, t]);
+  }, [distribution, beta, t]);
 
   const curveStyle = useMemo((): React.CSSProperties => {
     switch (uncertaintyLevel) {
@@ -216,7 +230,7 @@ export default function PFCurveChart({ pdmHealth, beta, rho, failureTimesCount }
     }
   }, [uncertaintyLevel]);
 
-  if (pdmHealth === undefined || pdmHealth === null || beta === undefined || beta === null) {
+  if (pdmHealth === undefined || pdmHealth === null || !isWearOutDistribution) {
       return (
           <Card>
               <CardHeader>
@@ -224,7 +238,11 @@ export default function PFCurveChart({ pdmHealth, beta, rho, failureTimesCount }
                   <CardDescription>{t('assetDetail.pfCurve.cardDescription')}</CardDescription>
               </CardHeader>
               <CardContent className="flex items-center justify-center h-48">
-                  <p className="text-muted-foreground">{beta ? t('assetDetail.dynamicHealth.noData') : t('weibullAnalysis.noData')}</p>
+                  <p className="text-muted-foreground text-center px-4">
+                      {pdmHealth === null || pdmHealth === undefined 
+                          ? t('assetDetail.dynamicHealth.noData') 
+                          : t('assetDetail.pfCurve.notApplicable')}
+                  </p>
               </CardContent>
           </Card>
       );
@@ -238,14 +256,15 @@ export default function PFCurveChart({ pdmHealth, beta, rho, failureTimesCount }
       </CardHeader>
       <CardContent className="space-y-6">
         <PFCurveSVG health={pdmHealth} curvePath={curvePath} curveStyle={curveStyle} t={t} />
-        <InterpretationSection
-          health={pdmHealth}
-          beta={beta}
-          uncertaintyLevel={uncertaintyLevel}
-          uncertaintyDescription={uncertaintyDescription}
-          curveShapeDescription={curveShapeDescription}
-          t={t}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InterpretationSection health={pdmHealth} t={t} />
+            <ModelInfoSection
+              uncertaintyLevel={uncertaintyLevel}
+              uncertaintyDescription={uncertaintyDescription}
+              curveShapeDescription={curveShapeDescription}
+              t={t}
+            />
+        </div>
       </CardContent>
     </Card>
   );
