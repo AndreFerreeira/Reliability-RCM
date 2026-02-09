@@ -20,7 +20,7 @@ import AssetProbabilityPlot from './asset-probability-plot';
 import { getReliability, getMedianLife } from '@/lib/reliability';
 import { Badge } from '@/components/ui/badge';
 import PFCurveChart from './pf-curve-chart';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Separator } from '@/components/ui/separator';
 
 
 interface AssetDetailViewProps {
@@ -230,53 +230,46 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                     <CardTitle>Análises de Confiabilidade</CardTitle>
                     <CardDescription>Explore as diferentes facetas do comportamento de falha deste ativo.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger className="text-base font-semibold">1. Análise Preditiva (Curva P-F)</AccordionTrigger>
-                            <AccordionContent className="pt-4">
-                                <PFCurveChart
-                                    pdmHealth={dynamicHealth?.score}
-                                    distribution={asset.distribution}
-                                    beta={asset.beta}
-                                    rho={asset.rho}
-                                    failureTimesCount={failureTimes.length}
-                                />
-                            </AccordionContent>
-                        </AccordionItem>
-                         <AccordionItem value="item-2">
-                            <AccordionTrigger className="text-base font-semibold">2. Análise do Ciclo de Vida (Curva da Banheira)</AccordionTrigger>
-                            <AccordionContent className="pt-4">
-                               <BathtubCurveAnalysis failureTimes={failureTimes} />
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="item-3">
-                            <AccordionTrigger className="text-base font-semibold">3. Otimização de Manutenção Preventiva</AccordionTrigger>
-                            <AccordionContent className="pt-4">
-                                <PreventiveMaintenanceOptimizer asset={asset} />
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="item-4">
-                            <AccordionTrigger className="text-base font-semibold">4. Diagnóstico do Modelo (Gráfico de Probabilidade)</AccordionTrigger>
-                            <AccordionContent className="pt-4">
-                               <AssetProbabilityPlot asset={asset} />
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="item-5">
-                            <AccordionTrigger className="text-base font-semibold">5. Curvas Fundamentais de Confiabilidade</AccordionTrigger>
-                            <AccordionContent className="pt-4">
-                               <AssetReliabilityCharts asset={asset} />
-                            </AccordionContent>
-                        </AccordionItem>
-                        {asset.events && asset.events.length > 0 && (
-                             <AccordionItem value="item-6">
-                                <AccordionTrigger className="text-base font-semibold">6. Histórico de Eventos</AccordionTrigger>
-                                <AccordionContent className="pt-4">
-                                    <EventLogTable events={asset.events} />
-                                </AccordionContent>
-                            </AccordionItem>
-                        )}
-                    </Accordion>
+                <CardContent className="space-y-8 pt-6">
+                    <div>
+                         <h3 className="text-xl font-semibold mb-4">1. Análise Preditiva (Curva P-F)</h3>
+                         <PFCurveChart
+                            pdmHealth={dynamicHealth?.score}
+                            distribution={asset.distribution}
+                            beta={asset.beta}
+                            rho={asset.rho}
+                            failureTimesCount={failureTimes.length}
+                        />
+                    </div>
+                    <Separator />
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">2. Análise do Ciclo de Vida (Curva da Banheira)</h3>
+                        <BathtubCurveAnalysis failureTimes={failureTimes} />
+                    </div>
+                    <Separator />
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">3. Otimização de Manutenção Preventiva</h3>
+                         <PreventiveMaintenanceOptimizer asset={asset} />
+                    </div>
+                    <Separator />
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">4. Diagnóstico do Modelo (Gráfico de Probabilidade)</h3>
+                        <AssetProbabilityPlot asset={asset} />
+                    </div>
+                    <Separator />
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">5. Curvas Fundamentais de Confiabilidade</h3>
+                        <AssetReliabilityCharts asset={asset} />
+                    </div>
+                    {asset.events && asset.events.length > 0 && (
+                        <>
+                            <Separator />
+                            <div>
+                                <h3 className="text-xl font-semibold mb-4">6. Histórico de Eventos</h3>
+                                <EventLogTable events={asset.events} />
+                            </div>
+                        </>
+                    )}
                 </CardContent>
             </Card>
         </div>
