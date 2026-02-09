@@ -20,6 +20,7 @@ import AssetProbabilityPlot from './asset-probability-plot';
 import { getReliability, getMedianLife } from '@/lib/reliability';
 import { Badge } from '@/components/ui/badge';
 import PFCurveChart from './pf-curve-chart';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 interface AssetDetailViewProps {
@@ -168,15 +169,15 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column */}
-        <div className="lg:col-span-3 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Left Column for KPIs */}
+        <div className="lg:col-span-1 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-6">
                 <InfoCard title="MTBF" value={calculatedMtbf > 0 ? calculatedMtbf.toFixed(0) : '--'} unit="h" icon={Clock} />
                 <InfoCard title="MTTR" value={asset.mttr} unit="h" icon={AlertTriangle} />
                 <InfoCard title={t('assetEditor.downtimeCostPerHour')} value={`$${downtimeCostPerHour.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} icon={DollarSign} />
             </div>
 
-            <Card className="bg-card shadow-lg">
+            <Card className="bg-card shadow-lg sticky top-6">
                 <CardHeader>
                     <CardTitle>{t('assetDetail.dynamicHealth.title')}</CardTitle>
                 </CardHeader>
@@ -220,28 +221,65 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                     </div>
                 </div>
             </Card>
-
-             <PFCurveChart
-                pdmHealth={dynamicHealth?.score}
-                distribution={asset.distribution}
-                beta={asset.beta}
-                rho={asset.rho}
-                failureTimesCount={failureTimes.length}
-             />
-
-             <BathtubCurveAnalysis failureTimes={failureTimes} />
-
-             <PreventiveMaintenanceOptimizer
-                asset={asset}
-             />
-
-             <AssetProbabilityPlot asset={asset} />
-
-             <AssetReliabilityCharts asset={asset} />
-
-             {asset.events && asset.events.length > 0 && <EventLogTable events={asset.events} />}
         </div>
 
+        {/* Right Column for Analyses */}
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Análises de Confiabilidade</CardTitle>
+                    <CardDescription>Explore as diferentes facetas do comportamento de falha deste ativo.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger className="text-base font-semibold">1. Análise Preditiva (Curva P-F)</AccordionTrigger>
+                            <AccordionContent className="pt-4">
+                                <PFCurveChart
+                                    pdmHealth={dynamicHealth?.score}
+                                    distribution={asset.distribution}
+                                    beta={asset.beta}
+                                    rho={asset.rho}
+                                    failureTimesCount={failureTimes.length}
+                                />
+                            </AccordionContent>
+                        </AccordionItem>
+                         <AccordionItem value="item-2">
+                            <AccordionTrigger className="text-base font-semibold">2. Análise do Ciclo de Vida (Curva da Banheira)</AccordionTrigger>
+                            <AccordionContent className="pt-4">
+                               <BathtubCurveAnalysis failureTimes={failureTimes} />
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-3">
+                            <AccordionTrigger className="text-base font-semibold">3. Otimização de Manutenção Preventiva</AccordionTrigger>
+                            <AccordionContent className="pt-4">
+                                <PreventiveMaintenanceOptimizer asset={asset} />
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-4">
+                            <AccordionTrigger className="text-base font-semibold">4. Diagnóstico do Modelo (Gráfico de Probabilidade)</AccordionTrigger>
+                            <AccordionContent className="pt-4">
+                               <AssetProbabilityPlot asset={asset} />
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-5">
+                            <AccordionTrigger className="text-base font-semibold">5. Curvas Fundamentais de Confiabilidade</AccordionTrigger>
+                            <AccordionContent className="pt-4">
+                               <AssetReliabilityCharts asset={asset} />
+                            </AccordionContent>
+                        </AccordionItem>
+                        {asset.events && asset.events.length > 0 && (
+                             <AccordionItem value="item-6">
+                                <AccordionTrigger className="text-base font-semibold">6. Histórico de Eventos</AccordionTrigger>
+                                <AccordionContent className="pt-4">
+                                    <EventLogTable events={asset.events} />
+                                </AccordionContent>
+                            </AccordionItem>
+                        )}
+                    </Accordion>
+                </CardContent>
+            </Card>
+        </div>
       </div>
 
       <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
