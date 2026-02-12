@@ -723,10 +723,22 @@ export default function MaintenanceDashboard() {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
     }
     
+    const handleAssetUpdate = (updatedAsset: AssetData) => {
+        setAssets(prevAssets => {
+            const newAssets = prevAssets.map(a => (a.id === updatedAsset.id ? updatedAsset : a));
+            const assetsWithCalculations = runAssetsAnalysis(newAssets);
+            
+            if (selectedAsset && selectedAsset.id === updatedAsset.id) {
+                const reanalyzedAsset = assetsWithCalculations.find(a => a.id === updatedAsset.id);
+                setSelectedAsset(reanalyzedAsset || null);
+            }
+
+            return assetsWithCalculations;
+        });
+    };
+
     const handleSaveAsset = (updatedAsset: AssetData) => {
-        const newAssets = assets.map(a => (a.id === updatedAsset.id ? updatedAsset : a));
-        const assetsWithCalculations = runAssetsAnalysis(newAssets);
-        setAssets(assetsWithCalculations);
+        handleAssetUpdate(updatedAsset);
         setEditingAsset(null);
         toast({
             title: t('toasts.assetUpdateSuccess.title'),
@@ -780,7 +792,7 @@ export default function MaintenanceDashboard() {
     };
 
     if (selectedAsset) {
-        return <AssetDetailView asset={selectedAsset} onBack={() => setSelectedAsset(null)} />;
+        return <AssetDetailView asset={selectedAsset} onBack={() => setSelectedAsset(null)} onAssetChange={handleAssetUpdate} />;
     }
 
 
@@ -997,6 +1009,7 @@ export default function MaintenanceDashboard() {
 
 
     
+
 
 
 

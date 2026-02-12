@@ -26,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 interface AssetDetailViewProps {
   asset: AssetData;
   onBack: () => void;
+  onAssetChange: (asset: AssetData) => void;
 }
 
 const InfoCard = ({ title, value, icon: Icon, unit }: { title: string, value: string | number, icon: React.ElementType, unit?: string }) => (
@@ -55,7 +56,7 @@ function parseDate(dateStr: string): Date | null {
     return null;
 }
 
-export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
+export function AssetDetailView({ asset, onBack, onAssetChange }: AssetDetailViewProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [isReportOpen, setIsReportOpen] = React.useState(false);
@@ -140,6 +141,16 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
         description: (result as { error: string }).error || t('toasts.simulationError.description'),
       });
     }
+  };
+
+  const handleDeleteEvent = (orderNumber: string) => {
+    if (!asset.events) return;
+    const updatedEvents = asset.events.filter(e => e.orderNumber !== orderNumber);
+    onAssetChange({ ...asset, events: updatedEvents });
+    toast({
+        title: t('toasts.eventRemoved.title'),
+        description: t('toasts.eventRemoved.description'),
+    });
   };
 
 
@@ -266,7 +277,7 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
                             <Separator />
                             <div>
                                 <h3 className="text-xl font-semibold mb-4">6. Histórico de Eventos</h3>
-                                <EventLogTable events={asset.events} />
+                                <EventLogTable events={asset.events} onDeleteEvent={handleDeleteEvent} />
                             </div>
                         </>
                     )}

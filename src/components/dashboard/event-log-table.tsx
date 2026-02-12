@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { LogEvent } from '@/lib/types';
 import { useI18n } from '@/i18n/i18n-provider';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 
 function parseDate(dateStr: string): Date | null {
     if (!dateStr || typeof dateStr !== 'string') return null;
@@ -29,9 +31,10 @@ function parseDate(dateStr: string): Date | null {
 
 interface EventLogTableProps {
     events: LogEvent[] | undefined;
+    onDeleteEvent?: (orderNumber: string) => void;
 }
 
-export default function EventLogTable({ events }: EventLogTableProps) {
+export default function EventLogTable({ events, onDeleteEvent }: EventLogTableProps) {
   const { t } = useI18n();
 
   const processedEvents = React.useMemo(() => {
@@ -46,9 +49,12 @@ export default function EventLogTable({ events }: EventLogTableProps) {
         endDateObj: parseDate(e.endDate),
       }))
       .filter((e): e is LogEvent & { startDateObj: Date; endDateObj: Date | null } => !!e.startDateObj)
-      .sort((a, b) => a.startDateObj.getTime() - b.startDateObj.getTime());
+      .sort((a, b) => b.startDateObj.getTime() - a.startDateObj.getTime());
 
-    const failureEvents = allParsedEvents.filter(e => ['FALHA', 'CORRETIVA'].includes(e.status));
+    const failureEvents = [...allParsedEvents]
+      .filter(e => ['FALHA', 'CORRETIVA'].includes(e.status))
+      .sort((a,b) => a.startDateObj.getTime() - b.startDateObj.getTime());
+
 
     const eventsWithMetrics = allParsedEvents.map((event, index) => {
         const newEvent: LogEvent & { timeToRepair?: number, timeBetweenFailures?: number } = { ...event };
@@ -101,11 +107,12 @@ export default function EventLogTable({ events }: EventLogTableProps) {
                 <TableHead>{t('assetDetail.eventLog.descriptionLabel')}</TableHead>
                 <TableHead className="text-right">{t('assetDetail.eventLog.tef')}</TableHead>
                 <TableHead className="text-right">{t('assetDetail.eventLog.tr')}</TableHead>
+                {onDeleteEvent && <TableHead className="w-12"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {processedEvents.map((event, index) => (
-                <TableRow key={index}>
+                <TableRow key={event.orderNumber + '-' + index}>
                   <TableCell>{event.tag}</TableCell>
                   <TableCell>{event.startDate}</TableCell>
                   <TableCell>{event.endDate}</TableCell>
@@ -116,6 +123,13 @@ export default function EventLogTable({ events }: EventLogTableProps) {
                   <TableCell className="text-right font-mono">
                     {event.timeToRepair !== undefined ? event.timeToRepair.toFixed(2) : '-'}
                   </TableCell>
+                  {onDeleteEvent && (
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => onDeleteEvent(event.orderNumber)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

@@ -133,6 +133,10 @@
       "title": "Mantenimiento Registrado",
       "description": "El conteo regresivo del activo ha sido reiniciado.",
       "eventDescription": "Reinicio del Conteo de MP"
+    },
+    "eventRemoved": {
+      "title": "Evento Eliminado",
+      "description": "El evento ha sido eliminado del historial del activo."
     }
   },
   "distributionWizard": {

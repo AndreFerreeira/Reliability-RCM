@@ -133,6 +133,10 @@
       "title": "Maintenance Logged",
       "description": "The asset's countdown has been reset.",
       "eventDescription": "PM Countdown Reset"
+    },
+    "eventRemoved": {
+      "title": "Event Removed",
+      "description": "The event has been removed from the asset's history."
     }
   },
   "distributionWizard": {
@@ -600,7 +604,7 @@
         "flat": "The curve is flatter, as the Beta parameter (β) is low (≤1.1), suggesting failures are more random or premature, not following a clear degradation pattern.",
         "normal": "The curve reflects a typical wear-out pattern (β = {{beta}}). The P-F interval is predictable, ideal for condition-based maintenance.",
         "steep": "The curve is steep (β = {{beta}}), indicating rapid degradation once a potential failure is detected. The window for maintenance (P-F interval) is short.",
-        "genericWearOut": "The curve reflects a wear-out pattern, typical of distributions like Normal or Lognormal, where failure risk increases over time."
+        "genericWearOut": "The curve reflects a wear-out pattern, typical of distributions like Normal or Lognormal, where the risk of failure increases over time."
       }
     }
   }

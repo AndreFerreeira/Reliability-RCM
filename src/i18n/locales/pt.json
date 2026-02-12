@@ -132,6 +132,10 @@
       "title": "Manutenção Registrada",
       "description": "A contagem regressiva do ativo foi reiniciada.",
       "eventDescription": "Contagem de PM reiniciada"
+    },
+    "eventRemoved": {
+      "title": "Evento Removido",
+      "description": "O evento foi removido do histórico do ativo."
     }
   },
   "distributionWizard": {
