@@ -73,21 +73,21 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
       return;
     }
 
-    const failureEvents = asset.events
+    const maintenanceEvents = asset.events
       .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
-      .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
+      .filter((e): e is typeof e & { date: Date } => !!e.date && ['FALHA', 'CORRETIVA', 'PREVENTIVA'].includes(e.status.toUpperCase()))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
     
-    if (failureEvents.length === 0) {
+    if (maintenanceEvents.length === 0) {
         setDynamicHealth(null);
         return;
     }
 
-    const lastFailureDate = failureEvents[0].date;
+    const lastMaintenanceDate = maintenanceEvents[0].date;
     const now = new Date();
-    const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
+    const hoursSinceLastMaintenance = (now.getTime() - lastMaintenanceDate.getTime()) / (1000 * 60 * 60);
     
-    const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
+    const reliability = getReliability(asset.distribution, asset, hoursSinceLastMaintenance);
     const score = isNaN(reliability) ? 0 : Math.round(reliability * 100);
 
     let referenceInterval = getMedianLife(asset.distribution, asset);
@@ -100,8 +100,8 @@ export function AssetDetailView({ asset, onBack }: AssetDetailViewProps) {
         }
     }
     
-    const daysSince = hoursSinceLastFailure / 24;
-    const daysRemaining = (referenceInterval - hoursSinceLastFailure) / 24;
+    const daysSince = hoursSinceLastMaintenance / 24;
+    const daysRemaining = (referenceInterval - hoursSinceLastMaintenance) / 24;
 
     setDynamicHealth({
       score: score,

@@ -127,6 +127,11 @@
       "description": "Verifique o formato dos dados colados. Detalhes: {{error}}",
       "structure": "Os dados parecem estar vazios ou em um formato inválido. Certifique-se de incluir a linha de cabeçalho.",
       "missingHeaders": "Os seguintes cabeçalhos obrigatórios não foram encontrados: {{headers}}"
+    },
+    "maintenanceLogged": {
+      "title": "Manutenção Registrada",
+      "description": "A contagem regressiva do ativo foi reiniciada.",
+      "eventDescription": "Contagem de PM reiniciada"
     }
   },
   "distributionWizard": {
@@ -448,6 +453,7 @@
       "analyze": "Analisar",
       "edit": "Editar",
       "delete": "Apagar",
+      "resetCountdown": "Reiniciar Contagem",
       "assetInfo": "INFORMAÇÕES DO ATIVO",
       "locationSerial": "LOCAL & SERIAL",
       "gbv": "VALOR GBV",

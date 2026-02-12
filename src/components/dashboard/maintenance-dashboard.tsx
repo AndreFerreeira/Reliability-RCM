@@ -614,24 +614,24 @@ export default function MaintenanceDashboard() {
 
 
     React.useEffect(() => {
-        const newHealthData = new Map<string, { score: number, daysRemaining: number }>();
+        const newHealthData = new Map<string, { score: number; daysRemaining: number }>();
         
         processedAssets.forEach(asset => {
             if (!asset.distribution || !asset.events || asset.events.length === 0) {
                 return;
             }
 
-            const failureEvents = asset.events
+            const maintenanceEvents = asset.events
                 .map(e => ({ ...e, date: parseDate(e.endDate || e.startDate) }))
-                .filter((e): e is typeof e & { date: Date } => !!e.date && (e.status === 'FALHA' || e.status === 'CORRETIVA'))
+                .filter((e): e is typeof e & { date: Date } => !!e.date && ['FALHA', 'CORRETIVA', 'PREVENTIVA'].includes(e.status.toUpperCase()))
                 .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-            if (failureEvents.length > 0) {
-                const lastFailureDate = failureEvents[0].date;
+            if (maintenanceEvents.length > 0) {
+                const lastMaintenanceDate = maintenanceEvents[0].date;
                 const now = new Date();
-                const hoursSinceLastFailure = (now.getTime() - lastFailureDate.getTime()) / (1000 * 60 * 60);
+                const hoursSinceLastMaintenance = (now.getTime() - lastMaintenanceDate.getTime()) / (1000 * 60 * 60);
 
-                const reliability = getReliability(asset.distribution, asset, hoursSinceLastFailure);
+                const reliability = getReliability(asset.distribution, asset, hoursSinceLastMaintenance);
                 let score = isNaN(reliability) ? null : Math.round(reliability * 100);
     
                 let medianLife = getMedianLife(asset.distribution, asset);
@@ -645,7 +645,7 @@ export default function MaintenanceDashboard() {
                     }
                 }
                 
-                const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastFailure) / 24);
+                const daysRemaining = isNaN(medianLife) ? null : Math.round((medianLife - hoursSinceLastMaintenance) / 24);
 
                 if (score !== null && daysRemaining !== null) {
                     newHealthData.set(asset.id, {
@@ -744,6 +744,38 @@ export default function MaintenanceDashboard() {
         toast({
             title: t('toasts.assetDeleted.title'),
             description: t('toasts.assetDeleted.description'),
+        });
+    };
+
+    const handlePerformMaintenance = (assetId: string) => {
+        setAssets(prevAssets => {
+            const newAssets = prevAssets.map(asset => {
+                if (asset.id === assetId) {
+                    const now = new Date();
+                    const formattedDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    
+                    const newEvent: LogEvent = {
+                        tag: asset.id,
+                        startDate: formattedDate,
+                        endDate: formattedDate,
+                        description: t('toasts.maintenanceLogged.eventDescription'),
+                        orderNumber: `RESET-${Date.now()}`,
+                        interventionType: "Preventiva",
+                        status: "PREVENTIVA",
+                    };
+                    
+                    const updatedEvents = [...(asset.events || []), newEvent];
+    
+                    return { ...asset, events: updatedEvents };
+                }
+                return asset;
+            });
+            return newAssets;
+        });
+    
+        toast({
+            title: t('toasts.maintenanceLogged.title'),
+            description: t('toasts.maintenanceLogged.description'),
         });
     };
 
@@ -943,6 +975,7 @@ export default function MaintenanceDashboard() {
                                     </div>
                                 </div>
                                  <div className="absolute right-2 top-2 md:top-1/2 md:-translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlePerformMaintenance(asset.id); }} aria-label={t('performance.table.resetCountdown')}><Wrench className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} aria-label={t('performance.table.edit')}><Pencil className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteAsset(asset.id); }} aria-label={t('performance.table.delete')}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                 </div>
@@ -964,5 +997,6 @@ export default function MaintenanceDashboard() {
 
 
     
+
 
 

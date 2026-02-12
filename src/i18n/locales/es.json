@@ -128,6 +128,11 @@
       "description": "Verifique el formato de los datos pegados. Detalles: {{error}}",
       "structure": "Los datos parecen estar vacíos o en un formato inválido. Asegúrese de incluir la fila de encabezado.",
       "missingHeaders": "No se encontraron los siguientes encabezados requeridos: {{headers}}"
+    },
+    "maintenanceLogged": {
+      "title": "Mantenimiento Registrado",
+      "description": "El conteo regresivo del activo ha sido reiniciado.",
+      "eventDescription": "Reinicio del Conteo de MP"
     }
   },
   "distributionWizard": {
@@ -450,6 +455,7 @@
       "analyze": "Analizar",
       "edit": "Editar",
       "delete": "Eliminar",
+      "resetCountdown": "Reiniciar Conteo",
       "assetInfo": "INFORMACIÓN DEL ACTIVO",
       "locationSerial": "UBICACIÓN Y SERIE",
       "gbv": "VALOR GBV",

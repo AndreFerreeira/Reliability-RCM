@@ -128,6 +128,11 @@
       "description": "Check the format of the pasted data. Details: {{error}}",
       "structure": "Data appears to be empty or in an invalid format. Ensure you include the header row.",
       "missingHeaders": "The following required headers were not found: {{headers}}"
+    },
+    "maintenanceLogged": {
+      "title": "Maintenance Logged",
+      "description": "The asset's countdown has been reset.",
+      "eventDescription": "PM Countdown Reset"
     }
   },
   "distributionWizard": {
@@ -450,6 +455,7 @@
       "analyze": "Analyze",
       "edit": "Edit",
       "delete": "Delete",
+      "resetCountdown": "Reset Countdown",
       "assetInfo": "ASSET INFORMATION",
       "locationSerial": "LOCATION & SERIAL",
       "gbv": "GBV VALUE",
