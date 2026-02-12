@@ -520,6 +520,16 @@ export default function MaintenanceDashboard() {
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
     const [healthData, setHealthData] = React.useState<Map<string, { score: number; daysRemaining: number }>>(new Map());
     const [recentlyMaintainedAssetId, setRecentlyMaintainedAssetId] = React.useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = React.useState('');
+    const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: 'ascending' | 'descending' } | null>({ key: 'pmCountdown', direction: 'ascending' });
+
+    const requestSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const runAssetsAnalysis = (assetsToAnalyze: AssetData[]): AssetData[] => {
         return assetsToAnalyze.map(asset => {
@@ -660,6 +670,58 @@ export default function MaintenanceDashboard() {
 
         setHealthData(newHealthData);
     }, [processedAssets]);
+    
+    const filteredAndSortedAssets = React.useMemo(() => {
+        let sortableAssets = [...processedAssets];
+
+        if (searchTerm) {
+            const lowercasedFilter = searchTerm.toLowerCase();
+            sortableAssets = sortableAssets.filter(asset =>
+                asset.name.toLowerCase().includes(lowercasedFilter) ||
+                asset.id.toLowerCase().includes(lowercasedFilter) ||
+                asset.location?.toLowerCase().includes(lowercasedFilter)
+            );
+        }
+
+        if (sortConfig !== null) {
+            sortableAssets.sort((a, b) => {
+                const getSortValue = (asset: typeof a, key: string): string | number => {
+                    switch (key) {
+                        case 'pmCountdown':
+                            return healthData.get(asset.id)?.daysRemaining ?? (sortConfig.direction === 'ascending' ? Infinity : -Infinity);
+                        case 'maintIntensity':
+                            return asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
+                        case 'criticality': {
+                            const order = { 'AA': 0, 'A': 1, 'B': 2, 'C': 3 };
+                            return order[asset.criticality] ?? 99;
+                        }
+                        default:
+                            return asset[key as keyof typeof asset] as string | number;
+                    }
+                };
+
+                const aValue = getSortValue(a, sortConfig.key);
+                const bValue = getSortValue(b, sortConfig.key);
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    return sortConfig.direction === 'ascending' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                }
+                
+                const aNum = (aValue === undefined || aValue === null || isNaN(aValue as number)) ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : aValue as number;
+                const bNum = (bValue === undefined || bValue === null || isNaN(bValue as number)) ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : bValue as number;
+
+                if (aNum < bNum) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aNum > bNum) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableAssets;
+    }, [processedAssets, searchTerm, sortConfig, healthData]);
+
 
     const kpiValues = React.useMemo(() => {
         if (processedAssets.length === 0) {
@@ -676,10 +738,8 @@ export default function MaintenanceDashboard() {
         
         const totalGbv = Object.values(
           processedAssets.reduce((acc, asset) => {
-            // Group by location to avoid double-counting GBV for the same physical location/main asset
             const locKey = asset.location || `no-location-${asset.id}`;
             if (!Object.prototype.hasOwnProperty.call(acc, locKey)) {
-                // "usar o mesmo GBV" - take the first one found for the location
                 acc[locKey] = asset.gbv || 0;
             }
             return acc;
@@ -808,6 +868,23 @@ export default function MaintenanceDashboard() {
         });
     };
 
+    const SortableHeader = ({ label, sortKey, className, align = 'left' }: { label: string; sortKey: string; className?: string, align?: 'left' | 'right' }) => (
+        <Button 
+            variant="ghost" 
+            className={cn(
+                "font-semibold uppercase p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground", 
+                align === 'right' && 'w-full justify-end',
+                className
+            )} 
+            onClick={() => requestSort(sortKey)}
+        >
+            {sortConfig?.key !== sortKey && <div className="w-3" />}
+            {sortConfig?.key === sortKey && sortConfig.direction === 'descending' && <ArrowDown className="mr-1 h-3 w-3" />}
+            {sortConfig?.key === sortKey && sortConfig.direction === 'ascending' && <ArrowUp className="mr-1 h-3 w-3" />}
+            {label}
+        </Button>
+    );
+
     if (selectedAsset) {
         return <AssetDetailView asset={selectedAsset} onBack={() => setSelectedAsset(null)} onAssetChange={handleAssetUpdate} />;
     }
@@ -834,7 +911,12 @@ export default function MaintenanceDashboard() {
                     <div className="flex items-center justify-between pt-2">
                         <div className="relative w-full max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder={t('performance.inventory.searchPlaceholder')} className="pl-9" />
+                            <Input 
+                                placeholder={t('performance.inventory.searchPlaceholder')} 
+                                className="pl-9" 
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
                         </div>
                         <div className="flex items-center gap-2">
                             <AssetDataMassEditor assets={assets} onSave={handleSaveAssets} t={t} />
@@ -843,16 +925,16 @@ export default function MaintenanceDashboard() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                     <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">
-                        <div className="col-span-3">{t('performance.table.assetInfo')}</div>
-                        <div className="col-span-2">{t('performance.table.locationSerial')}</div>
-                        <div className="col-span-1 text-right">{t('performance.table.gbv')}</div>
-                        <div className="col-span-2 text-right">{t('performance.table.rmCosts')}</div>
-                        <div className="col-span-2 text-right">{t('performance.table.lossAnalysis')}</div>
-                        <div className="text-right">{t('performance.table.maintIntensity')}</div>
-                        <div className="text-right">{t('performance.table.pmCountdown')}</div>
+                     <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs">
+                        <div className="col-span-3"><SortableHeader label={t('performance.table.assetInfo')} sortKey="name" /></div>
+                        <div className="col-span-2"><SortableHeader label={t('performance.table.locationSerial')} sortKey="location" /></div>
+                        <div className="col-span-1 text-right"><SortableHeader label={t('performance.table.gbv')} sortKey="gbv" align="right" /></div>
+                        <div className="col-span-2 text-right"><SortableHeader label={t('performance.table.rmCosts')} sortKey="maintenanceCost" align="right" /></div>
+                        <div className="col-span-2 text-right"><SortableHeader label={t('performance.table.lossAnalysis')} sortKey="downtimeLoss" align="right" /></div>
+                        <div className="text-right"><SortableHeader label={t('performance.table.maintIntensity')} sortKey="maintIntensity" align="right" /></div>
+                        <div className="text-right"><SortableHeader label={t('performance.table.pmCountdown')} sortKey="pmCountdown" align="right" /></div>
                     </div>
-                    {processedAssets.map((asset) => {
+                    {filteredAndSortedAssets.map((asset) => {
                         const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
                         const health = healthData.get(asset.id);
                         const isCritical = health && health.daysRemaining <= 0;
