@@ -518,6 +518,7 @@ export default function MaintenanceDashboard() {
     const [selectedAsset, setSelectedAsset] = React.useState<AssetData | null>(null);
     const [editingAsset, setEditingAsset] = React.useState<AssetData | null>(null);
     const [healthData, setHealthData] = React.useState<Map<string, { score: number; daysRemaining: number }>>(new Map());
+    const [recentlyMaintainedAssetId, setRecentlyMaintainedAssetId] = React.useState<string | null>(null);
 
     const runAssetsAnalysis = (assetsToAnalyze: AssetData[]): AssetData[] => {
         return assetsToAnalyze.map(asset => {
@@ -785,6 +786,9 @@ export default function MaintenanceDashboard() {
             return newAssets;
         });
     
+        setRecentlyMaintainedAssetId(assetId);
+        setTimeout(() => setRecentlyMaintainedAssetId(null), 1500);
+
         toast({
             title: t('toasts.maintenanceLogged.title'),
             description: t('toasts.maintenanceLogged.description'),
@@ -878,8 +882,9 @@ export default function MaintenanceDashboard() {
                             <div
                                 key={asset.id}
                                 className={cn(
-                                    'group relative cursor-pointer rounded-lg border p-4 hover:bg-muted/50',
-                                    isCritical && 'animate-flash'
+                                    'group relative cursor-pointer rounded-lg border p-4 hover:bg-muted/50 transition-colors',
+                                    isCritical && 'animate-flash',
+                                    asset.id === recentlyMaintainedAssetId && 'animate-flash-blue'
                                 )}
                                 onClick={() => setSelectedAsset(asset)}
                             >
@@ -1009,6 +1014,7 @@ export default function MaintenanceDashboard() {
 
 
     
+
 
 
 

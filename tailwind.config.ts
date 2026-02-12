@@ -92,11 +92,16 @@ export default {
           '0%, 100%': { backgroundColor: 'hsl(var(--card))' },
           '50%': { backgroundColor: 'hsl(var(--destructive) / 0.15)' },
         },
+        'flash-blue': {
+          '0%, 100%': { backgroundColor: 'transparent' },
+          '25%, 75%': { backgroundColor: 'hsl(var(--primary) / 0.2)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'flash': 'flash 2s ease-in-out infinite',
+        'flash-blue': 'flash-blue 1.5s ease-in-out',
       },
     },
   },
