@@ -872,8 +872,8 @@ export default function MaintenanceDashboard() {
         <Button 
             variant="ghost" 
             className={cn(
-                "font-semibold uppercase p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground", 
-                align === 'right' && 'w-full justify-end',
+                "font-semibold uppercase p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground whitespace-normal",
+                align === 'right' ? 'w-full justify-end text-right' : 'justify-start text-left',
                 className
             )} 
             onClick={() => requestSort(sortKey)}
@@ -925,14 +925,14 @@ export default function MaintenanceDashboard() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                     <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs">
+                     <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs items-center">
                         <div className="col-span-3"><SortableHeader label={t('performance.table.assetInfo')} sortKey="name" /></div>
                         <div className="col-span-2"><SortableHeader label={t('performance.table.locationSerial')} sortKey="location" /></div>
-                        <div className="col-span-1 text-right"><SortableHeader label={t('performance.table.gbv')} sortKey="gbv" align="right" /></div>
-                        <div className="col-span-2 text-right"><SortableHeader label={t('performance.table.rmCosts')} sortKey="maintenanceCost" align="right" /></div>
-                        <div className="col-span-2 text-right"><SortableHeader label={t('performance.table.lossAnalysis')} sortKey="downtimeLoss" align="right" /></div>
-                        <div className="text-right"><SortableHeader label={t('performance.table.maintIntensity')} sortKey="maintIntensity" align="right" /></div>
-                        <div className="text-right"><SortableHeader label={t('performance.table.pmCountdown')} sortKey="pmCountdown" align="right" /></div>
+                        <div className="col-span-1"><SortableHeader label={t('performance.table.gbv')} sortKey="gbv" align="right" /></div>
+                        <div className="col-span-2"><SortableHeader label={t('performance.table.rmCosts')} sortKey="maintenanceCost" align="right" /></div>
+                        <div className="col-span-2"><SortableHeader label={t('performance.table.lossAnalysis')} sortKey="downtimeLoss" align="right" /></div>
+                        <div><SortableHeader label={t('performance.table.maintIntensity')} sortKey="maintIntensity" align="right" /></div>
+                        <div><SortableHeader label={t('performance.table.pmCountdown')} sortKey="pmCountdown" align="right" /></div>
                     </div>
                     {filteredAndSortedAssets.map((asset) => {
                         const maintIntensity = asset.gbv > 0 ? (asset.maintenanceCost / asset.gbv) * 100 : 0;
