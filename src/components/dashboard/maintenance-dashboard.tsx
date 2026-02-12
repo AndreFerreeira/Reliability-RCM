@@ -672,7 +672,21 @@ export default function MaintenanceDashboard() {
         }
 
         const totalDowntimeLoss = processedAssets.reduce((sum, asset) => sum + (asset.downtimeLoss || 0), 0);
-        const totalGbv = processedAssets.reduce((sum, asset) => sum + (asset.gbv || 0), 0);
+        
+        const uniqueGbvKeys = new Set<string>();
+        const totalGbv = processedAssets.reduce((sum, asset) => {
+            if (asset.location && asset.serialNumber) {
+                const key = `${asset.location}|${asset.serialNumber}`;
+                if (!uniqueGbvKeys.has(key)) {
+                    uniqueGbvKeys.add(key);
+                    return sum + (asset.gbv || 0);
+                }
+                return sum; // Already counted
+            }
+            // For assets without location or serial, sum their GBV individually
+            return sum + (asset.gbv || 0);
+        }, 0);
+
         const totalMaintenanceCost = processedAssets.reduce((sum, asset) => sum + (asset.maintenanceCost || 0), 0);
         
         const totalUptime = processedAssets.reduce((sum, asset) => {
@@ -1014,6 +1028,7 @@ export default function MaintenanceDashboard() {
 
 
     
+
 
 
 
