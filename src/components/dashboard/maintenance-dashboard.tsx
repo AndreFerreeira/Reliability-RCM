@@ -46,6 +46,7 @@ const headerMapping: Record<string, string> = {
     'suspensão ou falha': 'status',
     'localização': 'location',
     'localizacao': 'location',
+    'local & serial': 'location',
     'criticidade': 'criticality',
     'ciclo de vida': 'lifecycle',
     'saúde pdm': 'pdmHealth',
@@ -673,19 +674,17 @@ export default function MaintenanceDashboard() {
 
         const totalDowntimeLoss = processedAssets.reduce((sum, asset) => sum + (asset.downtimeLoss || 0), 0);
         
-        const uniqueGbvKeys = new Set<string>();
-        const totalGbv = processedAssets.reduce((sum, asset) => {
-            if (asset.location && asset.serialNumber) {
-                const key = `${asset.location}|${asset.serialNumber}`;
-                if (!uniqueGbvKeys.has(key)) {
-                    uniqueGbvKeys.add(key);
-                    return sum + (asset.gbv || 0);
-                }
-                return sum; // Already counted
+        const totalGbv = Object.values(
+          processedAssets.reduce((acc, asset) => {
+            // Group by location to avoid double-counting GBV for the same physical location/main asset
+            const locKey = asset.location || `no-location-${asset.id}`;
+            if (!Object.prototype.hasOwnProperty.call(acc, locKey)) {
+                // "usar o mesmo GBV" - take the first one found for the location
+                acc[locKey] = asset.gbv || 0;
             }
-            // For assets without location or serial, sum their GBV individually
-            return sum + (asset.gbv || 0);
-        }, 0);
+            return acc;
+          }, {} as Record<string, number>)
+        ).reduce((sum, gbv) => sum + gbv, 0);
 
         const totalMaintenanceCost = processedAssets.reduce((sum, asset) => sum + (asset.maintenanceCost || 0), 0);
         
@@ -1019,18 +1018,3 @@ export default function MaintenanceDashboard() {
         </div>
     );
 }
-
-    
-
-    
-
-
-
-
-    
-
-
-
-
-
-
