@@ -872,7 +872,7 @@ export default function MaintenanceDashboard() {
         <Button 
             variant="ghost" 
             className={cn(
-                "font-semibold uppercase p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground whitespace-normal",
+                "font-semibold uppercase p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground whitespace-normal text-xs leading-tight",
                 align === 'right' ? 'w-full justify-end text-right' : 'justify-start text-left',
                 className
             )} 
